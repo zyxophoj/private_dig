@@ -134,7 +134,6 @@ func read_header(in []byte) Header {
 	// Peek at the data  (TODO: or use offset[0])
 	cur2 := out.offsets[OFFSET_MISSIONS]
 	missions := read_int16(in, &cur2)
-	fmt.Println("Missions:", missions)
 
 	// Expect 2 more offsets for each missions
 	for i := 0; i < 2*missions; i += 1 {
@@ -170,7 +169,7 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 	//
 	// 1 Name: 4-byte capital-letter string
 	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
-	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then data is a sequence of forms.
+	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then this record is a form, and so the data is a form name plus a list of records.
 	//
 	// Again, length does not include the first 8 bytes
 
@@ -203,6 +202,7 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 		record := Record{record_name, bytes[*cur : *cur+length], nil}
 
 		if strings.HasSuffix(record_name, "FORM") {
+			*cur -= 8 // EVIL HACK!! go back and re-parse this record as a form.
 			// Subforms!!!
 			for *cur < record_start+length {
 				form, err := read_form(bytes, cur)
