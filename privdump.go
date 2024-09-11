@@ -155,7 +155,7 @@ func read_header(in []byte) Header {
 func read_form(bytes []byte, cur *int) (Form, error) {
 	// Form format:
 	//
-	// 1 Identifier: A 4-byte capital-letter string which is (usually, but not always??), "FORM"
+	// 1 Identifier: A 4-byte capital-letter string which is always "FORM"
 	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
 	// Data:
 	//    3 Form name: 4-byte capital-letter string
@@ -623,9 +623,9 @@ func parse_record(prefix string, record Record) string {
 	}
 
 	for _, f := range record.forms {
-		out += fmt.Sprintf("Found Subform: %v\n", prefix+record.name+"-"+f.name)
+		//out += fmt.Sprintf("Found Subform: %v\n", prefix+record.name+"-"+f.name)
 		for _, r := range f.records {
-			out += parse_record(prefix+record.name+"-"+f.name+"-", r)
+			out += parse_record(prefix+f.name+"-", r)
 			out += "\n"
 		}
 	}
