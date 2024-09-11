@@ -9,6 +9,28 @@ import (
 	"strings"
 )
 
+const (
+	OFFSET_SHIP = iota
+	OFFSET_PLOT
+	OFFSET_MISSIONS
+	OFFSET_PLAY
+	OFFSET_WTF
+	OFFSET_SSSS
+	OFFSET_REAL
+	OFFSET_NAME
+	OFFSET_CALLSIGN
+)
+
+func offset_name(o int) string {
+	return []string{"ShipLocGuilds", "Plot", "Mission count", "Score", "WTF", "Hidden Jumps", "Equipment", "Name", "Callsign"}[o]
+}
+
+type Header struct {
+	file_size int
+	offsets   []int
+	footer    []byte
+}
+
 type Record struct {
 	name  string
 	data  []byte
@@ -89,6 +111,45 @@ func read_int16(bytes []byte, cur *int) int {
 	return out
 }
 
+func read_header(in []byte) Header {
+	//Header format:
+	//
+	// bytes 0x00-0x03: File size
+	// bytes 0x04-0x27: Offsets
+	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
+	//   Technically, only the first 2 bytes are the offset; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
+	// bytes 0x28-?? : footer
+	//   That which lies between the offset block and the first offset.
+	out := Header{}
+
+	cur := 0
+	out.file_size = read_int16(in, &cur)
+	cur += 2
+	for i := 0; i <= OFFSET_MISSIONS; i += 1 {
+		out.offsets = append(out.offsets, read_int16(in, &cur))
+		cur += 2
+	}
+
+	// Peek at the data  (TODO: or use offset[0])
+	cur2 := out.offsets[OFFSET_MISSIONS]
+	missions := read_int16(in, &cur2)
+	fmt.Println("Missions:", missions)
+
+	// Expect 2 more offsets for each missions
+
+	cur += 8 * missions
+
+	for i := OFFSET_MISSIONS + 1; i <= OFFSET_CALLSIGN; i += 1 {
+		out.offsets = append(out.offsets, read_int16(in, &cur))
+		cur += 2
+	}
+
+	out.footer = in[cur:out.offsets[0]]
+	cur = out.offsets[0]
+
+	return out
+}
+
 func read_form(bytes []byte, cur *int) (Form, error) {
 	// Form format:
 	//
@@ -128,7 +189,7 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 		record_name, _, err := read_string(bytes[:form_end], cur)
 		if err != nil {
 			fmt.Println("Unable to read record")
-			fmt.Println(fmt.Sprintf("Ignoring %v footer: %v", out.name, bytes[*cur:form_end]))
+			fmt.Println(fmt.Sprintf("Ignoring %v footer at %v: %v", out.name, *cur, bytes[*cur:form_end]))
 			*cur = form_end
 			break
 		}
@@ -163,87 +224,88 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 	return out, nil
 }
 
-func parse_header(header []byte) []string {
+func parse_header(header Header, bytes []byte) []string {
 	out := []string{}
 
-	// Header is a fixed-length 62-byte blob
-	// We don't know what most of this does.
-
-	// 00-01 file size
+	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.file_size))
 	cur := 0
-	size := read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("00-01 Reported file size: %v bytes", size))
 
-	//2-3  Always zeroes?  Technically part of file size?
+	for o := 0; o < len(header.offsets); o += 1 {
+		cur = header.offsets[o]
+		out = append(out, "")
+		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, offset_name(o), cur))
+		switch o {
+		case OFFSET_SHIP:
+			ships := map[uint8]string{
+				0: "Tarsus",
+				1: "Orion",
+				2: "Centurion",
+				3: "Galaxy",
+			}
+			ship, ok := ships[bytes[cur]]
+			if !ok {
+				ship = fmt.Sprintf("Unknown - %v", bytes[cur])
+			}
+			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, ship))
+			cur += 2
+			loc := read_int16(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v-%v: Location: %v", cur-2, cur-1, loc))
+			cur += 1
+			guild_status := func(b byte) string {
+				switch b {
+				case 0:
+					return "Nonmember"
+				case 1:
+					return "Member"
+				}
+				return fmt.Sprintf("Unexpected: %v", b)
+			}
+			out = append(out, fmt.Sprintf("   Merchants' Guild: %s", guild_status(bytes[cur])))
+			cur += 1
+			out = append(out, fmt.Sprintf("   Mercenaries' Guild: %s", guild_status(bytes[cur])))
+			cur += 1
+			extra := bytes[cur:header.offsets[o+1]]
+			out = append(out, fmt.Sprintf("   extra: %s", extra))
 
-	// 4-27 offsets...
-	// Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
-	// Technically, only the first 2 bytes are the offset; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
-	// If this dumper ever becomes an editor then we need to care about these, but for the moment we just dump the values.
+		case OFFSET_PLOT:
+			status, _, _ := read_string(bytes, &cur)
+			if status == "" {
+				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
+				break
+			}
+			// This section begins with something like "s4m2" indicating series and mission number
+			out = append(out, fmt.Sprintf("   Series %v, Mission %v", status[1:2], status[3:4]))
+			cur += 1                                // Null terminator
+			cur += 4                                // All zeros?
+			extra := bytes[cur:header.offsets[o+1]] // This looks like a bitfield
+			out = append(out, fmt.Sprintf("   extra: %v", extra))
+		case OFFSET_MISSIONS:
+			missions := read_int16(bytes, &cur)
+			out = append(out, fmt.Sprintf("   Missions: %v", missions))
+		case OFFSET_WTF:
+			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.offsets[o+1]]))
+		case OFFSET_PLAY, OFFSET_SSSS, OFFSET_REAL:
+			// It's just a form...
+			form_start := cur
+			form, err := read_form(bytes, &cur)
+			if err != nil {
+				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
+				break
+			}
+			out = append(out, fmt.Sprintf("Form named %v at %v - length %v", form.name, form_start, form.length))
+			for _, r := range form.records {
+				out = append(out, parse_record(form.name+"-", r))
+			}
+			out = append(out, fmt.Sprintf("End of form %v at %v", form.name, cur))
 
-	//4-F: ????? looks like 3 offsets into the header itself.  They are not fixed - random missions can mess them up - and we should use them to read the rest of this file.
-	cur = 0x10
-	offset := read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("10-13 forms start offset: %v bytes", offset))
-
-	// 10-27 offsets
-	cur = 0x14
-	offset = read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("14-17 PLAY end offset: %v bytes", offset))
-
-	cur = 0x18
-	offset = read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("18-1B SSSS form offset: %v bytes", offset))
-
-	cur = 0x1C
-	offset = read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("1C-1F REAL form offset: %v bytes", offset))
-
-	cur = 0x20
-	offset = read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("20-23 name offset: %v bytes", offset))
-
-	cur = 0x24
-	offset = read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("24-27 callsign offset: %v bytes", offset))
-
-	// 28 : ship
-	ships := map[uint8]string{
-		0: "Tarsus",
-		1: "Orion",
-		2: "Centurion",
-		3: "Galaxy",
-	}
-	ship, ok := ships[header[0x28]]
-	if !ok {
-		ship = fmt.Sprintf("Unknown - %v", header[0x28])
-	}
-	out = append(out, fmt.Sprintf("28-28 Ship: %v", ship))
-
-	// 29 - always zero?  Technically part of ship?
-
-	// 2A-2B : Location?
-	cur = 0x2A
-	loc := read_int16(header, &cur)
-	out = append(out, fmt.Sprintf("2A-2B Location: %v", loc))
-
-	// 2C??
-
-	// 2D-2E
-	guild_status := func(b byte) string {
-		switch b {
-		case 0:
-			return "Nonmember"
-		case 1:
-			return "Member"
+		case OFFSET_NAME:
+			s, _, _ := read_string(bytes, &cur)
+			out = append(out, "   Name: "+s)
+		case OFFSET_CALLSIGN:
+			s, _, _ := read_string(bytes, &cur)
+			out = append(out, "   Callsign: "+s)
 		}
-
-		return fmt.Sprintf("Unexpected: %v", b)
 	}
-	out = append(out, fmt.Sprintf("2D-2D Merchants' Guild: %s", guild_status(header[0x2D])))
-	out = append(out, fmt.Sprintf("2E-2E Mercenaries' Guild: %s", guild_status(header[0x2E])))
-
-	//2F-3C ????  14 bytes, probably something to do with plot progression.
 
 	return out
 }
@@ -369,7 +431,7 @@ func parse_record(prefix string, record Record) string {
 			2: "Left",
 			3: "Right",
 			4: "Right",
-			
+
 			6: "Turret 1",
 			9: "Turret 2",
 		}
@@ -500,22 +562,22 @@ func parse_record(prefix string, record Record) string {
 			out += fmt.Sprintf("%v: %v%%\n", f, int(record.data[8+2*n])*100/int(record.data[2*n]))
 		}
 
-    case "INFO":
-		cur:=0
-		infotype,_,_ := read_string(record.data, &cur)
-		out += "INFO type "+infotype+"\n"
-		switch infotype{
-			case "SHIELDS":
-				out += fmt.Sprintf("Shields level %v\n", int(record.data[cur+1])-89)  //WHY???
-			
-			default:
-				out += fmt.Sprintf("Unknown info type: %v\n", infotype)
-		
+	case "INFO":
+		cur := 0
+		infotype, _, _ := read_string(record.data, &cur)
+		out += "INFO type " + infotype + "\n"
+		switch infotype {
+		case "SHIELDS":
+			out += fmt.Sprintf("Shields level %v\n", int(record.data[cur+1])-89) //WHY???
+
+		default:
+			out += fmt.Sprintf("Unknown info type: %v\n", infotype)
+
 		}
 
 	case "FORM":
 		// Do nothing!  Subforms are handled at the end of the functon.
-		
+
 	default:
 		out += fmt.Sprintf("(don't know how to parse %v\n", record.name)
 	}
@@ -544,33 +606,11 @@ func main() {
 		os.Exit(-1)
 	}
 
-	// The file consists of a fixed-size header, some variable-sized forms, and a footer
-	// ...and some mysterious space between the forms.
-
-	header := bytes[0:0x3D]
-	fmt.Println("Header:")
-	for _, line := range parse_header(header) {
+	header := read_header(bytes)
+	fmt.Println()
+	for _, line := range parse_header(header, bytes) {
 		fmt.Println(line)
 	}
 	fmt.Println()
 
-	cur := 0x3D
-	for cur < len(bytes) {
-		form_start := cur
-		form, err := read_form(bytes, &cur)
-
-		if err != nil {
-			fmt.Println("Error", err, "...bailing")
-			break
-		}
-
-		fmt.Println(fmt.Sprintf("Form %v at %v - length %v", form.name, form_start, form.length))
-		for _, r := range form.records {
-			fmt.Println(parse_record(form.name+"-", r))
-		}
-		fmt.Println(fmt.Sprintf("End of form %v at %v", form.name, cur))
-	}
-
-	fmt.Println("Footer:")
-	fmt.Println(bytes[cur:])
 }
