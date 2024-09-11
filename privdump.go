@@ -26,9 +26,10 @@ func offset_name(o int) string {
 }
 
 type Header struct {
-	file_size int
-	offsets   []int
-	footer    []byte
+	file_size       int
+	offsets         []int
+	mission_offsets []int
+	footer          []byte
 }
 
 type Record struct {
@@ -136,8 +137,10 @@ func read_header(in []byte) Header {
 	fmt.Println("Missions:", missions)
 
 	// Expect 2 more offsets for each missions
-
-	cur += 8 * missions
+	for i := 0; i < 2*missions; i += 1 {
+		out.mission_offsets = append(out.mission_offsets, read_int16(in, &cur))
+		cur += 2
+	}
 
 	for i := OFFSET_MISSIONS + 1; i <= OFFSET_CALLSIGN; i += 1 {
 		out.offsets = append(out.offsets, read_int16(in, &cur))
@@ -275,10 +278,11 @@ func parse_header(header Header, bytes []byte) []string {
 			}
 			// This section begins with something like "s4m2" indicating series and mission number
 			out = append(out, fmt.Sprintf("   Series %v, Mission %v", status[1:2], status[3:4]))
-			cur += 1                                // Null terminator
-			cur += 4                                // All zeros?
-			extra := bytes[cur:header.offsets[o+1]] // This looks like a bitfield
-			out = append(out, fmt.Sprintf("   extra: %v", extra))
+			cur += 1 // Null terminator
+			cur += 4 // All zeros?
+			// TODO: this crashes on file CARG with inverted slice, WTF?
+			//extra := bytes[cur:header.offsets[o+1]] // This looks like a bitfield
+			//out = append(out, fmt.Sprintf("   extra: %v", extra))
 		case OFFSET_MISSIONS:
 			missions := read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   Missions: %v", missions))
@@ -305,6 +309,27 @@ func parse_header(header Header, bytes []byte) []string {
 			s, _, _ := read_string(bytes, &cur)
 			out = append(out, "   Callsign: "+s)
 		}
+	}
+
+	// OK, now do missions
+	for m := 0; m < len(header.mission_offsets)/2; m += 1 {
+		cur = header.mission_offsets[2*m]
+		name, _, _ := read_string(bytes, &cur)
+		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.mission_offsets[2*m], m, name))
+
+		cur = header.mission_offsets[2*m+1]
+		// Another form!
+		form_start := cur
+		form, err := read_form(bytes, &cur)
+		if err != nil {
+			out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
+			break
+		}
+		out = append(out, fmt.Sprintf("Form named %v at %v - length %v", form.name, form_start, form.length))
+		for _, r := range form.records {
+			out = append(out, parse_record(form.name+"-", r))
+		}
+		out = append(out, fmt.Sprintf("End of form %v at %v", form.name, cur))
 	}
 
 	return out
@@ -574,6 +599,19 @@ func parse_record(prefix string, record Record) string {
 			out += fmt.Sprintf("Unknown info type: %v\n", infotype)
 
 		}
+
+	case "TEXT", "TTEXT":
+		out += "\n" + string(record.data[1:]) + "\n"
+
+	case "CARG":
+		// Mission cargo
+		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], record.data[0], record.data[1])
+		// TODO: Of what?  To where??  there are 2 other numbers here...
+
+	case "PAYS", "PPAYS":
+		cur := 0
+		pays := read_int_le(record.data, &cur)
+		out += fmt.Sprintf("%v credits\n", pays)
 
 	case "FORM":
 		// Do nothing!  Subforms are handled at the end of the functon.
