@@ -274,15 +274,17 @@ func parse_header(header Header, bytes []byte) []string {
 			status, _, _ := read_string(bytes, &cur)
 			if status == "" {
 				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
-				break
+			} else if status == "FFFFFFFF" {
+				out = append(out, fmt.Sprintf("   (Plot failed!)"))
+			} else {
+				// This section begins with something like "s4m2" indicating series and mission number
+				out = append(out, fmt.Sprintf("   Series %v, Mission %v", status[1:2], status[3:4]))
 			}
-			// This section begins with something like "s4m2" indicating series and mission number
-			out = append(out, fmt.Sprintf("   Series %v, Mission %v", status[1:2], status[3:4]))
-			cur += 1 // Null terminator
-			cur += 4 // All zeros?
-			// TODO: this crashes on file CARG with inverted slice, WTF?
-			//extra := bytes[cur:header.offsets[o+1]] // This looks like a bitfield
-			//out = append(out, fmt.Sprintf("   extra: %v", extra))
+			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
+			// There remains one iunexplained byte.
+			final := bytes[header.offsets[o]+8+1 : header.offsets[o+1]] // This looks like a bitfield
+			out = append(out, fmt.Sprintf("   final: %v", final))
+
 		case OFFSET_MISSIONS:
 			missions := read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   Missions: %v", missions))
