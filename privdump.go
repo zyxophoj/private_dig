@@ -113,6 +113,14 @@ func read_int16(bytes []byte, cur *int) int {
 	return out
 }
 
+func safe_lookup[K comparable](from map[K]string, with K) string {
+	out, ok := from[with]
+	if !ok {
+		out = fmt.Sprintf("Unknown (%v)", with)
+	}
+	return out
+}
+
 func read_header(in []byte) Header {
 	//Header format:
 	//
@@ -249,11 +257,8 @@ func parse_header(header Header, bytes []byte) []string {
 				2: "Centurion",
 				3: "Galaxy",
 			}
-			ship, ok := ships[bytes[cur]]
-			if !ok {
-				ship = fmt.Sprintf("Unknown - %v", bytes[cur])
-			}
-			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, ship))
+			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
+
 			cur += 2
 			loc := read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v-%v: Location: %v", cur-2, cur-1, loc))
@@ -436,20 +441,11 @@ func parse_record(prefix string, record Record) string {
 			10: "Bottom 1",
 		}
 		for i := range len(record.data) / 4 {
-			gun_type := int(record.data[i*4])
+			gun := int(record.data[i*4])
 			mount := int(record.data[i*4+1])
 			// TODO: Next byte indicates damage, but how?
 
-			name, ok := guns[gun_type]
-			if !ok {
-				name = fmt.Sprintf("Unknown (%v)", gun_type)
-			}
-
-			mount_name, ok := mounts[mount]
-			if !ok {
-				mount_name = fmt.Sprintf("Unknown (%v)", mount)
-			}
-			out += fmt.Sprintf("%v: %v\n", mount_name, name)
+			out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(guns, gun))
 		}
 
 	case "LNCH":
@@ -470,22 +466,14 @@ func parse_record(prefix string, record Record) string {
 			9: "Turret 2",
 		}
 		for i := range len(record.data) / 4 {
-			lnch_type := int(record.data[i*4])
+			launcher := int(record.data[i*4])
 			mount := int(record.data[i*4+1])
-			name, ok := launchers[lnch_type]
-			if !ok {
-				name = fmt.Sprintf("Unknown (%v)", lnch_type)
-			}
-			mount_name, ok := mounts[mount]
-			if !ok {
-				mount_name = fmt.Sprintf("Unknown (%v)", mount)
-			}
-			out += fmt.Sprintf("%v: %v\n", mount_name, name)
+			out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(launchers, launcher))
 		}
 
 	case "MISL":
 		out += "Missiles:\n"
-		missiles := map[int]string{
+		missiles := map[uint8]string{
 			1: "Torpedo",
 			4: "Dumbfire",
 			2: "Heat Seeker",
@@ -493,31 +481,21 @@ func parse_record(prefix string, record Record) string {
 			3: "Friend or Foe",
 		}
 		for i := range len(record.data) / 3 {
-			msl_type := int(record.data[i*3])
-			count := int(record.data[i*3+1])
-
-			name, ok := missiles[msl_type]
-			if !ok {
-				name = fmt.Sprintf("Unknown (%v)", msl_type)
-			}
-			out += fmt.Sprintf("%v: %v\n", name, count)
+			msl_type := record.data[i*3]
+			count := record.data[i*3+1]
+			out += fmt.Sprintf("%v: %v\n", safe_lookup(missiles, msl_type), count)
 		}
 
 	case "TRRT":
 		out += "Turrets:\n"
 		// This only counts turrets, not what you have in them.
-		turrets := map[int]string{
+		turrets := map[uint8]string{
 			1: "Rear",
 			2: "Top",
 			3: "Bottom",
 		}
 		for i := range len(record.data) {
-			trrt_type := int(record.data[i])
-			name, ok := turrets[trrt_type]
-			if !ok {
-				name = fmt.Sprintf("Unknown (%v)", trrt_type)
-			}
-			out += fmt.Sprintf("%v\n", name)
+			out += fmt.Sprintf("%v\n", safe_lookup(turrets, record.data[i]))
 		}
 
 	case "NAVQ", "NNAVQ":
