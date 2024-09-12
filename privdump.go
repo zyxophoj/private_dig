@@ -19,6 +19,8 @@ const (
 	OFFSET_REAL
 	OFFSET_NAME
 	OFFSET_CALLSIGN
+
+	OFFSET_COUNT
 )
 
 func offset_name(o int) string {
@@ -125,10 +127,12 @@ func read_header(in []byte) Header {
 	//Header format:
 	//
 	// bytes 0x00-0x03: File size
-	// bytes 0x04-0x27: Offsets
+	// bytes 0x04-??: Offsets
 	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
-	//   Technically, only the first 2 bytes are the offset; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
-	// bytes 0x28-?? : footer
+	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
+	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
+	//   This number can be determined by peeking where the MISSIONS offset points.  (Or by caculating based on the first offset?  Are we sure there's never a footer??)
+	// bytes ??-?? : footer
 	//   That which lies between the offset block and the first offset.
 	out := Header{}
 
@@ -150,7 +154,7 @@ func read_header(in []byte) Header {
 		cur += 2
 	}
 
-	for i := OFFSET_MISSIONS + 1; i <= OFFSET_CALLSIGN; i += 1 {
+	for i := OFFSET_MISSIONS + 1; i < OFFSET_COUNT; i += 1 {
 		out.offsets = append(out.offsets, read_int16(in, &cur))
 		cur += 2
 	}
@@ -308,12 +312,9 @@ func parse_header(header Header, bytes []byte) []string {
 			}
 			out = append(out, parse_form("", form)...)
 
-		case OFFSET_NAME:
+		case OFFSET_NAME, OFFSET_CALLSIGN:
 			s, _, _ := read_string(bytes, &cur)
-			out = append(out, "   Name: "+s)
-		case OFFSET_CALLSIGN:
-			s, _, _ := read_string(bytes, &cur)
-			out = append(out, "   Callsign: "+s)
+			out = append(out, fmt.Sprintf("   %v: %v", offset_name(o), s))
 		}
 	}
 
