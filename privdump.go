@@ -42,6 +42,7 @@ type Form struct {
 	name    string
 	length  int
 	records []Record
+	footer  []byte
 }
 
 func read_string(bytes []byte, cur *int) (string, int, error) {
@@ -173,7 +174,7 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 	//
 	// Again, length does not include the first 8 bytes
 
-	out := Form{"", 0, []Record{}}
+	out := Form{}
 
 	_, err := read_fixed_string("FORM", bytes, cur)
 	if err != nil {
@@ -187,7 +188,7 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 	out.name = string(bytes[*cur : *cur+4])
 	*cur += 4
 
-	for *cur < form_end {
+	for *cur <= form_end-8 { // Minimum record size is 8
 		record_name, _, err := read_string(bytes[:form_end], cur)
 		if err != nil {
 			fmt.Println("Unable to read record")
@@ -223,6 +224,9 @@ func read_form(bytes []byte, cur *int) (Form, error) {
 		//fmt.Println("Adding", record_name, "to", out.name)
 		out.records = append(out.records, record)
 	}
+
+	out.footer = bytes[*cur:form_end]
+	*cur = form_end
 
 	return out, nil
 }
@@ -292,17 +296,12 @@ func parse_header(header Header, bytes []byte) []string {
 			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.offsets[o+1]]))
 		case OFFSET_PLAY, OFFSET_SSSS, OFFSET_REAL:
 			// It's just a form...
-			form_start := cur
 			form, err := read_form(bytes, &cur)
 			if err != nil {
 				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 				break
 			}
-			out = append(out, fmt.Sprintf("Form named %v at %v - length %v", form.name, form_start, form.length))
-			for _, r := range form.records {
-				out = append(out, parse_record(form.name+"-", r))
-			}
-			out = append(out, fmt.Sprintf("End of form %v at %v", form.name, cur))
+			out = append(out, parse_form("", form)...)
 
 		case OFFSET_NAME:
 			s, _, _ := read_string(bytes, &cur)
@@ -321,17 +320,25 @@ func parse_header(header Header, bytes []byte) []string {
 
 		cur = header.mission_offsets[2*m+1]
 		// Another form!
-		form_start := cur
 		form, err := read_form(bytes, &cur)
 		if err != nil {
 			out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 			break
 		}
-		out = append(out, fmt.Sprintf("Form named %v at %v - length %v", form.name, form_start, form.length))
-		for _, r := range form.records {
-			out = append(out, parse_record(form.name+"-", r))
-		}
-		out = append(out, fmt.Sprintf("End of form %v at %v", form.name, cur))
+		out = append(out, parse_form("", form)...)
+
+	}
+
+	return out
+}
+
+func parse_form(prefix string, form Form) []string {
+	out := []string{}
+	for _, r := range form.records {
+		out = append(out, parse_record(prefix+form.name+"-", r))
+	}
+	if len(form.footer) > 0 {
+		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.name, form.footer))
 	}
 
 	return out
@@ -623,11 +630,7 @@ func parse_record(prefix string, record Record) string {
 	}
 
 	for _, f := range record.forms {
-		//out += fmt.Sprintf("Found Subform: %v\n", prefix+record.name+"-"+f.name)
-		for _, r := range f.records {
-			out += parse_record(prefix+f.name+"-", r)
-			out += "\n"
-		}
+		out += strings.Join(parse_form(prefix, f), "\n")
 	}
 
 	return out
