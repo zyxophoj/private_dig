@@ -291,12 +291,30 @@ func parse_header(header Header, bytes []byte) []string {
 				out = append(out, fmt.Sprintf("   (Plot failed!)"))
 			} else {
 				// This section begins with something like "s4m2" indicating series and mission number
-				out = append(out, fmt.Sprintf("   Series %v, Mission %v", status[1:2], status[3:4]))
+				series := map[string]string{
+					"s0": "Sandoval",
+					"s1": "Tayla",
+					"s2": "Roman Lynch", //and Miggs!
+					"s3": "Oxford",
+					"s4": "Lynn Murphy",
+					"s5": "Dr Monkhouse",
+					"s6": "Taryn Cross",
+					"s7": "Final",
+				}
+				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(series, status[0:2]), status[3:4]))
 			}
+
 			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
-			// There remains one iunexplained byte.
+			// There remains one poorly understood byte.
 			final := bytes[header.offsets[o]+8+1 : header.offsets[o+1]] // This looks like a bitfield
-			out = append(out, fmt.Sprintf("   final: %v", final))
+			mstatus := map[uint8]string{
+				160: "Accepted",
+				226: "Failed",
+				255: "Complete",
+			}
+			out = append(out, fmt.Sprintf("   Status: %v", safe_lookup(mstatus, final[0])))
+			// This byte can't tell the difference between "You haven't talked to someone yet", and "you talked, rejected, but they'll still be here if you change your mind"
+			// That info is in the WTF section... somewhere.
 
 		case OFFSET_MISSIONS:
 			missions := read_int16(bytes, &cur)
