@@ -564,7 +564,7 @@ func parse_record(prefix string, record Record) string {
 		cur := 0
 		out += fmt.Sprintf("Credits: %v\n", read_int_le(record.data, &cur))
 		boolmap := map[bool]string{true: "Yes", false: "No"}
-		out += fmt.Sprintf("Capacity: %vT, Can have expansion: %v; expanded: %v\n", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0])
+		out += fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v\n", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0])
 
 	case "RREPR":
 		out += "Repair Droid:\n"
