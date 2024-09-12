@@ -609,6 +609,14 @@ func parse_record(prefix string, record Record) string {
 
 	case "INFO":
 		cur := 0
+
+		if strings.HasSuffix(prefix, "JDRV-") {
+			out += "Jump drive info\n"
+			out += fmt.Sprintf("Jumps: %v\n", read_int16(record.data, &cur))
+			out += fmt.Sprintf("Capacity?: %v\n", read_int16(record.data, &cur))
+			break
+		}
+
 		infotype, _, _ := read_string(record.data, &cur)
 		out += "INFO type " + infotype + "\n"
 		switch infotype {
