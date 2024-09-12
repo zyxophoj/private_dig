@@ -628,7 +628,28 @@ func parse_record(prefix string, record Record) string {
 
 		}
 
-	case "TEXT", "TTEXT":
+	case "DATA":
+		// TODO: is this really only cargo data?
+
+		// Each 4-byte block is: cargo-type, quantity(2 bytes!), hiddenness
+		// Note that if illegal cargo spills out into the non-secret area, it will have 2 entries here
+		// Maximum cargo capacity is an upgraded Galaxy with 225T, so 2 bytes for capacity seems excessive,
+		// but you can edit yourself over 255T of stuff by hitting that second byte.
+		out += "Cargo data:\n"
+		for cur := 0; cur < len(record.data); {
+			cargo := read_uint8(record.data, &cur)
+			quantity := read_int16(record.data, &cur)
+			hidden := read_uint8(record.data, &cur)
+
+			hiddenness := map[uint8]string{
+				0: "",
+				1: " (hidden)",
+			}
+			out += fmt.Sprintf("%v (%vT)%v\n", safe_lookup(tables.Cargo, cargo), quantity, safe_lookup(hiddenness, hidden))
+		}
+
+	case "TEXT":
+		// Mission text that displays in the in-game computer.  It's just text.
 		out += "\n" + string(record.data[1:]) + "\n"
 
 	case "CARG":
