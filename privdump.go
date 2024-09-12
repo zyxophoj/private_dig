@@ -380,12 +380,19 @@ func parse_record(prefix string, record Record) string {
 
 	factions := []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
 
-	if record.name != "FORM" {
+	// Record format depends on record name
+	// record name itself is rather odd, as there seems to be alternate names for the same thing, varying only by doubled first letter
+	// (I suspect this is some kind of off-by-one error in writing)
+	record_name2 := record.name
+	if len(record_name2) == 5 && record_name2[0] == record_name2[1] {
+		record_name2 = record_name2[1:]
+	}
+
+	if record_name2 != "FORM" {
 		out += "Record: " + prefix + record.name + fmt.Sprintf("%v\n", record.data)
 	}
 
-	// Record format depends on record name
-	switch record.name {
+	switch record_name2 {
 	case "SCOR":
 		// Reputation depends only on ship classes killed, which results in strange effects for special enemies
 		// e.g. killing Black Rhombus will make pirates like you more, since it is treated like any other Galaxy.
@@ -524,7 +531,7 @@ func parse_record(prefix string, record Record) string {
 			out += fmt.Sprintf("%v\n", safe_lookup(turrets, record.data[i]))
 		}
 
-	case "NAVQ", "NNAVQ":
+	case "NAVQ":
 		// This one's a bitfield that tracks which of the 4 quadrant maps we have.
 		maps := map[uint8]string{
 			1: "Humboldt",
@@ -545,7 +552,7 @@ func parse_record(prefix string, record Record) string {
 			}
 		}
 
-	case "AFTB", "AAFTB":
+	case "AFTB":
 		// A 0-length record.  Either you have afterburners or you don't.
 		out += "Afterburners:\n"
 		out += "(present)\n"
@@ -557,7 +564,7 @@ func parse_record(prefix string, record Record) string {
 		out += "ECM:\n"
 		out += fmt.Sprintf("%v%% effective\n", record.data[0])
 
-	case "CCRGI":
+	case "CRGI":
 		out += "Cargo-info?:\n"
 		// What do credits and cargo expansions have in common?  I'd like to know what they were thinking on this one.
 		cur := 0
@@ -565,7 +572,7 @@ func parse_record(prefix string, record Record) string {
 		boolmap := map[bool]string{true: "Yes", false: "No"}
 		out += fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v\n", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0])
 
-	case "RREPR":
+	case "REPR":
 		out += "Repair Droid:\n"
 		// There doesn't seem to be any variation here
 		// TODO: check RF's super repair droid
@@ -576,9 +583,9 @@ func parse_record(prefix string, record Record) string {
 			out += fmt.Sprintf("Unusual Repair Droid!!! Expoected %v; found %v\n", expected, record.data)
 		}
 
-	case "AARMR":
+	case "ARMR":
 		out += "Armour:\n"
-		//Shortcut: if it's all 0, you have no armour
+		// Shortcut: if it's all 0, you have no armour
 		if slices.Equal(record.data, make([]byte, 16, 16)) {
 			out += "None\n"
 			break
@@ -623,7 +630,8 @@ func parse_record(prefix string, record Record) string {
 		// Byte 2: How many tons
 		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0]))
 
-	case "PAYS", "PPAYS":
+	case "PAYS":
+		//Mission payment (4 bytes, although I've never seen a mission that needed that)
 		cur := 0
 		pays := read_int_le(record.data, &cur)
 		out += fmt.Sprintf("%v credits\n", pays)
