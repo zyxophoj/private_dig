@@ -618,9 +618,11 @@ func parse_record(prefix string, record Record) string {
 		out += "\n" + string(record.data[1:]) + "\n"
 
 	case "CARG":
-		// Mission cargo
-		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], record.data[0], record.data[1])
-		// TODO: Of what?  To where??  there are 2 other numbers here...
+		// Mission cargo - a 3-byte field...
+		// Byte 0: destination
+		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the description say they are not.
+		// Byte 2: How many tons
+		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0]))
 
 	case "PAYS", "PPAYS":
 		cur := 0
