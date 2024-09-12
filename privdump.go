@@ -274,22 +274,18 @@ func parse_header(header Header, bytes []byte) []string {
 
 			loc := read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
+
+			out = append(out, fmt.Sprintf("   %v-%v: Unknown - %v", cur, cur+1, bytes[cur:cur+2]))
 			cur += 2
-			guild_status := func(b byte) string {
-				switch b {
-				case 0:
-					return "Nonmember"
-				case 1:
-					return "Member"
-				}
-				return fmt.Sprintf("Unexpected: %v", b)
+
+			guild_status := map[uint8]string{
+				0: "Nonmember",
+				1: "Member",
 			}
-			out = append(out, fmt.Sprintf("   Merchants' Guild: %s", guild_status(bytes[cur])))
+			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur, safe_lookup(guild_status, bytes[cur])))
 			cur += 1
-			out = append(out, fmt.Sprintf("   Mercenaries' Guild: %s", guild_status(bytes[cur])))
+			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur, safe_lookup(guild_status, bytes[cur])))
 			cur += 1
-			extra := bytes[cur:header.offsets[o+1]]
-			out = append(out, fmt.Sprintf("   extra: %s", extra))
 
 		case OFFSET_PLOT:
 			status, _, _ := read_string(bytes, &cur)
@@ -325,9 +321,12 @@ func parse_header(header Header, bytes []byte) []string {
 			// That info is in the WTF section... somewhere.
 
 		case OFFSET_MISSIONS:
+			// 2-bytes, loks like just the mission count
 			missions := read_int16(bytes, &cur)
-			out = append(out, fmt.Sprintf("   Missions: %v", missions))
+			out = append(out, fmt.Sprintf("   Non-plot missions: %v", missions))
 		case OFFSET_WTF:
+			// Basically 0% understood right now
+			// Probably has something to do with fixer status
 			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.offsets[o+1]]))
 		case OFFSET_PLAY, OFFSET_SSSS, OFFSET_REAL:
 			// It's just a form...
@@ -546,7 +545,7 @@ func parse_record(prefix string, record Record) string {
 			}
 		}
 
-	case "AFTB":
+	case "AFTB", "AAFTB":
 		// A 0-length record.  Either you have afterburners or you don't.
 		out += "Afterburners:\n"
 		out += "(present)\n"
