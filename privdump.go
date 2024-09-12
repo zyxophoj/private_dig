@@ -7,6 +7,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"privdump/tables"
 )
 
 const (
@@ -76,6 +78,12 @@ func read_fixed_string(target string, bytes []byte, cur *int) (int, error) {
 	}
 
 	return 0, errors.New("Could not find string " + target)
+}
+
+func read_uint8(bytes []byte, cur *int) uint8 {
+	out := bytes[*cur]
+	*cur += 1
+	return out
 }
 
 func read_int(bytes []byte, cur *int) int {
@@ -262,11 +270,11 @@ func parse_header(header Header, bytes []byte) []string {
 				3: "Galaxy",
 			}
 			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
-
 			cur += 2
-			loc := read_int16(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v-%v: Location: %v", cur-2, cur-1, loc))
-			cur += 1
+
+			loc := read_uint8(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
+			cur += 2
 			guild_status := func(b byte) string {
 				switch b {
 				case 0:
