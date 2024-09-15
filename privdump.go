@@ -436,16 +436,26 @@ func parse_record(prefix string, record Record) []string {
 		}
 
 	case "ORIG":
-		// This seems to be constant no matter what we do.
-		expected := []byte{0x33, 0x3B, 0x3B, 0x3D, 0x3D, 0x3C, 0x3C, 0x3E}
-		if slices.Equal(record.data, expected) {
-			out = append(out, "Normal ORIG")
-		} else {
-			out = append(out, fmt.Sprintf("Unusual ORIG!!! Expected %v; found %v", expected, record.data))
+		out = append(out, "Originally Hidden Jump Points:")
+		// This is baffling.  Why is starting world state in the save file?  Surely it's only current world state thtat matters.
+		// (Maybe record-saving wasn't supported so they had to throw in the whole form?)
+		cur := 0
+		for cur < len(record.data) {
+			from := read_uint8(record.data, &cur)
+			to := read_uint8(record.data, &cur)
+			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
 		}
 
-		//case "SECT"
-		//TODO: understanding this one is very important, because it seems to be where the unexplored jump point un-hiding happens.
+	case "SECT":
+		out = append(out, "Hidden Jump Points:")
+		cur := 0
+		for cur < len(record.data) {
+			from := read_uint8(record.data, &cur)
+			to := read_uint8(record.data, &cur)
+			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
+		}
+		// There is some strangeness here.  This record is often one jump point behind reality.
+		// Launching and landing will generally fix this - perhaps things get updated at launch but there's no way to test this.
 
 	case "GUNS":
 		out = append(out, "Guns:")
