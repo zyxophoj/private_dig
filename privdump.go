@@ -584,27 +584,35 @@ func parse_record(prefix string, record Record) string {
 		}
 
 	case "ARMR":
+		// 16 bytes, which looks like 8 16-bit ints.
+		// First 4 entries are fully-repaired values - which also seem to be doing double duty as armor type.
+		// These are always the same, so we only bother with the first.
+		cur := 0
 		out += "Armour:\n"
-		// Shortcut: if it's all 0, you have no armour
-		if slices.Equal(record.data, make([]byte, 16, 16)) {
+		names := map[int]string{
+			0:   "(none)",
+			250: "Plasteel",
+			500: "Tungsten",
+		}
+		armor_type := read_int16(record.data, &cur)
+		out += fmt.Sprintf("Armour type:%v\n", safe_lookup(names, armor_type))
+		cur += 6
+
+		// Avoid calculating percentages when they are 0/0 !!
+		if armor_type == 0 {
 			out += "None\n"
+			cur += 8
 			break
 		}
 
-		facings := []string{"Front", "Left", "Right", "Back"}
-		names := map[uint8]string{
-			0: "Plasteel",
-			1: "Tungsten",
-		}
-		name, ok := names[record.data[1]]
-		if !ok {
-			name = fmt.Sprintf("Unnknown: %v", record.data[1])
-		}
-		out += name + "\n"
-		// What sees to be happening here is that the first 4 entries are fully repaired values, and the next 4 are current.
-		for n, f := range facings {
-			// cast to avoid ridiculous overflow issues
-			out += fmt.Sprintf("%v: %v%%\n", f, int(record.data[8+2*n])*100/int(record.data[2*n]))
+		// Next 4 are actual armor values
+		// We can give percentages here, but can't usefully give absolute values, because
+		// this section doesn't seem to care about what ship we're flying - so Tarsus armour
+		// looks exactly the same as Orion armour despite the manual (and practical experience
+		// of just how long it takes to die in a crippled Orion) telling us Orion armour is
+		// about 5 times as thick.
+		for _, f := range []string{"Front", "Left", "Right", "Back"} {
+			out += fmt.Sprintf("%v: %v%%\n", f, read_int16(record.data, &cur)*100/armor_type)
 		}
 
 	case "INFO":
