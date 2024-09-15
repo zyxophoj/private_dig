@@ -301,8 +301,8 @@ func parse_header(header Header, bytes []byte) []string {
 					"s2": "Roman Lynch", //and Miggs!
 					"s3": "Oxford",
 					"s4": "Lynn Murphy",
-					"s5": "Dr Monkhouse",
-					"s6": "Taryn Cross",
+					"s5": "Taryn Cross",
+					"s6": "Goodin?",
 					"s7": "Final",
 				}
 				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(series, status[0:2]), status[3:4]))
@@ -312,10 +312,19 @@ func parse_header(header Header, bytes []byte) []string {
 			// There remains one poorly understood byte.
 			final := bytes[header.offsets[o]+8+1 : header.offsets[o+1]] // This looks like a bitfield
 			mstatus := map[uint8]string{
-				160: "Accepted",
-				226: "Failed",
+				160: "Accepted",           //128+32
+				162: "Failed but good",    //128+32+2
+				191: "Complete but talky", //128+32+16+8+4+2+1
+				226: "Failed",             //128+64+32+2
 				255: "Complete",
 			}
+			// Does this make any sense??
+			// "Complete" looks like a special case
+			// 32: Accepted bit
+			// 64: Bad Bit - you failed so hard you can't win the game now
+			// 2: Failed bit - you failed the mission but this is recoverable (e.g. sandoval 1, Murphy 3)
+			// 16,8: Only appear together in "complete but talky" state?
+
 			out = append(out, fmt.Sprintf("   Status: %v", safe_lookup(mstatus, final[0])))
 			// This byte can't tell the difference between "You haven't talked to someone yet", and "you talked, rejected, but they'll still be here if you change your mind"
 			// That info is in the WTF section... somewhere.
