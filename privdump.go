@@ -630,7 +630,22 @@ func parse_record(prefix string, record Record) string {
 		switch infotype {
 		case "SHIELDS":
 			out += fmt.Sprintf("Shields level %v\n", int(record.data[cur+1])-89) //WHY???
-
+		case "ENERGY":
+			d := record.data[len("ENERGY")+2 : len(record.data)]
+			strd := ""
+			for _, n := range d {
+				strd += fmt.Sprintf("%v", n)
+			}
+			// Yes, really.  There is clearly some structure in here, but I can't make any sense out of it.
+			levels := map[string]string{
+				"1261":         "(None)",
+				"124151":       "Level 1",
+				"12314151":     "Level 2",
+				"1231415162":   "Level 3",
+				"122131415161": "Level 4",
+				"122231415161": "Level 5",
+			}
+			out += fmt.Sprintf("Engine: %v\n", safe_lookup(levels, strd))
 		default:
 			out += fmt.Sprintf("Unknown info type: %v\n", infotype)
 
