@@ -656,8 +656,9 @@ func parse_record(prefix string, record Record) string {
 
 		// Each 4-byte block is: cargo-type, quantity(2 bytes!), hiddenness
 		// Note that if illegal cargo spills out into the non-secret area, it will have 2 entries here
-		// Maximum cargo capacity is an upgraded Galaxy with 225T, so 2 bytes for capacity seems excessive,
-		// but you can edit yourself over 255T of stuff by hitting that second byte.
+		// Maximum cargo capacity is an upgraded Galaxy with secret compartment, totalling 245T,
+		// so 2 bytes for quantity seems excessive, but you can edit yourself over 255T of stuff
+		// by hitting that second byte.
 		out += "Cargo data:\n"
 		for cur := 0; cur < len(record.data); {
 			cargo := read_uint8(record.data, &cur)
