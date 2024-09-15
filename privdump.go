@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	OFFSET_SHIP = iota
-	OFFSET_PLOT
+	OFFSET_SHIP = iota  // Ship type, location, guild membership
+	OFFSET_PLOT  //Plot status
 	OFFSET_MISSIONS
-	OFFSET_PLAY
+	OFFSET_PLAY  // player kill count + reputation
 	OFFSET_WTF
-	OFFSET_SSSS
-	OFFSET_REAL
+	OFFSET_SSSS  // Hidden jump points?
+	OFFSET_REAL  // ship equipment
 	OFFSET_NAME
 	OFFSET_CALLSIGN
 
