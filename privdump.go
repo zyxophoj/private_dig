@@ -679,7 +679,7 @@ func parse_record(prefix string, record Record) string {
 	case "CARG":
 		// Mission cargo - a 3-byte field...
 		// Byte 0: destination
-		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the description say they are not.
+		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
 		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0]))
 
