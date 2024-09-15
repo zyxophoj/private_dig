@@ -693,7 +693,7 @@ func parse_record(prefix string, record Record) string {
 		// Do nothing!  Subforms are handled at the end of the functon.
 
 	default:
-		out += fmt.Sprintf("(don't know how to parse %v\n", record.name)
+		out += fmt.Sprintf("(don't know how to parse %v)\n", record.name)
 	}
 
 	for _, f := range record.forms {
