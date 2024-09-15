@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	OFFSET_SHIP = iota  // Ship type, location, guild membership
-	OFFSET_PLOT  //Plot status
+	OFFSET_SHIP = iota // Ship type, location, guild membership
+	OFFSET_PLOT        //Plot status
 	OFFSET_MISSIONS
-	OFFSET_PLAY  // player kill count + reputation
+	OFFSET_PLAY // player kill count + reputation
 	OFFSET_WTF
-	OFFSET_SSSS  // Hidden jump points?
-	OFFSET_REAL  // ship equipment
+	OFFSET_SSSS // Hidden jump points?
+	OFFSET_REAL // ship equipment
 	OFFSET_NAME
 	OFFSET_CALLSIGN
 
@@ -356,6 +356,7 @@ func parse_header(header Header, bytes []byte) []string {
 			out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 			break
 		}
+
 		out = append(out, parse_form("", form)...)
 
 	}
@@ -365,18 +366,23 @@ func parse_header(header Header, bytes []byte) []string {
 
 func parse_form(prefix string, form Form) []string {
 	out := []string{}
+	out = append(out, "Form "+form.name)
 	for _, r := range form.records {
-		out = append(out, parse_record(prefix+form.name+"-", r))
+		record := parse_record(prefix+form.name+"-", r)
+		for k := range record {
+			record[k] = "   " + record[k]
+		}
+		out = append(out, record...)
 	}
 	if len(form.footer) > 0 {
 		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.name, form.footer))
 	}
-
+	out = append(out, "End of Form "+form.name)
 	return out
 }
 
-func parse_record(prefix string, record Record) string {
-	out := ""
+func parse_record(prefix string, record Record) []string {
+	out := []string{}
 
 	factions := []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
 
@@ -389,7 +395,7 @@ func parse_record(prefix string, record Record) string {
 	}
 
 	if record_name2 != "FORM" {
-		out += "Record: " + prefix + record.name + fmt.Sprintf("%v\n", record.data)
+		out = append(out, "Record: "+prefix+record.name+fmt.Sprintf("%v", record.data))
 	}
 
 	switch record_name2 {
@@ -408,24 +414,24 @@ func parse_record(prefix string, record Record) string {
 			return "neutral"
 		}
 
-		out += "Reputation:\n"
+		out = append(out, "Reputation:")
 		for i := range factions {
 			cur := 2 * i
 			v := read_int16(record.data, &cur)
 			if factions[i] != "" {
-				out += fmt.Sprintf("%s: %v (%s)\n", factions[i], v, status(v))
+				out = append(out, fmt.Sprintf("%-10s: %5v (%s)", factions[i], v, status(v)))
 			}
 		}
 
 	case "KILL":
 		// Kill count can be displayed on the in-game computer and it behaves correctly for special enemies
 		// (e.g. Black Rhombus is a pirate not a merchant, Mordecai Jones is a retro not a hunter)
-		out += "Kills:\n"
+		out = append(out, "Kills:")
 		for i := range factions {
 			cur := 2 * i
 			v := read_int16(record.data, &cur)
 			if factions[i] != "" || v > 0 {
-				out += fmt.Sprintf("%s: %v\n", factions[i], v)
+				out = append(out, fmt.Sprintf("%-10s: %3v", factions[i], v))
 			}
 		}
 
@@ -433,16 +439,16 @@ func parse_record(prefix string, record Record) string {
 		// This seems to be constant no matter what we do.
 		expected := []byte{0x33, 0x3B, 0x3B, 0x3D, 0x3D, 0x3C, 0x3C, 0x3E}
 		if slices.Equal(record.data, expected) {
-			out += "Normal ORIG\n"
+			out = append(out, "Normal ORIG")
 		} else {
-			out += fmt.Sprintf("Unusual ORIG!!! Expected %v; found %v\n", expected, record.data)
+			out = append(out, fmt.Sprintf("Unusual ORIG!!! Expected %v; found %v", expected, record.data))
 		}
 
 		//case "SECT"
 		//TODO: understanding this one is very important, because it seems to be where the unexplored jump point un-hiding happens.
 
 	case "GUNS":
-		out += "Guns:\n"
+		out = append(out, "Guns:")
 		// This is a list of 4-byte entries - {gun_type, location, damage?, ??}
 		// If the gun is in a turret, this gets a little wonky, becuase mounts 5-7 are
 		// "first turret", which may be top or rear depending on ship.
@@ -478,11 +484,11 @@ func parse_record(prefix string, record Record) string {
 			mount := int(record.data[i*4+1])
 			// TODO: Next byte indicates damage, but how?
 
-			out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(guns, gun))
+			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(guns, gun)))
 		}
 
 	case "LNCH":
-		out += "Launchers:\n"
+		out = append(out, "Launchers:")
 		launchers := map[int]string{
 			50: "Missile Launcher",
 			51: "Torpedo Launcher",
@@ -501,11 +507,11 @@ func parse_record(prefix string, record Record) string {
 		for i := range len(record.data) / 4 {
 			launcher := int(record.data[i*4])
 			mount := int(record.data[i*4+1])
-			out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(launchers, launcher))
+			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(launchers, launcher)))
 		}
 
 	case "MISL":
-		out += "Missiles:\n"
+		out = append(out, "Missiles:")
 		missiles := map[uint8]string{
 			1: "Torpedo",
 			4: "Dumbfire",
@@ -516,11 +522,11 @@ func parse_record(prefix string, record Record) string {
 		for i := range len(record.data) / 3 {
 			msl_type := record.data[i*3]
 			count := record.data[i*3+1]
-			out += fmt.Sprintf("%v: %v\n", safe_lookup(missiles, msl_type), count)
+			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(missiles, msl_type), count))
 		}
 
 	case "TRRT":
-		out += "Turrets:\n"
+		out = append(out, "Turrets:")
 		// This only counts turrets, not what you have in them.
 		turrets := map[uint8]string{
 			1: "Rear",
@@ -528,7 +534,7 @@ func parse_record(prefix string, record Record) string {
 			3: "Bottom",
 		}
 		for i := range len(record.data) {
-			out += fmt.Sprintf("%v\n", safe_lookup(turrets, record.data[i]))
+			out = append(out, fmt.Sprintf("%v", safe_lookup(turrets, record.data[i])))
 		}
 
 	case "NAVQ":
@@ -540,47 +546,47 @@ func parse_record(prefix string, record Record) string {
 			8: "Clarke",
 		}
 
-		out += "Maps:\n"
+		out = append(out, "Maps:")
 		// Short description for the overwhelmingly most common case
 		if record.data[0] == 15 {
-			out += "All\n"
+			out = append(out, "All")
 			break
 		}
 		for k, v := range maps {
 			if k&record.data[0] != 0 {
-				out += v + "\n"
+				out = append(out, v)
 			}
 		}
 
 	case "AFTB":
 		// A 0-length record.  Either you have afterburners or you don't.
-		out += "Afterburners:\n"
-		out += "(present)\n"
+		out = append(out, "Afterburners")
+		out = append(out, "(present)")
 
 	case "ECMS":
 		// A 1-length record.
 		// The manual states that the 3 levels of ECM are 25%, 50% and 75% effective.
 		// It looks like the ID here is doing double duty as effectiveness%.
-		out += "ECM:\n"
-		out += fmt.Sprintf("%v%% effective\n", record.data[0])
+		out = append(out, "ECM:")
+		out = append(out, fmt.Sprintf("%v%% effective", record.data[0]))
 
 	case "CRGI":
-		out += "Cargo-info?:\n"
+		out = append(out, "Cargo-info?:")
 		// What do credits and cargo expansions have in common?  I'd like to know what they were thinking on this one.
 		cur := 0
-		out += fmt.Sprintf("Credits: %v\n", read_int_le(record.data, &cur))
+		out = append(out, fmt.Sprintf("Credits: %v", read_int_le(record.data, &cur)))
 		boolmap := map[bool]string{true: "Yes", false: "No"}
-		out += fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v\n", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0])
+		out = append(out, fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0]))
 
 	case "REPR":
-		out += "Repair Droid:\n"
+		out = append(out, "Repair Droid:")
 		// There doesn't seem to be any variation here
 		// TODO: check RF's super repair droid
 		expected := []byte{0x90, 1, 0, 0}
 		if slices.Equal(record.data, expected) {
-			out += "Normal\n"
+			out = append(out, "Normal")
 		} else {
-			out += fmt.Sprintf("Unusual Repair Droid!!! Expoected %v; found %v\n", expected, record.data)
+			out = append(out, fmt.Sprintf("Unusual Repair Droid!!! Expected %v; found %v", expected, record.data))
 		}
 
 	case "ARMR":
@@ -588,19 +594,19 @@ func parse_record(prefix string, record Record) string {
 		// First 4 entries are fully-repaired values - which also seem to be doing double duty as armor type.
 		// These are always the same, so we only bother with the first.
 		cur := 0
-		out += "Armour:\n"
+		out = append(out, "Armour:")
 		names := map[int]string{
 			0:   "(none)",
 			250: "Plasteel",
 			500: "Tungsten",
 		}
 		armor_type := read_int16(record.data, &cur)
-		out += fmt.Sprintf("Armour type:%v\n", safe_lookup(names, armor_type))
+		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
 		cur += 6
 
 		// Avoid calculating percentages when they are 0/0 !!
 		if armor_type == 0 {
-			out += "None\n"
+			out = append(out, "None")
 			cur += 8
 			break
 		}
@@ -612,24 +618,24 @@ func parse_record(prefix string, record Record) string {
 		// of just how long it takes to die in a crippled Orion) telling us Orion armour is
 		// about 5 times as thick.
 		for _, f := range []string{"Front", "Left", "Right", "Back"} {
-			out += fmt.Sprintf("%v: %v%%\n", f, read_int16(record.data, &cur)*100/armor_type)
+			out = append(out, fmt.Sprintf("%v: %v%%", f, read_int16(record.data, &cur)*100/armor_type))
 		}
 
 	case "INFO":
 		cur := 0
 
 		if strings.HasSuffix(prefix, "JDRV-") {
-			out += "Jump drive info\n"
-			out += fmt.Sprintf("Jumps: %v\n", read_int16(record.data, &cur))
-			out += fmt.Sprintf("Capacity?: %v\n", read_int16(record.data, &cur))
+			out = append(out, "Jump drive info")
+			out = append(out, fmt.Sprintf("Jumps: %v", read_int16(record.data, &cur)))
+			out = append(out, fmt.Sprintf("Capacity?: %v", read_int16(record.data, &cur)))
 			break
 		}
 
 		infotype, _, _ := read_string(record.data, &cur)
-		out += "INFO type " + infotype + "\n"
+		out = append(out, "INFO type "+infotype)
 		switch infotype {
 		case "SHIELDS":
-			out += fmt.Sprintf("Shields level %v\n", int(record.data[cur+1])-89) //WHY???
+			out = append(out, fmt.Sprintf("Shields level %v", int(record.data[cur+1])-89)) //WHY???
 		case "ENERGY":
 			d := record.data[len("ENERGY")+2 : len(record.data)]
 			strd := ""
@@ -645,9 +651,9 @@ func parse_record(prefix string, record Record) string {
 				"122131415161": "Level 4",
 				"122231415161": "Level 5",
 			}
-			out += fmt.Sprintf("Engine: %v\n", safe_lookup(levels, strd))
+			out = append(out, fmt.Sprintf("Engine: %v", safe_lookup(levels, strd)))
 		default:
-			out += fmt.Sprintf("Unknown info type: %v\n", infotype)
+			out = append(out, fmt.Sprintf("Unknown info type: %v", infotype))
 
 		}
 
@@ -659,7 +665,7 @@ func parse_record(prefix string, record Record) string {
 		// Maximum cargo capacity is an upgraded Galaxy with secret compartment, totalling 245T,
 		// so 2 bytes for quantity seems excessive, but you can edit yourself over 255T of stuff
 		// by hitting that second byte.
-		out += "Cargo data:\n"
+		out = append(out, "Cargo data:")
 		for cur := 0; cur < len(record.data); {
 			cargo := read_uint8(record.data, &cur)
 			quantity := read_int16(record.data, &cur)
@@ -669,36 +675,43 @@ func parse_record(prefix string, record Record) string {
 				0: "",
 				1: " (hidden)",
 			}
-			out += fmt.Sprintf("%v (%vT)%v\n", safe_lookup(tables.Cargo, cargo), quantity, safe_lookup(hiddenness, hidden))
+			out = append(out, fmt.Sprintf("%v (%vT)%v", safe_lookup(tables.Cargo, cargo), quantity, safe_lookup(hiddenness, hidden)))
 		}
 
 	case "TEXT":
 		// Mission text that displays in the in-game computer.  It's just text.
-		out += "\n" + string(record.data[1:]) + "\n"
+		out = append(out, "")
+		out = append(out, string(record.data[1:]))
 
 	case "CARG":
 		// Mission cargo - a 3-byte field...
 		// Byte 0: destination
 		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
-		out += fmt.Sprintf("Deliver %vT of %v to %v\n", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0]))
+		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0])))
 
 	case "PAYS":
 		//Mission payment (4 bytes, although I've never seen a mission that needed that)
 		cur := 0
 		pays := read_int_le(record.data, &cur)
-		out += fmt.Sprintf("%v credits\n", pays)
+		out = append(out, fmt.Sprintf("%v credits", pays))
 
 	case "FORM":
 		// Do nothing!  Subforms are handled at the end of the functon.
 
 	default:
-		out += fmt.Sprintf("(don't know how to parse %v)\n", record.name)
+		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.name))
 	}
 
 	for _, f := range record.forms {
-		out += strings.Join(parse_form(prefix, f), "\n")
+		subform := parse_form(prefix, f)
+		for k := range subform {
+			subform[k] = "   " + subform[k]
+		}
+		out = append(out, subform...)
 	}
+
+	//out = append(out, "")
 
 	return out
 }
