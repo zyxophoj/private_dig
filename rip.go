@@ -38,33 +38,33 @@ func main() {
 
 	parents := map[uint8]string{}
 	name := ""
-	for _, quad := range form.Records {
-		for _, sf := range quad.Forms {
-			for _, r2 := range sf.Records {
-				//if r2.name=="INFO"{
-				//	fmt.Println(r2.data[:4], string(r2.data[4:]), "Quadrant:")
-				//}
-				for _, syst := range r2.Forms {
-					//fmt.Println("   ", syst.name)
-					for _, r3 := range syst.Records {
-						if r3.Name == "INFO" {
-							//fmt.Println(r3.data[1:5])
-							name = string(r3.Data[5 : len(r3.Data)-1])
-							fmt.Println(fmt.Sprintf("%v: \"%v\",", r3.Data[0], name))
-						}
-						if r3.Name == "BASE" {
-							fmt.Println("Bases:", r3.Data)
 
-							for _, d := range r3.Data {
-								parents[d] = name
-							}
-						}
+	for _, sf := range form.Subforms {
+		/*for _, r2 := range sf.Records {
+			if r2.Name == "INFO" {
+				fmt.Println(r2.Data[:4], string(r2.Data[4:]), "Quadrant:")
+			}
+		}*/
+		for _, syst := range sf.Subforms {
+			//fmt.Println("   ", syst.name)
+			for _, r3 := range syst.Records {
+				if r3.Name == "INFO" {
+					//fmt.Println(r3.data[1:5])
+					name = string(r3.Data[5 : len(r3.Data)-1])
+					fmt.Println(fmt.Sprintf("%v: \"%v\",", r3.Data[0], name))
+				}
+				if r3.Name == "BASE" {
+					fmt.Println("Bases:", r3.Data)
+
+					for _, d := range r3.Data {
+						parents[d] = name
 					}
 				}
 			}
 		}
-		fmt.Println()
+
 	}
+	fmt.Println()
 
 	// TODO: Again, ridiculosuly dirty hard-coding
 
