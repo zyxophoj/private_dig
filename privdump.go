@@ -152,6 +152,18 @@ func parse_form(prefix string, form types.Form) []string {
 		}
 		out = append(out, record...)
 	}
+
+	//fmt.Println("SUBFORMS")
+	prefix += (form.Name + "-")
+	for _, f := range form.Subforms {
+		subform := parse_form(prefix, f)
+		//fmt.Println("SUBFORM", f.Name)
+		for k := range subform {
+			subform[k] = "   " + subform[k]
+		}
+		out = append(out, subform...)
+	}
+
 	if len(form.Footer) > 0 {
 		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.Name, form.Footer))
 	}
@@ -438,7 +450,7 @@ func parse_record(prefix string, record types.Record) []string {
 				"12314151":     "Level 2",
 				"1231415162":   "Level 3",
 				"122131415161": "Level 4",
-				"122231415161": "Level 5",
+				"122231415162": "Level 5",
 			}
 			out = append(out, fmt.Sprintf("Engine: %v", safe_lookup(levels, strd)))
 		default:
@@ -490,14 +502,6 @@ func parse_record(prefix string, record types.Record) []string {
 
 	default:
 		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.Name))
-	}
-
-	for _, f := range record.Forms {
-		subform := parse_form(prefix, f)
-		for k := range subform {
-			subform[k] = "   " + subform[k]
-		}
-		out = append(out, subform...)
 	}
 
 	//out = append(out, "")

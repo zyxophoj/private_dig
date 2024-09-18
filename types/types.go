@@ -1,5 +1,9 @@
 package types
 
+import (
+//"fmt"
+)
+
 const (
 	OFFSET_SHIP = iota // Ship type, location, guild membership
 	OFFSET_PLOT        //Plot status
@@ -26,14 +30,40 @@ type Header struct {
 }
 
 type Record struct {
-	Name  string
-	Data  []byte
-	Forms []Form
+	Name string
+	Data []byte
 }
 
 type Form struct {
-	Name    string
-	Length  int
-	Records []Record
-	Footer  []byte
+	Name     string
+	Length   int
+	Records  []Record
+	Footer   []byte
+	Subforms []Form
+}
+
+func (f *Form) Get(what ...string) *Record {
+	for _, w := range what[:len(what)-1] {
+		found := false
+		for _, subform := range f.Subforms {
+			if subform.Name == w {
+				f = &subform
+				//fmt.Println("Subform", f.Name)
+				found = true
+				break
+			}
+		}
+		if !found {
+			//fmt.Println("Failed to find Subform", w)
+			return nil
+		}
+	}
+
+	for _, rec := range f.Records {
+		if rec.Name == what[len(what)-1] {
+			return &rec
+		}
+	}
+
+	return nil
 }

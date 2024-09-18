@@ -186,7 +186,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 		record_start := *cur
 		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
 
-		record := types.Record{record_name, bytes[*cur : *cur+length], nil}
+		record := types.Record{record_name, bytes[*cur : *cur+length]}
 
 		if strings.HasSuffix(record_name, "FORM") {
 			*cur -= 8 // EVIL HACK!! go back and re-parse this record as a form.
@@ -199,8 +199,8 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 					break
 				}
 
-				//fmt.Println("Adding", form.name, "to", record.name)
-				record.Forms = append(record.Forms, form)
+				//fmt.Println("Adding", form.Name, "to", out.Name)
+				out.Subforms = append(out.Subforms, form)
 			}
 
 		} else {
