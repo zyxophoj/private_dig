@@ -1,127 +1,16 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"slices"
 	"strings"
 
+	"privdump/readers"
 	"privdump/tables"
+	"privdump/types"
 )
-
-const (
-	OFFSET_SHIP = iota // Ship type, location, guild membership
-	OFFSET_PLOT        //Plot status
-	OFFSET_MISSIONS
-	OFFSET_PLAY // player kill count + reputation
-	OFFSET_WTF
-	OFFSET_SSSS // Hidden jump points?
-	OFFSET_REAL // ship equipment
-	OFFSET_NAME
-	OFFSET_CALLSIGN
-
-	OFFSET_COUNT
-)
-
-func offset_name(o int) string {
-	return []string{"ShipLocGuilds", "Plot", "Mission count", "Score", "WTF", "Hidden Jumps", "Equipment", "Name", "Callsign"}[o]
-}
-
-type Header struct {
-	file_size       int
-	offsets         []int
-	mission_offsets []int
-	footer          []byte
-}
-
-type Record struct {
-	name  string
-	data  []byte
-	forms []Form
-}
-
-type Form struct {
-	name    string
-	length  int
-	records []Record
-	footer  []byte
-}
-
-func read_string(bytes []byte, cur *int) (string, int, error) {
-	//reads null-terminated string,  Advances the cursor past the terminating null.
-	old := *cur
-	for ; ; *cur += 1 {
-		if *cur >= len(bytes) {
-			*cur = old
-			return "", 0, errors.New("Out of space")
-		}
-
-		if bytes[*cur] == 0 {
-			return string(bytes[old:*cur]), 0, nil
-		}
-	}
-
-}
-
-func read_fixed_string(target string, bytes []byte, cur *int) (int, error) {
-	tb := []byte(target)
-	ltb := len(tb)
-	maxx := len(bytes) - ltb - *cur
-
-	for i := 0; i < maxx; i += 1 {
-		if slices.Equal(bytes[*cur+i:*cur+i+ltb], tb) {
-			*cur += (i + ltb)
-			return 0, nil
-		}
-	}
-
-	return 0, errors.New("Could not find string " + target)
-}
-
-func read_uint8(bytes []byte, cur *int) uint8 {
-	out := bytes[*cur]
-	*cur += 1
-	return out
-}
-
-func read_int(bytes []byte, cur *int) int {
-	// big-endian
-	out := uint(0)
-	for _ = range 4 {
-		out = out << 8
-		out = out + uint(bytes[*cur])
-		*cur += 1
-	}
-
-	return int(out)
-}
-
-func read_int_le(bytes []byte, cur *int) int {
-	// little-endian
-	out := uint(0)
-	for i := range 4 {
-		out = out + uint(bytes[*cur])<<(8*i)
-		*cur += 1
-	}
-
-	return int(out)
-}
-
-func read_int16(bytes []byte, cur *int) int {
-	// little-endian!
-	out := int(0)
-	for i := range 2 {
-		out = out + (int(uint(bytes[*cur])) << (8 * i))
-		*cur += 1
-	}
-	if out > 0x8000 {
-		out -= 0x10000
-	}
-
-	return out
-}
 
 func safe_lookup[K comparable](from map[K]string, with K) string {
 	out, ok := from[with]
@@ -131,138 +20,18 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-func read_header(in []byte) Header {
-	//Header format:
-	//
-	// bytes 0x00-0x03: File size
-	// bytes 0x04-??: Offsets
-	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
-	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
-	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
-	//   This number can be determined by peeking where the MISSIONS offset points.  (Or by caculating based on the first offset?  Are we sure there's never a footer??)
-	// bytes ??-?? : footer
-	//   That which lies between the offset block and the first offset.
-	out := Header{}
-
-	cur := 0
-	out.file_size = read_int16(in, &cur)
-	cur += 2
-	for i := 0; i <= OFFSET_MISSIONS; i += 1 {
-		out.offsets = append(out.offsets, read_int16(in, &cur))
-		cur += 2
-	}
-
-	// Peek at the data  (TODO: or use offset[0])
-	cur2 := out.offsets[OFFSET_MISSIONS]
-	missions := read_int16(in, &cur2)
-
-	// Expect 2 more offsets for each missions
-	for i := 0; i < 2*missions; i += 1 {
-		out.mission_offsets = append(out.mission_offsets, read_int16(in, &cur))
-		cur += 2
-	}
-
-	for i := OFFSET_MISSIONS + 1; i < OFFSET_COUNT; i += 1 {
-		out.offsets = append(out.offsets, read_int16(in, &cur))
-		cur += 2
-	}
-
-	out.footer = in[cur:out.offsets[0]]
-	cur = out.offsets[0]
-
-	return out
-}
-
-func read_form(bytes []byte, cur *int) (Form, error) {
-	// Form format:
-	//
-	// 1 Identifier: A 4-byte capital-letter string which is always "FORM"
-	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
-	// Data:
-	//    3 Form name: 4-byte capital-letter string
-	//    4 0 or more records.
-	//   (5) A possible "footer", which is any leftover bytes claimed by the length but not actually containing a record
-	//        This is usually part of something else and may indicate that length is a "Read at least this much" type of suggestion
-	//
-	// Note that the length does not include the length of the name or of the length itself.
-
-	// Record Format:
-	//
-	// 1 Name: 4-byte capital-letter string
-	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
-	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then this record is a form, and so the data is a form name plus a list of records.
-	//
-	// Again, length does not include the first 8 bytes
-
-	out := Form{}
-
-	_, err := read_fixed_string("FORM", bytes, cur)
-	if err != nil {
-		return out, err
-	}
-
-	out.length = read_int(bytes, cur)
-	form_start := *cur
-	form_end := form_start + out.length
-
-	out.name = string(bytes[*cur : *cur+4])
-	*cur += 4
-
-	for *cur <= form_end-8 { // Minimum record size is 8
-		record_name, _, err := read_string(bytes[:form_end], cur)
-		if err != nil {
-			fmt.Println("Unable to read record")
-			fmt.Println(fmt.Sprintf("Ignoring %v footer at %v: %v", out.name, *cur, bytes[*cur:form_end]))
-			*cur = form_end
-			break
-		}
-		length := read_int(bytes, cur)
-		record_start := *cur
-		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
-
-		record := Record{record_name, bytes[*cur : *cur+length], nil}
-
-		if strings.HasSuffix(record_name, "FORM") {
-			*cur -= 8 // EVIL HACK!! go back and re-parse this record as a form.
-			// Subforms!!!
-			for *cur < record_start+length {
-				form, err := read_form(bytes, cur)
-				if err != nil {
-					//fmt.Println(bytes[*cur:record_start+length])
-					//*cur = record_start+length
-					break
-				}
-
-				//fmt.Println("Adding", form.name, "to", record.name)
-				record.forms = append(record.forms, form)
-			}
-
-		} else {
-			*cur += length
-		}
-
-		//fmt.Println("Adding", record_name, "to", out.name)
-		out.records = append(out.records, record)
-	}
-
-	out.footer = bytes[*cur:form_end]
-	*cur = form_end
-
-	return out, nil
-}
-
-func parse_header(header Header, bytes []byte) []string {
+func parse_header(header types.Header, bytes []byte) []string {
 	out := []string{}
 
-	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.file_size))
+	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.File_size))
 	cur := 0
 
-	for o := 0; o < len(header.offsets); o += 1 {
-		cur = header.offsets[o]
+	for o := 0; o < len(header.Offsets); o += 1 {
+		cur = header.Offsets[o]
 		out = append(out, "")
-		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, offset_name(o), cur))
+		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, types.Offset_name(o), cur))
 		switch o {
-		case OFFSET_SHIP:
+		case types.OFFSET_SHIP:
 			ships := map[uint8]string{
 				0: "Tarsus",
 				1: "Orion",
@@ -272,7 +41,7 @@ func parse_header(header Header, bytes []byte) []string {
 			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
 			cur += 2
 
-			loc := read_uint8(bytes, &cur)
+			loc := readers.Read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
 
 			out = append(out, fmt.Sprintf("   %v-%v: Unknown - %v", cur, cur+1, bytes[cur:cur+2]))
@@ -287,8 +56,8 @@ func parse_header(header Header, bytes []byte) []string {
 			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur, safe_lookup(guild_status, bytes[cur])))
 			cur += 1
 
-		case OFFSET_PLOT:
-			status, _, _ := read_string(bytes, &cur)
+		case types.OFFSET_PLOT:
+			status, _, _ := readers.Read_string(bytes, &cur)
 			if status == "" {
 				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
 			} else if status == "FFFFFFFF" {
@@ -310,7 +79,7 @@ func parse_header(header Header, bytes []byte) []string {
 
 			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
 			// There remains one poorly understood byte.
-			final := bytes[header.offsets[o]+8+1 : header.offsets[o+1]] // This looks like a bitfield
+			final := bytes[header.Offsets[o]+8+1 : header.Offsets[o+1]] // This looks like a bitfield
 			mstatus := map[uint8]string{
 				160: "Accepted",           //128+32
 				162: "Failed but good",    //128+32+2
@@ -329,38 +98,38 @@ func parse_header(header Header, bytes []byte) []string {
 			// This byte can't tell the difference between "You haven't talked to someone yet", and "you talked, rejected, but they'll still be here if you change your mind"
 			// That info is in the WTF section... somewhere.
 
-		case OFFSET_MISSIONS:
+		case types.OFFSET_MISSIONS:
 			// 2-bytes, loks like just the mission count
-			missions := read_int16(bytes, &cur)
+			missions := readers.Read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   Non-plot missions: %v", missions))
-		case OFFSET_WTF:
+		case types.OFFSET_WTF:
 			// Basically 0% understood right now
 			// Probably has something to do with fixer status
-			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.offsets[o+1]]))
-		case OFFSET_PLAY, OFFSET_SSSS, OFFSET_REAL:
+			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.Offsets[o+1]]))
+		case types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL:
 			// It's just a form...
-			form, err := read_form(bytes, &cur)
+			form, err := readers.Read_form(bytes, &cur)
 			if err != nil {
 				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 				break
 			}
 			out = append(out, parse_form("", form)...)
 
-		case OFFSET_NAME, OFFSET_CALLSIGN:
-			s, _, _ := read_string(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: %v", offset_name(o), s))
+		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
+			s, _, _ := readers.Read_string(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v: %v", types.Offset_name(o), s))
 		}
 	}
 
 	// OK, now do missions
-	for m := 0; m < len(header.mission_offsets)/2; m += 1 {
-		cur = header.mission_offsets[2*m]
-		name, _, _ := read_string(bytes, &cur)
-		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.mission_offsets[2*m], m, name))
+	for m := 0; m < len(header.Mission_offsets)/2; m += 1 {
+		cur = header.Mission_offsets[2*m]
+		name, _, _ := readers.Read_string(bytes, &cur)
+		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.Mission_offsets[2*m], m, name))
 
-		cur = header.mission_offsets[2*m+1]
+		cur = header.Mission_offsets[2*m+1]
 		// Another form!
-		form, err := read_form(bytes, &cur)
+		form, err := readers.Read_form(bytes, &cur)
 		if err != nil {
 			out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 			break
@@ -373,24 +142,24 @@ func parse_header(header Header, bytes []byte) []string {
 	return out
 }
 
-func parse_form(prefix string, form Form) []string {
+func parse_form(prefix string, form types.Form) []string {
 	out := []string{}
-	out = append(out, "Form "+form.name)
-	for _, r := range form.records {
-		record := parse_record(prefix+form.name+"-", r)
+	out = append(out, "Form "+form.Name)
+	for _, r := range form.Records {
+		record := parse_record(prefix+form.Name+"-", r)
 		for k := range record {
 			record[k] = "   " + record[k]
 		}
 		out = append(out, record...)
 	}
-	if len(form.footer) > 0 {
-		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.name, form.footer))
+	if len(form.Footer) > 0 {
+		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.Name, form.Footer))
 	}
-	out = append(out, "End of Form "+form.name)
+	out = append(out, "End of Form "+form.Name)
 	return out
 }
 
-func parse_record(prefix string, record Record) []string {
+func parse_record(prefix string, record types.Record) []string {
 	out := []string{}
 
 	factions := []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
@@ -398,13 +167,13 @@ func parse_record(prefix string, record Record) []string {
 	// Record format depends on record name
 	// record name itself is rather odd, as there seems to be alternate names for the same thing, varying only by doubled first letter
 	// (I suspect this is some kind of off-by-one error in writing)
-	record_name2 := record.name
+	record_name2 := record.Name
 	if len(record_name2) == 5 && record_name2[0] == record_name2[1] {
 		record_name2 = record_name2[1:]
 	}
 
 	if record_name2 != "FORM" {
-		out = append(out, "Record: "+prefix+record.name+fmt.Sprintf("%v", record.data))
+		out = append(out, "Record: "+prefix+record.Name+fmt.Sprintf("%v", record.Data))
 	}
 
 	switch record_name2 {
@@ -426,7 +195,7 @@ func parse_record(prefix string, record Record) []string {
 		out = append(out, "Reputation:")
 		for i := range factions {
 			cur := 2 * i
-			v := read_int16(record.data, &cur)
+			v := readers.Read_int16(record.Data, &cur)
 			if factions[i] != "" {
 				out = append(out, fmt.Sprintf("%-10s: %5v (%s)", factions[i], v, status(v)))
 			}
@@ -438,7 +207,7 @@ func parse_record(prefix string, record Record) []string {
 		out = append(out, "Kills:")
 		for i := range factions {
 			cur := 2 * i
-			v := read_int16(record.data, &cur)
+			v := readers.Read_int16(record.Data, &cur)
 			if factions[i] != "" || v > 0 {
 				out = append(out, fmt.Sprintf("%-10s: %3v", factions[i], v))
 			}
@@ -449,18 +218,18 @@ func parse_record(prefix string, record Record) []string {
 		// This is baffling.  Why is starting world state in the save file?  Surely it's only current world state thtat matters.
 		// (Maybe record-saving wasn't supported so they had to throw in the whole form?)
 		cur := 0
-		for cur < len(record.data) {
-			from := read_uint8(record.data, &cur)
-			to := read_uint8(record.data, &cur)
+		for cur < len(record.Data) {
+			from := readers.Read_uint8(record.Data, &cur)
+			to := readers.Read_uint8(record.Data, &cur)
 			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
 		}
 
 	case "SECT":
 		out = append(out, "Hidden Jump Points:")
 		cur := 0
-		for cur < len(record.data) {
-			from := read_uint8(record.data, &cur)
-			to := read_uint8(record.data, &cur)
+		for cur < len(record.Data) {
+			from := readers.Read_uint8(record.Data, &cur)
+			to := readers.Read_uint8(record.Data, &cur)
 			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
 		}
 		// There is some strangeness here.  This record is often one jump point behind reality.
@@ -498,9 +267,9 @@ func parse_record(prefix string, record Record) []string {
 			//9: tractor beam slot
 			10: "Bottom 1",
 		}
-		for i := range len(record.data) / 4 {
-			gun := int(record.data[i*4])
-			mount := int(record.data[i*4+1])
+		for i := range len(record.Data) / 4 {
+			gun := int(record.Data[i*4])
+			mount := int(record.Data[i*4+1])
 			// TODO: Next byte indicates damage, but how?
 
 			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(guns, gun)))
@@ -523,9 +292,9 @@ func parse_record(prefix string, record Record) []string {
 			6: "Turret 1",
 			9: "Turret 2",
 		}
-		for i := range len(record.data) / 4 {
-			launcher := int(record.data[i*4])
-			mount := int(record.data[i*4+1])
+		for i := range len(record.Data) / 4 {
+			launcher := int(record.Data[i*4])
+			mount := int(record.Data[i*4+1])
 			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(launchers, launcher)))
 		}
 
@@ -538,9 +307,9 @@ func parse_record(prefix string, record Record) []string {
 			5: "Image Rec",
 			3: "Friend or Foe",
 		}
-		for i := range len(record.data) / 3 {
-			msl_type := record.data[i*3]
-			count := record.data[i*3+1]
+		for i := range len(record.Data) / 3 {
+			msl_type := record.Data[i*3]
+			count := record.Data[i*3+1]
 			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(missiles, msl_type), count))
 		}
 
@@ -552,8 +321,8 @@ func parse_record(prefix string, record Record) []string {
 			2: "Top",
 			3: "Bottom",
 		}
-		for i := range len(record.data) {
-			out = append(out, fmt.Sprintf("%v", safe_lookup(turrets, record.data[i])))
+		for i := range len(record.Data) {
+			out = append(out, fmt.Sprintf("%v", safe_lookup(turrets, record.Data[i])))
 		}
 
 	case "NAVQ":
@@ -567,12 +336,12 @@ func parse_record(prefix string, record Record) []string {
 
 		out = append(out, "Maps:")
 		// Short description for the overwhelmingly most common case
-		if record.data[0] == 15 {
+		if record.Data[0] == 15 {
 			out = append(out, "All")
 			break
 		}
 		for k, v := range maps {
-			if k&record.data[0] != 0 {
+			if k&record.Data[0] != 0 {
 				out = append(out, v)
 			}
 		}
@@ -587,25 +356,25 @@ func parse_record(prefix string, record Record) []string {
 		// The manual states that the 3 levels of ECM are 25%, 50% and 75% effective.
 		// It looks like the ID here is doing double duty as effectiveness%.
 		out = append(out, "ECM:")
-		out = append(out, fmt.Sprintf("%v%% effective", record.data[0]))
+		out = append(out, fmt.Sprintf("%v%% effective", record.Data[0]))
 
 	case "CRGI":
 		out = append(out, "Cargo-info?:")
 		// What do credits and cargo expansions have in common?  I'd like to know what they were thinking on this one.
 		cur := 0
-		out = append(out, fmt.Sprintf("Credits: %v", read_int_le(record.data, &cur)))
+		out = append(out, fmt.Sprintf("Credits: %v", readers.Read_int_le(record.Data, &cur)))
 		boolmap := map[bool]string{true: "Yes", false: "No"}
-		out = append(out, fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v", record.data[4], boolmap[record.data[6] != 0], boolmap[record.data[7] != 0]))
+		out = append(out, fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v", record.Data[4], boolmap[record.Data[6] != 0], boolmap[record.Data[7] != 0]))
 
 	case "REPR":
 		out = append(out, "Repair Droid:")
 		// There doesn't seem to be any variation here
 		// TODO: check RF's super repair droid
 		expected := []byte{0x90, 1, 0, 0}
-		if slices.Equal(record.data, expected) {
+		if slices.Equal(record.Data, expected) {
 			out = append(out, "Normal")
 		} else {
-			out = append(out, fmt.Sprintf("Unusual Repair Droid!!! Expected %v; found %v", expected, record.data))
+			out = append(out, fmt.Sprintf("Unusual Repair Droid!!! Expected %v; found %v", expected, record.Data))
 		}
 
 	case "ARMR":
@@ -615,11 +384,12 @@ func parse_record(prefix string, record Record) []string {
 		cur := 0
 		out = append(out, "Armour:")
 		names := map[int]string{
-			0:   "(none)",
-			250: "Plasteel",
-			500: "Tungsten",
+			0:    "(none)",
+			250:  "Plasteel",
+			500:  "Tungsten",
+			3000: "Isometal",
 		}
-		armor_type := read_int16(record.data, &cur)
+		armor_type := readers.Read_int16(record.Data, &cur)
 		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
 		cur += 6
 
@@ -637,7 +407,7 @@ func parse_record(prefix string, record Record) []string {
 		// of just how long it takes to die in a crippled Orion) telling us Orion armour is
 		// about 5 times as thick.
 		for _, f := range []string{"Front", "Left", "Right", "Back"} {
-			out = append(out, fmt.Sprintf("%v: %v%%", f, read_int16(record.data, &cur)*100/armor_type))
+			out = append(out, fmt.Sprintf("%v: %v%%", f, readers.Read_int16(record.Data, &cur)*100/armor_type))
 		}
 
 	case "INFO":
@@ -645,18 +415,18 @@ func parse_record(prefix string, record Record) []string {
 
 		if strings.HasSuffix(prefix, "JDRV-") {
 			out = append(out, "Jump drive info")
-			out = append(out, fmt.Sprintf("Jumps: %v", read_int16(record.data, &cur)))
-			out = append(out, fmt.Sprintf("Capacity?: %v", read_int16(record.data, &cur)))
+			out = append(out, fmt.Sprintf("Jumps: %v", readers.Read_int16(record.Data, &cur)))
+			out = append(out, fmt.Sprintf("Capacity?: %v", readers.Read_int16(record.Data, &cur)))
 			break
 		}
 
-		infotype, _, _ := read_string(record.data, &cur)
+		infotype, _, _ := readers.Read_string(record.Data, &cur)
 		out = append(out, "INFO type "+infotype)
 		switch infotype {
 		case "SHIELDS":
-			out = append(out, fmt.Sprintf("Shields level %v", int(record.data[cur+1])-89)) //WHY???
+			out = append(out, fmt.Sprintf("Shields level %v", int(record.Data[cur+1])-89)) //WHY???
 		case "ENERGY":
-			d := record.data[len("ENERGY")+2 : len(record.data)]
+			d := record.Data[len("ENERGY")+2 : len(record.Data)]
 			strd := ""
 			for _, n := range d {
 				strd += fmt.Sprintf("%v", n)
@@ -685,10 +455,10 @@ func parse_record(prefix string, record Record) []string {
 		// so 2 bytes for quantity seems excessive, but you can edit yourself over 255T of stuff
 		// by hitting that second byte.
 		out = append(out, "Cargo data:")
-		for cur := 0; cur < len(record.data); {
-			cargo := read_uint8(record.data, &cur)
-			quantity := read_int16(record.data, &cur)
-			hidden := read_uint8(record.data, &cur)
+		for cur := 0; cur < len(record.Data); {
+			cargo := readers.Read_uint8(record.Data, &cur)
+			quantity := readers.Read_int16(record.Data, &cur)
+			hidden := readers.Read_uint8(record.Data, &cur)
 
 			hiddenness := map[uint8]string{
 				0: "",
@@ -700,29 +470,29 @@ func parse_record(prefix string, record Record) []string {
 	case "TEXT":
 		// Mission text that displays in the in-game computer.  It's just text.
 		out = append(out, "")
-		out = append(out, string(record.data[1:]))
+		out = append(out, string(record.Data[1:]))
 
 	case "CARG":
 		// Mission cargo - a 3-byte field...
 		// Byte 0: destination
 		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
-		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.data[2], safe_lookup(tables.Cargo, record.data[1]), safe_lookup(tables.Locations, record.data[0])))
+		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), safe_lookup(tables.Locations, record.Data[0])))
 
 	case "PAYS":
 		//Mission payment (4 bytes, although I've never seen a mission that needed that)
 		cur := 0
-		pays := read_int_le(record.data, &cur)
+		pays := readers.Read_int_le(record.Data, &cur)
 		out = append(out, fmt.Sprintf("%v credits", pays))
 
 	case "FORM":
 		// Do nothing!  Subforms are handled at the end of the functon.
 
 	default:
-		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.name))
+		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.Name))
 	}
 
-	for _, f := range record.forms {
+	for _, f := range record.Forms {
 		subform := parse_form(prefix, f)
 		for k := range subform {
 			subform[k] = "   " + subform[k]
@@ -748,7 +518,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	header := read_header(bytes)
+	header := readers.Read_header(bytes)
 	fmt.Println()
 	for _, line := range parse_header(header, bytes) {
 		fmt.Println(line)
