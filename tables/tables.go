@@ -2,6 +2,23 @@ package tables
 
 // These tables are in their own file because they are large.
 
+
+
+var Factions = []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
+const (
+	FACTION_MERCHANTS = iota
+	FACTION_HUNTERS
+	FACTION_CONFEDS
+	FACTION_KILRATHI
+	FACTION_MILITIA
+	FACTION_PIRATES
+	FACTION_DRONE
+	FACTION_WTF
+	FACTION_RETROS
+
+	FACTION_COUNT
+)
+
 var Locations = map[uint8]string{
 	//Generated with rip.go
 	0:  "Achilles  (Troy)",

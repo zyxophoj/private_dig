@@ -174,8 +174,6 @@ func parse_form(prefix string, form types.Form) []string {
 func parse_record(prefix string, record types.Record) []string {
 	out := []string{}
 
-	factions := []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
-
 	// Record format depends on record name
 	// record name itself is rather odd, as there seems to be alternate names for the same thing, varying only by doubled first letter
 	// (I suspect this is some kind of off-by-one error in writing)
@@ -205,11 +203,11 @@ func parse_record(prefix string, record types.Record) []string {
 		}
 
 		out = append(out, "Reputation:")
-		for i := range factions {
+		for i := range tables.Factions {
 			cur := 2 * i
 			v := readers.Read_int16(record.Data, &cur)
-			if factions[i] != "" {
-				out = append(out, fmt.Sprintf("%-10s: %5v (%s)", factions[i], v, status(v)))
+			if tables.Factions[i] != "" {
+				out = append(out, fmt.Sprintf("%-10s: %5v (%s)", tables.Factions[i], v, status(v)))
 			}
 		}
 
@@ -217,11 +215,11 @@ func parse_record(prefix string, record types.Record) []string {
 		// Kill count can be displayed on the in-game computer and it behaves correctly for special enemies
 		// (e.g. Black Rhombus is a pirate not a merchant, Mordecai Jones is a retro not a hunter)
 		out = append(out, "Kills:")
-		for i := range factions {
+		for i := range tables.Factions {
 			cur := 2 * i
 			v := readers.Read_int16(record.Data, &cur)
-			if factions[i] != "" || v > 0 {
-				out = append(out, fmt.Sprintf("%-10s: %3v", factions[i], v))
+			if tables.Factions[i] != "" || v > 0 {
+				out = append(out, fmt.Sprintf("%-10s: %3v", tables.Factions[i], v))
 			}
 		}
 
