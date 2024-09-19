@@ -2,6 +2,7 @@ package types
 
 import (
 //"fmt"
+	"strings"
 )
 
 const (
@@ -46,7 +47,7 @@ func (f *Form) Get(what ...string) *Record {
 	for _, w := range what[:len(what)-1] {
 		found := false
 		for _, subform := range f.Subforms {
-			if subform.Name == w {
+			if strings.HasSuffix(subform.Name, w) {
 				f = &subform
 				//fmt.Println("Subform", f.Name)
 				found = true
@@ -60,7 +61,7 @@ func (f *Form) Get(what ...string) *Record {
 	}
 
 	for _, rec := range f.Records {
-		if rec.Name == what[len(what)-1] {
+		if strings.HasSuffix(rec.Name,what[len(what)-1]) {
 			return &rec
 		}
 	}
