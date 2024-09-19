@@ -98,7 +98,6 @@ func mcs_kill(name string, number int, who int) Achievement {
 }
 
 func mcs_complete_series(name string, expl string, number uint8) Achievement {
-
 	return Achievement{
 		name,
 		expl,
@@ -119,13 +118,14 @@ func mcs_complete_series(name string, expl string, number uint8) Achievement {
 			return false
 		},
 	}
-
 }
 
 var cheevz = []Achievement{
+	// Tarsus Grind
+
 	// Progression...
 
-	{"Cargo parasite", "Accept the first mission", func(h types.Header, bs []byte) bool {
+	{"Cargo parasite", "Start the plot", func(h types.Header, bs []byte) bool {
 		cur := h.Offsets[types.OFFSET_REAL]
 		form, err := readers.Read_form(bs, &cur)
 		if err != nil {
@@ -167,7 +167,7 @@ var cheevz = []Achievement{
 
 	mcs_complete_series("Unlocking the ancient mysteries", "Complete Masterson's missions", 3),
 	mcs_complete_series("I travel the galaxy", "Complete the Palan missions", 4),
-	mcs_complete_series("...and far beyond.", "Complete Taryn Cross's missions", 5),
+	mcs_complete_series("...and far beyond", "Complete Taryn Cross's missions", 5),
 
 	{"Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", func(h types.Header, bs []byte) bool {
 		cur := h.Offsets[types.OFFSET_REAL]
@@ -179,12 +179,20 @@ var cheevz = []Achievement{
 
 		guns := form.Get("FITE", "WEAP", "GUNS")
 		for n := 0; n < len(guns.Data); n += 4 {
-			if guns.Data[n] >= 8 {
+			if guns.Data[n] >= 8 { //8==steltek gun, 9==super steltek gun.
 				return true
 			}
 		}
 
 		return false
+	}},
+
+	{"That'll be 30000 credits", "Win the game (and get paid for it)", func(h types.Header, bs []byte) bool {
+		cur := h.Offsets[types.OFFSET_PLOT]
+		str, _, _ := readers.Read_string(bs, &cur)
+		flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
+
+		return str == "s7mb" && flag == 191
 	}},
 
 	// Ships...
@@ -240,7 +248,7 @@ var cheevz = []Achievement{
 		return total > 240
 	}},
 
-	{"Expensive Papereweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(h types.Header, bs []byte) bool {
+	{"Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(h types.Header, bs []byte) bool {
 		cur := h.Offsets[types.OFFSET_REAL]
 		form, err := readers.Read_form(bs, &cur)
 		if err != nil {
@@ -260,7 +268,7 @@ var cheevz = []Achievement{
 		return shields.Data[8] == 89+5 //Why do we start counting at 90?  I have no clue
 	}},
 
-	{"Tarsus Gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte) bool {
+	{"Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte) bool {
 		if bs[h.Offsets[types.OFFSET_SHIP]] != 1 {
 			return false
 		}
@@ -290,15 +298,45 @@ var cheevz = []Achievement{
 		return true
 	}},
 
-	// Fun?...
+	// Random...
+	{"I trade it for the articles", "Carry at least one ton of PlayThing(tm)", func(h types.Header, bs []byte) bool {
+		cur := h.Offsets[types.OFFSET_REAL]
+		form, err := readers.Read_form(bs, &cur)
+		if err != nil {
+			fmt.Println("Failed to read REAL form", err)
+			return false
+		}
+
+		cargo := form.Get("FITE", "CRGO", "DATA")
+		for n := 0; n < len(cargo.Data); n += 4 {
+			if cargo.Data[n] == 27 {
+				return true
+			}
+		}
+
+		return false
+	}},
+
+	// Mostly peaceful
+	mcs_kill("Friend of toasters", 20, tables.FACTION_RETROS),
+	mcs_kill("We are not the same", 20, tables.FACTION_PIRATES),
+	mcs_kill("Avril Lavigne mode", 30, tables.FACTION_HUNTERS),
+	mcs_kill("Also Try Wing Commander", 10, tables.FACTION_KILRATHI),
+	mcs_kill("Criminal", 6, tables.FACTION_MILITIA),
+	mcs_kill("Cat lover", 6, tables.FACTION_CONFEDS),
 
 	// Mass-murder?  I hardly...
-	mcs_kill("I like toasters", 100, tables.FACTION_RETROS),
-	mcs_kill("We are not the same", 100, tables.FACTION_PIRATES),
+	mcs_kill("Guardian Angel of Toasters", 100, tables.FACTION_RETROS),
+	mcs_kill("Your Letter of Marque is in the post", 100, tables.FACTION_PIRATES),
 	mcs_kill("Joan Jett mode", 100, tables.FACTION_HUNTERS),
-	mcs_kill("Also Try Wing Commander", 50, tables.FACTION_KILRATHI),
-	mcs_kill("Criminal", 30, tables.FACTION_MILITIA),
+	mcs_kill("Also Try Wing Commander 3", 50, tables.FACTION_KILRATHI),
+	mcs_kill("Menesch's Apprentice", 30, tables.FACTION_MILITIA),
 	mcs_kill("Traitor", 30, tables.FACTION_CONFEDS),
+
+	// insanity
+	{"Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte) bool {
+		return bs[h.Offsets[types.OFFSET_SHIP]] == 1 && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
+	}},
 }
 
 var unlocked = map[int]bool{}
@@ -307,8 +345,8 @@ func handle_file(filename string) {
 
 	time.Sleep(5 * time.Second)
 
-	fmt.Println("   Detected file", filename)
-	fmt.Println()
+	//fmt.Println("   Detected file", filename)
+	//fmt.Println()
 
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -320,13 +358,13 @@ func handle_file(filename string) {
 
 	for i, cheev := range cheevz {
 		if !unlocked[i] && cheev.test(header, bytes) {
-			fmt.Println("Achivement!", cheev.name)
+			fmt.Println(cheev.name)
 			fmt.Println(cheev.expl)
 			fmt.Println()
 			unlocked[i] = true
 		}
 	}
 
-	fmt.Println("   Finished with file", filename)
-	fmt.Println()
+	//fmt.Println("   Finished with file", filename)
+	//fmt.Println()
 }
