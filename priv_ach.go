@@ -124,7 +124,75 @@ var cheevz = []struct {
 	category string
 	cheeves  []Achievement
 }{
-	{"Tarsus Grind", []Achievement{}},
+	{"Tarsus Grind", []Achievement{
+
+		{"I am speed", "Equip an afterburner", func(h types.Header, bs []byte) bool {
+			cur := h.Offsets[types.OFFSET_REAL]
+			form, err := readers.Read_form(bs, &cur)
+			if err != nil {
+				fmt.Println("Failed to read REAL form", err)
+				return false
+			}
+
+			return form.Get("FITE", "AFTB") != nil
+		}},
+
+		{"Optimism", "Have Merchant's guild membership but no jump drive", func(h types.Header, bs []byte) bool {
+			if bs[h.Offsets[types.OFFSET_SHIP]+6] == 0 {
+				return false
+			}
+
+			cur := h.Offsets[types.OFFSET_REAL]
+			form, err := readers.Read_form(bs, &cur)
+			if err != nil {
+				fmt.Println("Failed to read REAL form", err)
+				return false
+			}
+			return form.Get("FITE", "JRDV", "INFO") == nil
+		}},
+
+		{"Shields to maximum", "Equip level 2 shields!", func(h types.Header, bs []byte) bool {
+			cur := h.Offsets[types.OFFSET_REAL]
+			form, err := readers.Read_form(bs, &cur)
+			if err != nil {
+				fmt.Println("Failed to read REAL form", err)
+				return false
+			}
+
+			shields := form.Get("FITE", "SHLD", "INFO")
+			if shields == nil {
+				return false
+			}
+			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
+		}},
+
+		{"Don't worry, it gets much easier", "Kill", func(h types.Header, bs []byte) bool {
+			cur := h.Offsets[types.OFFSET_PLAY]
+			form, err := readers.Read_form(bs, &cur)
+			if err != nil {
+				fmt.Println("Failed to read PLAY form", err)
+				return false
+			}
+
+			kills := form.Get("KILL")
+			return !slices.Equal(kills.Data, make([]byte, len(kills.Data)))
+		}},
+
+		/*{"I am become death, destroyer of Talons", "Have a a scanner that can IR lock and 2 missile launchers!", func(h types.Header, bs []byte) bool {
+
+		}},
+
+		"Taste the rainbow", "Have a full colour scanner!"*/
+
+		{"Rubicon", "Land in a non-troy system", func(h types.Header, bs []byte) bool {
+			switch bs[h.Offsets[types.OFFSET_SHIP]+2] {
+			case 0, 15, 17:
+				return false
+			}
+
+			return true
+		}},
+	}},
 
 	{"Plot", []Achievement{
 
