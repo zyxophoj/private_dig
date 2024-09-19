@@ -75,24 +75,16 @@ func main() {
 type Achievement struct {
 	name string
 	expl string
-	test func(types.Header, []byte) bool
+	test func(types.Header, []byte, map[int]*types.Form) bool
 }
 
 func mcs_kill(name string, number int, who int) Achievement {
 	return Achievement{
 		name,
 		fmt.Sprintf("Kill %v %v", number, tables.Factions[who]),
-		func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_PLAY]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read PLAY form", err)
-				return false
-			}
-
-			kills := form.Get("KILL")
-			cur = 2 * who
-			return readers.Read_int16(kills.Data, &cur) >= number
+		func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := 2 * who
+			return readers.Read_int16(forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) >= number
 		},
 	}
 }
@@ -101,7 +93,7 @@ func mcs_complete_series(name string, expl string, number uint8) Achievement {
 	return Achievement{
 		name,
 		expl,
-		func(h types.Header, bs []byte) bool {
+		func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cur := h.Offsets[types.OFFSET_PLOT]
 			str, _, _ := readers.Read_string(bs, &cur)
 			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
@@ -126,55 +118,28 @@ var cheevz = []struct {
 }{
 	{"Tarsus Grind", []Achievement{
 
-		{"I am speed", "Equip an afterburner", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			return form.Get("FITE", "AFTB") != nil
+		{"I am speed", "Equip an afterburner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			return forms[types.OFFSET_REAL].Get("FITE", "AFTB") != nil
 		}},
 
-		{"Optimism", "Have Merchant's guild membership but no jump drive", func(h types.Header, bs []byte) bool {
+		{"Optimism", "Have Merchant's guild membership but no jump drive", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			if bs[h.Offsets[types.OFFSET_SHIP]+6] == 0 {
 				return false
 			}
 
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-			return form.Get("FITE", "JRDV", "INFO") == nil
+			return forms[types.OFFSET_REAL].Get("FITE", "JRDV", "INFO") == nil
 		}},
 
-		{"Shields to maximum", "Equip level 2 shields!", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			shields := form.Get("FITE", "SHLD", "INFO")
+		{"Shields to maximum", "Equip level 2 shields!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			shields := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO")
 			if shields == nil {
 				return false
 			}
 			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"Don't worry, it gets much easier", "Kill", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_PLAY]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read PLAY form", err)
-				return false
-			}
-
-			kills := form.Get("KILL")
+		{"Don't worry, it gets much easier", "Kill somebody", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			kills := forms[types.OFFSET_PLAY].Get("KILL")
 			return !slices.Equal(kills.Data, make([]byte, len(kills.Data)))
 		}},
 
@@ -184,7 +149,7 @@ var cheevz = []struct {
 
 		"Taste the rainbow", "Have a full colour scanner!"*/
 
-		{"Rubicon", "Land in a non-troy system", func(h types.Header, bs []byte) bool {
+		{"Rubicon", "Land in a non-troy system", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			switch bs[h.Offsets[types.OFFSET_SHIP]+2] {
 			case 0, 15, 17:
 				return false
@@ -196,15 +161,8 @@ var cheevz = []struct {
 
 	{"Plot", []Achievement{
 
-		{"Cargo parasite", "Start the plot", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			cargo := form.Get("FITE", "CRGO", "DATA")
+		{"Cargo parasite", "Start the plot", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
 				if cargo.Data[n] == 42 {
 					return true
@@ -216,7 +174,7 @@ var cheevz = []struct {
 
 		mcs_complete_series("I'm not a pirate, I just work for them", "Complete Tayla's missions", 1),
 
-		{"Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", func(h types.Header, bs []byte) bool {
+		{"Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// Note: The final "Get ambushed by Miggs" mission can't have completed status.
 			// We're lying in the description to avoid spoiling a 30-year-old game.
 			cur := h.Offsets[types.OFFSET_PLOT]
@@ -240,15 +198,8 @@ var cheevz = []struct {
 		mcs_complete_series("I travel the galaxy", "Complete the Palan missions", 4),
 		mcs_complete_series("...and far beyond", "Complete Taryn Cross's missions", 5),
 
-		{"Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			guns := form.Get("FITE", "WEAP", "GUNS")
+		{"Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			for n := 0; n < len(guns.Data); n += 4 {
 				if guns.Data[n] >= 8 { //8==steltek gun, 9==super steltek gun.
 					return true
@@ -258,7 +209,7 @@ var cheevz = []struct {
 			return false
 		}},
 
-		{"That'll be 30000 credits", "Win the game (and get paid for it)", func(h types.Header, bs []byte) bool {
+		{"That'll be 30000 credits", "Win the game (and get paid for it)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cur := h.Offsets[types.OFFSET_PLOT]
 			str, _, _ := readers.Read_string(bs, &cur)
 			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
@@ -270,16 +221,9 @@ var cheevz = []struct {
 	{"Ships", []Achievement{
 		// The idea here is one achievement per ship which exemplifies what that ship is for.
 
-		{"Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
+		{"Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			count := 0
-			guns := form.Get("FITE", "WEAP", "GUNS")
+			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			for n := 1; n < len(guns.Data); n += 4 {
 				if guns.Data[n] >= 1 && guns.Data[n] <= 4 {
 					count += 1
@@ -289,7 +233,7 @@ var cheevz = []struct {
 				return false
 			}
 
-			warheads := form.Get("FITE", "WEAP", "MISL")
+			warheads := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "MISL")
 			count = 0
 			for n := 1; n < len(warheads.Data); n += 3 {
 				count += int(warheads.Data[n])
@@ -298,20 +242,13 @@ var cheevz = []struct {
 			return count == 20
 		}},
 
-		{"I'm a trader, really!", "Carry more than 240T of cargo (in a Galaxy)", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
+		{"I'm a trader, really!", "Carry more than 240T of cargo (in a Galaxy)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// It is actually possible to be in this state in a non-Galaxy (by transfering the secret compartment from a non-galalxy to a Galaxy,
 			// filling up beyond 225T, then switching to a non-Galaxy).  But since this involved having a qualifying state, we don't need to
 			// check ship type.
 
 			total := 0
-			cargo := form.Get("FITE", "CRGO", "DATA")
+			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
 				cur := n + 1
 				total += readers.Read_int16(cargo.Data, &cur)
@@ -320,45 +257,30 @@ var cheevz = []struct {
 			return total > 240
 		}},
 
-		{"Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
+		{"Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			if !slices.Equal(forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data, []byte{'E', 'N', 'E', 'R', 'G', 'Y', 0, 0, 1, 2, 2, 2, 3, 1, 4, 1, 5, 1, 6, 2}) {
 				return false
 			}
 
-			engines := form.Get("FITE", "ENER", "INFO")
-			if !slices.Equal(engines.Data, []byte{'E', 'N', 'E', 'R', 'G', 'Y', 0, 0, 1, 2, 2, 2, 3, 1, 4, 1, 5, 1, 6, 2}) {
-				return false
-			}
-
-			shields := form.Get("FITE", "SHLD", "INFO")
+			shields := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO")
 			if shields == nil {
 				return false
 			}
 			return shields.Data[8] == 89+5 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte) bool {
+		{"Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			if bs[h.Offsets[types.OFFSET_SHIP]] != 1 {
 				return false
 			}
 
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			armour := form.Get("FITE", "SHLD", "ARMR")
+			armour := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
 			if armour == nil {
 				return false
 			}
 
 			var armours [8]int
-			cur = 0
+			cur := 0
 			for i := range armours {
 				armours[i] = readers.Read_int16(armour.Data, &cur)
 			}
@@ -373,15 +295,8 @@ var cheevz = []struct {
 
 	{"Random", []Achievement{
 
-		{"I trade it for the articles", "Carry at least one ton of PlayThing(tm)", func(h types.Header, bs []byte) bool {
-			cur := h.Offsets[types.OFFSET_REAL]
-			form, err := readers.Read_form(bs, &cur)
-			if err != nil {
-				fmt.Println("Failed to read REAL form", err)
-				return false
-			}
-
-			cargo := form.Get("FITE", "CRGO", "DATA")
+		{"I trade it for the articles", "Carry at least one ton of PlayThing(tm)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
 				if cargo.Data[n] == 27 {
 					return true
@@ -412,7 +327,7 @@ var cheevz = []struct {
 	}},
 
 	{"Feats of insanity", []Achievement{
-		{"Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte) bool {
+		{"Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return bs[h.Offsets[types.OFFSET_SHIP]] == 1 && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
 		}},
 	}},
@@ -435,10 +350,21 @@ func handle_file(filename string) {
 
 	header := readers.Read_header(bytes)
 
+	forms := map[int]*types.Form{}
+	for _, i := range []int{types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL} {
+		cur := header.Offsets[i]
+		f, err := readers.Read_form(bytes, &cur)
+		if err != nil {
+			fmt.Println("Failed to load form", i, "-", err)
+			return
+		}
+		forms[i] = &f
+	}
+
 	for i, list := range cheevz {
 		for j, cheev := range list.cheeves {
 			id := 10000*i + j
-			if !unlocked[id] && cheev.test(header, bytes) {
+			if !unlocked[id] && cheev.test(header, bytes, forms) {
 				fmt.Println(cheev.name)
 				fmt.Println(cheev.expl)
 				fmt.Println("Category:", list.category)
