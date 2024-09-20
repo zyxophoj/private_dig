@@ -430,6 +430,28 @@ func parse_record(prefix string, record types.Record) []string {
 			break
 		}
 
+		if strings.HasSuffix(prefix, "TRGT-") {
+			readers.Read_fixed_string("TARGETNG", record.Data, &cur)
+
+			scanner := readers.Read_uint8(record.Data, &cur) - 60 //Why 60???
+
+			names := []string{"Iris Mk I", "Iris Mk II", "Iris Mk III",
+				"Hunter AW 6", "Hunter Aw 6i", "Hunter Aw Inf",
+				"BS Tripwire", "B.S.  E.Y.E", "B.S. Omni"}
+
+			// Like anyone cares about the names.  Scanner capabilitiues are determined by position in the 3x3 grid.
+			lockiness := []string{"No Lock", "Lock", "Lock, ITTS"}
+			colorosity := []string{"All Grey", "Colour", "Full Colour"}
+
+			if scanner < 0 || scanner >= 9 {
+				out = append(out, fmt.Sprintf("UNEXPECTED SCANNER!! (%v)", scanner))
+				break
+			}
+
+			out = append(out, fmt.Sprintf("Scanner: %v (%v, %v)", names[scanner], colorosity[scanner/3], lockiness[scanner%3]))
+			break
+		}
+
 		infotype, _, _ := readers.Read_string(record.Data, &cur)
 		out = append(out, "INFO type "+infotype)
 		switch infotype {
