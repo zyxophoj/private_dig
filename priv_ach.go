@@ -116,7 +116,7 @@ var cheevz = []struct {
 	category string
 	cheeves  []Achievement
 }{
-	{"Tarsus Grind", []Achievement{
+	{"Tarsus Grind", []Achievement{ //Because not everybody gfets their Centurion at the 3-minute mark :D
 
 		{"I am speed", "Equip an afterburner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return forms[types.OFFSET_REAL].Get("FITE", "AFTB") != nil
@@ -138,16 +138,40 @@ var cheevz = []struct {
 			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"Don't worry, it gets much easier", "Kill somebody", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"It gets much easier", "Kill somebody", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			kills := forms[types.OFFSET_PLAY].Get("KILL")
 			return !slices.Equal(kills.Data, make([]byte, len(kills.Data)))
 		}},
 
-		/*{"I am become death, destroyer of Talons", "Have a a scanner that can IR lock and 2 missile launchers!", func(h types.Header, bs []byte) bool {
-
+		{"I am become death, destroyer of Talons", "Have 2 missile launchers!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
+			count := 0
+			for i := 0; i < len(launchers.Data); i += 4 {
+				if launchers.Data[i] == 50 {
+					count += 1
+				}
+			}
+			return count == 2
 		}},
 
-		"Taste the rainbow", "Have a full colour scanner!"*/
+		{"Now witness the firepower", "Equip a Tachyon Cannon", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			for n := 0; n < len(guns.Data); n += 4 {
+				if guns.Data[n] == 7 {
+					return true
+				}
+			}
+
+			return false
+		}},
+
+		{"They fix Everything", "Have a repair-bot", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			return forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil
+		}},
+
+		{"Taste the rainbow", "Have a colour scanner!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			return forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO").Data[len("TARGETNG")]-60 > 2
+		}},
 
 		{"Rubicon", "Land in a non-troy system", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			switch bs[h.Offsets[types.OFFSET_SHIP]+2] {
@@ -218,8 +242,7 @@ var cheevz = []struct {
 		}},
 	}},
 
-	{"Ships", []Achievement{
-		// The idea here is one achievement per ship which exemplifies what that ship is for.
+	{"Ships", []Achievement{ // The idea here is one achievement per ship which exemplifies what that ship is for.
 
 		{"Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			count := 0
@@ -294,6 +317,16 @@ var cheevz = []struct {
 	}},
 
 	{"Random", []Achievement{
+		{"I know what you did", "Equip multiple tractor beams", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
+			count := 0
+			for i := 0; i < len(launchers.Data); i += 4 {
+				if launchers.Data[i] == 52 {
+					count += 1
+				}
+			}
+			return count > 1
+		}},
 
 		{"I trade it for the articles", "Carry at least one ton of PlayThing(tm)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
@@ -305,11 +338,52 @@ var cheevz = []struct {
 
 			return false
 		}},
+
+		{"Dr. Evil Pinky Finger", "Possess One Million Spacedollars", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := 0
+			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 1000000
+		}},
+
+		{"The guild just glues it to the outside", "Carry more cargo than will fit in your ship", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// Assuming the player isn't just cheating, this is possible because cargo-delivery missions don't bother to check cargo capacity when you accept them.
+			// This could be a bug, but maybe it's a convenience feature?
+
+			info := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
+			capacity := int(info.Data[4])
+			if info.Data[6] != 0 {
+				capacity += 20 //secfet compartment
+			}
+
+			stored := 0
+			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
+			for n := 0; n < len(cargo.Data); n += 4 {
+				cur := n + 1
+				stored += readers.Read_int16(cargo.Data, &cur)
+			}
+
+			//fmt.Println("Stored:", stored, "Capacity:", capacity)
+			return stored > capacity
+		}},
+
+		{"The Bitcores maneuver", "Put the Steltek gun on a central mount", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
+			if bs[h.Offsets[types.OFFSET_SHIP]] != 2 {
+				return false
+			}
+			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			for n := 0; n < len(guns.Data); n += 4 {
+				if guns.Data[n] >= 8 && (guns.Data[n+1] == 2 || guns.Data[n+1] == 3) {
+					return true
+				}
+			}
+
+			return false
+		}},
 	}},
 
 	{"Mostly Peaceful", []Achievement{
 
-		mcs_kill("Friend of toasters", 20, tables.FACTION_RETROS),
+		mcs_kill("Defender of toasters", 20, tables.FACTION_RETROS),
 		mcs_kill("We are not the same", 20, tables.FACTION_PIRATES),
 		mcs_kill("Avril Lavigne mode", 30, tables.FACTION_HUNTERS),
 		mcs_kill("Also Try Wing Commander", 10, tables.FACTION_KILRATHI),
@@ -326,9 +400,13 @@ var cheevz = []struct {
 		mcs_kill("Traitor", 30, tables.FACTION_CONFEDS),
 	}},
 
-	{"Feats of insanity", []Achievement{
+	{"Feats of Insanity", []Achievement{
 		{"Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			return bs[h.Offsets[types.OFFSET_SHIP]] == 1 && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
+			return bs[h.Offsets[types.OFFSET_SHIP]] == 0 && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
+		}},
+		{"Probably sufficient to start Righteous Fire", "Possess twenty million spacedollars", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := 0
+			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
 		}},
 	}},
 }
