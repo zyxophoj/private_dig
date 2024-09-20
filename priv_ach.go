@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"gopkg.in/ini.v1"
 
 	"privdump/readers"
 	"privdump/tables"
@@ -18,11 +19,28 @@ import (
 
 func get_dir() string {
 	// dir from command line
-	if os.Args[1] == "--dir" {
+	if len(os.Args) > 1 && os.Args[1] == "--dir" {
 		return os.Args[2]
 	}
 
-	//todo: dir from ini file
+	//dir from ini file
+	cfg, err := ini.Load("priv_ach.ini")
+	if err == nil {
+		// Classic read of values, default section can be represented as empty string
+		dir := cfg.Section("").Key("dir").String()
+		if dir != "" {
+			return dir
+		}
+	}
+
+	/*bytes, err := ioutil.ReadFile("priv_ach.cfg")
+	if err == nil {
+		cfg := map[string]string{}
+		_ = json.Unmarshal(bytes, &cfg)
+		if cfg["dir"] != "" {
+			return cfg["dir"]
+		}
+	}*/
 
 	//current dir
 
