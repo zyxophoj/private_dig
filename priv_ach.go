@@ -476,7 +476,7 @@ var cheev_list = []struct {
 		}},
 
 		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			if bs[h.Offsets[types.OFFSET_SHIP]] != 1 {
+			if bs[h.Offsets[types.OFFSET_SHIP]] != 0 {
 				return false
 			}
 
