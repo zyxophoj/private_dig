@@ -575,6 +575,82 @@ var cheev_list = []struct {
 			return stored > capacity
 		}},
 
+		{"AID_KILL_DRONE", "No kill stealing", "Personally kill the Steltek Drone", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// Although only the improved Steltek gun can knock down the drone's shields,
+			// anything can damage the soft and squishy egg inside.
+			cur := 2 * tables.FACTION_DRONE
+			return readers.Read_int16(forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
+		}},
+
+		{"AID_WIN_KILL_NO_KILRATHI", "Cat Lover", "Win the game without killing any Kilrathi", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := 2 * tables.FACTION_KILRATHI
+			if readers.Read_int16(forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+				return false
+			}
+
+			cur = h.Offsets[types.OFFSET_PLOT]
+			str, _, _ := readers.Read_string(bs, &cur)
+			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
+
+			return str == "s7mb" && flag == 191
+		}},
+
+		{"AID_WIN_KILL_NO_GOOD", "Good Guy", "Win the game without killing any Militia, Merchants or Confeds", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			for _, faction := range []int{tables.FACTION_MILITIA, tables.FACTION_MERCHANTS, tables.FACTION_CONFEDS} {
+				cur := 2 * faction
+				if readers.Read_int16(forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+					return false
+				}
+			}
+
+			cur := h.Offsets[types.OFFSET_PLOT]
+			str, _, _ := readers.Read_string(bs, &cur)
+			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
+
+			return str == "s7mb" && flag == 191
+		}},
+
+		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			if len(h.Mission_offsets) != 6 {
+				return false
+			}
+
+			destinations := map[uint8]bool{}
+			for i := 1; i < 6; i += 2 {
+				cur := h.Mission_offsets[i]
+				form, err := readers.Read_form(bs, &cur)
+				if err != nil {
+					//fmt.Println("BAd form!")
+					return false
+				}
+
+				cargo := form.Get("CARG")
+				if cargo == nil {
+					// not a cargo mission
+					//fmt.Println("Bad cargo")
+					return false
+				}
+
+				destinations[cargo.Data[0]] = true
+			}
+
+			//fmt.Println(destinations)
+			return len(destinations) == 1
+		}},
+
+		{"AID_FAIL_ESCORT", "Wing Commander Nostalgia", "Fail a Drayman escort mission", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// There are 3 such missions - Oxford 1, 3 and 4.
+			cur := h.Offsets[types.OFFSET_PLOT]
+			str, _, _ := readers.Read_string(bs, &cur)
+			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
+
+			switch str {
+			case "s3ma", "s3mc", "s3md":
+				return (flag == 226 || flag == 162)
+			}
+			return false
+		}},
+
 		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
 			if bs[h.Offsets[types.OFFSET_SHIP]] != 2 {
@@ -655,6 +731,42 @@ var cheev_list = []struct {
 
 			cur = 2 * tables.FACTION_HUNTERS
 			return readers.Read_int16(forms[types.OFFSET_PLAY].Get("SCOR").Data, &cur) >= -25
+		}},
+
+		{"AID_CARGO_IS_TWICE_BIGGER", "How much glue do you have?", "Carry more than twice as much cargo as will fit in your ship", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// Probably the easiest way to do this is to get a centurion without a secret compartment, buy 50T of whatever,
+			// then accept 4 cargo missions.  That's now I did it, anyway.  Some savescumming required.
+			info := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
+			capacity := int(info.Data[4])
+			if info.Data[6] != 0 {
+				capacity += 20 //secfet compartment
+			}
+
+			stored := 0
+			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
+			for n := 0; n < len(cargo.Data); n += 4 {
+				cur := n + 1
+				stored += readers.Read_int16(cargo.Data, &cur)
+			}
+
+			//fmt.Println("Stored:", stored, "Capacity:", capacity)
+			return stored > capacity*2
+		}},
+
+		{"AID_INSANE_FRIENDLY", "No-one, you see, is smarter than he", "Become friendly with every real faction", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// The problem here is that retros start out hostile, and it is not possible to improve retro rep by any means.. other than getting it below -32768,
+			// causing 16-bit wraparound, flipping them to maximally friendly!  This will require about 6000 retro kills.
+			// Cheev name is a reference to "Flipper", which is sort of a hint as to the only way to do this.
+			rep := forms[types.OFFSET_PLAY].Get("SCOR")
+			for _, f := range []int{tables.FACTION_MERCHANTS, tables.FACTION_HUNTERS, tables.FACTION_CONFEDS, tables.FACTION_KILRATHI,
+				tables.FACTION_MILITIA, tables.FACTION_PIRATES, tables.FACTION_RETROS} {
+				cur := 2 * f
+				if readers.Read_int16(rep.Data, &cur) <= 25 {
+					return false
+				}
+			}
+
+			return true
 		}},
 	}},
 }
