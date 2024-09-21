@@ -237,7 +237,6 @@ func main() {
 	<-make(chan bool)
 }
 
-
 type Achievement struct {
 	id   string
 	name string
@@ -282,7 +281,7 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 }
 
 // Here is the list of achievements.
-// Achievement id-s must remain unchanged FOREVER, even if they contain the worst possible typos, 
+// Achievement id-s must remain unchanged FOREVER, even if they contain the worst possible typos,
 // as they are stored in state files, and we don't want to have a situation where upgrading
 // priv_ach will randomise what achievements people have.
 //
