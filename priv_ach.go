@@ -616,6 +616,40 @@ var cheev_list = []struct {
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
 		}},
+
+		{"AID_FIX_HUNTER_REP", "Grinder", "Recover hunter reputation to non-hostile before winning", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := h.Offsets[types.OFFSET_PLOT]
+			str, _, _ := readers.Read_string(bs, &cur)
+			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
+
+			if len(str) != 4 {
+				// Either too early or too latge
+				return false
+			}
+
+			// Not onto Murphy
+			if str[0] == 's' && str[1] < '4' {
+				return false
+			}
+
+			// Not onto Murphy 3 (we need to get at least this far to have the bad rep
+			if str[0] == 's' && str[1] == '4' && str[3] < 'd' {
+				return false
+			}
+
+			if flag == 226 {
+				// failed!
+				return false
+			}
+
+			if str == "s7mb" && flag == 191 {
+				// won the game!
+				return false
+			}
+
+			cur = 2 * tables.FACTION_HUNTERS
+			return readers.Read_int16(forms[types.OFFSET_PLAY].Get("SCOR").Data, &cur) >= -25
+		}},
 	}},
 }
 
