@@ -401,7 +401,7 @@ var cheev_list = []struct {
 			return false
 		}},
 
-		mcs_complete_series("AID_OXFORD", "Unlocking the ancient mysteries", "Complete Masterson's missions", 3),
+		mcs_complete_series("AID_OXFORD", "Unlocking the greatest mysteries", "Complete Masterson's missions", 3),
 		mcs_complete_series("AID_PALAN", "I travel the galaxy", "Complete the Palan missions", 4),
 		mcs_complete_series("AID_RYGANNON", "...and far beyond", "Complete Taryn Cross's missions", 5),
 
@@ -548,7 +548,7 @@ var cheev_list = []struct {
 			return true
 		}},
 
-		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Spacedollars", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 1000000
@@ -678,7 +678,7 @@ var cheev_list = []struct {
 		mcs_kill("AID_KILL_HUNTERS", "Avril Lavigne mode", 30, tables.FACTION_HUNTERS),
 		mcs_kill("AID_KILL_KILRATHI", "Also Try Wing Commander", 10, tables.FACTION_KILRATHI),
 		mcs_kill("AID_KILL_MILITIA", "Criminal", 6, tables.FACTION_MILITIA),
-		mcs_kill("AID_KILL_CONFEDS", "Cat lover", 6, tables.FACTION_CONFEDS),
+		mcs_kill("AID_KILL_CONFEDS", "Traitor", 6, tables.FACTION_CONFEDS),
 	}},
 
 	{"Mass-murder?  I hardly...", []Achievement{
@@ -687,14 +687,14 @@ var cheev_list = []struct {
 		mcs_kill("AID_KILL_MANY_HUNTERS", "Joan Jett mode", 100, tables.FACTION_HUNTERS),
 		mcs_kill("AID_KILL_MANY_KILRATHI", "Also Try Wing Commander 3", 50, tables.FACTION_KILRATHI),
 		mcs_kill("AID_KILL_MANY_MILITIA", "Menesch's Apprentice", 30, tables.FACTION_MILITIA),
-		mcs_kill("AID_KILL_MANY_CONFEDS", "Traitor", 30, tables.FACTION_CONFEDS),
+		mcs_kill("AID_KILL_MANY_CONFEDS", "Arch-Traitor", 30, tables.FACTION_CONFEDS),
 	}},
 
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			return bs[h.Offsets[types.OFFSET_SHIP]] == 0 && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
+			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
 		}},
-		{"AID_VERY_RICH", "Probably sufficient to start Righteous Fire", "Possess twenty million spacedollars", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_VERY_RICH", "Probably sufficient to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
 		}},
