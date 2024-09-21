@@ -771,6 +771,8 @@ var cheev_list = []struct {
 	}},
 }
 
+var last_identity = ""
+
 func handle_file(filename string) {
 
 	time.Sleep(5 * time.Second)
@@ -813,6 +815,10 @@ func handle_file(filename string) {
 	for _, list := range cheev_list {
 		for _, cheev := range list.cheeves {
 			identity := name + ":" + callsign
+			if last_identity != identity {
+				fmt.Println("Identity is", identity)
+				last_identity = identity
+			}
 			if !global_state.Unlocked[identity][cheev.id] && cheev.test(header, bytes, forms) {
 				fmt.Println(cheev.name)
 				fmt.Println(cheev.expl)
