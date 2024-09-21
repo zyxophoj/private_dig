@@ -587,10 +587,14 @@ var cheev_list = []struct {
 
 			return false
 		}},
+
+		// TODO: these would be fun but needs multi-file checking
+		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
+		// "How does that work?", "Transfer your secret compartment to a new ship"
+		// "Press C to spill secrets", "Visit all secret bases"
 	}},
 
 	{"Mostly Peaceful", []Achievement{
-
 		mcs_kill("AID_KILL_RETROS", "Defender of toasters", 20, tables.FACTION_RETROS),
 		mcs_kill("AID_KILL_PIRATES", "We are not the same", 20, tables.FACTION_PIRATES),
 		mcs_kill("AID_KILL_HUNTERS", "Avril Lavigne mode", 30, tables.FACTION_HUNTERS),
