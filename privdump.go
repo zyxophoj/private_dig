@@ -33,10 +33,10 @@ func parse_header(header types.Header, bytes []byte) []string {
 		switch o {
 		case types.OFFSET_SHIP:
 			ships := map[uint8]string{
-				0: "Tarsus",
-				1: "Orion",
-				2: "Centurion",
-				3: "Galaxy",
+				tables.SHIP_TARSUS: "Tarsus",
+				tables.SHIP_ORION: "Orion",
+				tables.SHIP_CENTURION: "Centurion",
+				tables.SHIP_GALAXY: "Galaxy",
 			}
 			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
 			cur += 2

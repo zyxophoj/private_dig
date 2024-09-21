@@ -19,6 +19,14 @@ const (
 	FACTION_COUNT
 )
 
+// This is the order that they are displayed in the ship dealer, I guess
+const(
+	SHIP_TARSUS=0
+	SHIP_ORION=1
+	SHIP_CENTURION=2
+	SHIP_GALAXY=3
+)
+
 var Locations = map[uint8]string{
 	//Generated with rip.go
 	0:  "Achilles  (Troy)",
