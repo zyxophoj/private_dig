@@ -65,6 +65,136 @@ func load_state() {
 }
 
 func main() {
+	// Deal with args
+
+	arg_info := []struct {
+		arg     string
+		subargs int
+		desc    string
+	}{
+		{"help", 0, "Display this possibly helpful info"},
+		{"check", 0, "Sanity check"},
+		{"list", 0, "List identities"},
+		{"show", 1, "Show achievemnts for an identity"},
+		{"show_missing", 1, "Show missing achievemnts for an identity"},
+		{"run", 0, "Run and monitor achievements.  Also the default."},
+	}
+
+	main_arg := ""
+	subargs := []string{}
+	subargs_needed := 0
+	for _, arg := range os.Args[1:] {
+		if main_arg == "" {
+			for _, info := range arg_info {
+				if info.arg == arg {
+					main_arg = arg
+					subargs_needed = info.subargs
+					break
+				}
+			}
+			if main_arg == "" {
+				fmt.Println("Unexpected extra argument:", arg)
+				os.Exit(1)
+			}
+		} else if len(subargs) < subargs_needed {
+			subargs = append(subargs, arg)
+		} else {
+			fmt.Println("Unexpected extra argument:", arg)
+			os.Exit(1)
+		}
+	}
+	if main_arg == "" {
+		main_arg = "run"
+	}
+
+	if len(subargs) != subargs_needed {
+		fmt.Println(fmt.Sprintf("Expected %v extra arguments; got %v:", subargs_needed, len(subargs)))
+		os.Exit(1)
+	}
+
+	dir := get_dir()
+	state_file = dir + "\\pracst.json"
+
+	switch main_arg {
+	case "help":
+		for _, info := range arg_info {
+			fmt.Println(info.arg, "-", info.desc)
+		}
+		os.Exit(0)
+
+	case "check":
+		fmt.Println("Target dir is: " + dir)
+		os.Exit(0)
+
+	case "list":
+		load_state()
+		if len(global_state.Unlocked) == 0 {
+			fmt.Println("(no profiles detected")
+			os.Exit(0)
+		}
+
+		for p := range global_state.Unlocked {
+			fmt.Println(p)
+		}
+		os.Exit(0)
+
+	case "show":
+		fmt.Println("Showing achevements for", subargs[0])
+		fmt.Println()
+
+		load_state()
+		got := global_state.Unlocked[subargs[0]]
+		ttotal := 0
+		for _, cat_list := range cheev_list {
+			total := len(cat_list.cheeves)
+			ttotal += total
+			indices := []int{}
+			for i, cheev := range cat_list.cheeves {
+				if got[cheev.id] {
+					indices = append(indices, i)
+				}
+			}
+			fmt.Println(fmt.Sprintf("%v (%v/%v):", cat_list.category, len(indices), total))
+			for _, i := range indices {
+				fmt.Println("   " + cat_list.cheeves[i].name)
+				fmt.Println("   (" + cat_list.cheeves[i].expl + ")")
+				fmt.Println()
+			}
+			fmt.Println()
+		}
+		fmt.Println(fmt.Sprintf("Overall: %v/%v", len(got), ttotal))
+		os.Exit(0)
+
+	case "show_missing":
+		fmt.Println("Showing missing achevements for", subargs[0])
+		fmt.Println()
+
+		load_state()
+		got := global_state.Unlocked[subargs[0]]
+		for _, cat_list := range cheev_list {
+			total := len(cat_list.cheeves)
+			indices := []int{}
+			for i, cheev := range cat_list.cheeves {
+				if !got[cheev.id] {
+					indices = append(indices, i)
+				}
+			}
+			if len(indices) > 0 {
+				fmt.Println(fmt.Sprintf("%v (%v/%v):", cat_list.category, len(indices), total))
+				for _, i := range indices {
+					fmt.Println("   " + cat_list.cheeves[i].name)
+					fmt.Println("   (" + cat_list.cheeves[i].expl + ")")
+					fmt.Println()
+				}
+				fmt.Println()
+			}
+		}
+		os.Exit(0)
+
+	case "run":
+		break
+	}
+
 	// Create new watcher.
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -73,8 +203,6 @@ func main() {
 	}
 	defer watcher.Close()
 
-	dir := get_dir()
-	state_file = dir + "\\pracst.json"
 	load_state()
 
 	// Start listening for events.
