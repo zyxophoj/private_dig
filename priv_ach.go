@@ -299,7 +299,7 @@ var cheev_list = []struct {
 	category string
 	cheeves  []Achievement
 }{
-	{"Tarsus Grind", []Achievement{ //Because not everybody gfets their Centurion at the 3-minute mark :D
+	{"Tarsus Grind", []Achievement{ //Because not everybody gets their Centurion at the 3-minute mark :D
 
 		{"AID_AFTERBURNER", "I am speed", "Equip an afterburner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return forms[types.OFFSET_REAL].Get("FITE", "AFTB") != nil
@@ -313,7 +313,7 @@ var cheev_list = []struct {
 			return forms[types.OFFSET_REAL].Get("FITE", "JRDV", "INFO") == nil
 		}},
 
-		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			shields := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO")
 			if shields == nil {
 				return false
@@ -321,12 +321,12 @@ var cheev_list = []struct {
 			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"AID_KILL1", "It gets much easier", "Kill another person, forever destroying everything they are or could be", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			kills := forms[types.OFFSET_PLAY].Get("KILL")
 			return !slices.Equal(kills.Data, make([]byte, len(kills.Data)))
 		}},
 
-		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
 			for i := 0; i < len(launchers.Data); i += 4 {
@@ -352,7 +352,7 @@ var cheev_list = []struct {
 			return forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil
 		}},
 
-		{"AID_COLOUR_SCANNER", "Taste the rainbow", "Have a colour scanner!", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_COLOUR_SCANNER", "\"Red\" rhymes with \"Dead\"", "Equip a colour scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO").Data[len("TARGETNG")]-60 > 2
 		}},
 
@@ -522,12 +522,37 @@ var cheev_list = []struct {
 			return false
 		}},
 
+		{"AID_BAD_FRIENDLY", "Questonable Morailty", "Become friendly with Pirates and Kilrathi", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			rep := forms[types.OFFSET_PLAY].Get("SCOR")
+			for _, f := range []int{tables.FACTION_PIRATES, tables.FACTION_KILRATHI} {
+				cur := 2 * f
+				if readers.Read_int16(rep.Data, &cur) <= 25 {
+					return false
+				}
+
+			}
+			return true
+		}},
+
+		{"AID_SUPERFRIENDLY", "Insane morality", "Become friendly with everyone except retros", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			rep := forms[types.OFFSET_PLAY].Get("SCOR")
+			for _, f := range []int{tables.FACTION_MERCHANTS, tables.FACTION_HUNTERS, tables.FACTION_CONFEDS, tables.FACTION_KILRATHI, tables.FACTION_MILITIA, tables.FACTION_PIRATES} {
+				cur := 2 * f
+				if readers.Read_int16(rep.Data, &cur) <= 25 {
+					return false
+				}
+			}
+
+			return true
+		}},
+
 		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Spacedollars", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 1000000
 		}},
 
-		{"AID_CARGO_IS_NIGGER", "The guild just glues it to the outside", "Carry more cargo than will fit in your ship", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_CARGO_IS_NIGGER", "Just glue it to the outside", "Carry more cargo than will fit in your ship", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// Assuming the player isn't just cheating, this is possible because cargo-delivery missions don't bother to check cargo capacity when you accept them.
 			// This could be a bug, but maybe it's a convenience feature?
 
