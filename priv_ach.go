@@ -448,10 +448,12 @@ var cheev_list = []struct {
 			return count == 20
 		}},
 
-		{"AID_GALAXY", "I'm a trader, really!", "Carry more than 240T of cargo (in a Galaxy)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			// It is actually possible to be in this state in a non-Galaxy (by transfering the secret compartment from a non-galalxy to a Galaxy,
-			// filling up beyond 225T, then switching to a non-Galaxy).  But since this involved having a qualifying state, we don't need to
-			// check ship type.
+		{"AID_GALAXY", "I'm a trader, really!", "Carry more than 200T of cargo in a Galaxy", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// This check is necessary, because of cargo misions and also because it's possible to exchange ships when you shouldn't be able to thanks to
+			// (I guess) 8-bit wrap around in stored cargo.
+			if bs[h.Offsets[types.OFFSET_SHIP]] != tables.SHIP_GALAXY {
+				return false
+			}
 
 			total := 0
 			cargo := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
@@ -460,7 +462,7 @@ var cheev_list = []struct {
 				total += readers.Read_int16(cargo.Data, &cur)
 			}
 
-			return total > 240
+			return total > 200
 		}},
 
 		{"AID_ORION", "Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
@@ -476,7 +478,7 @@ var cheev_list = []struct {
 		}},
 
 		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			if bs[h.Offsets[types.OFFSET_SHIP]] != 0 {
+			if bs[h.Offsets[types.OFFSET_SHIP]] != tables.SHIP_TARSUS {
 				return false
 			}
 
