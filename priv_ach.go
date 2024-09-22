@@ -491,7 +491,7 @@ var cheev_list = []struct {
 			for i := range armours {
 				armours[i] = readers.Read_int16(armour.Data, &cur)
 			}
-			for i := 0; i < 8; i += 1 {
+			for i := 0; i < 4; i += 1 {
 				if armours[i] == armours[i+4] {
 					return false
 				}
