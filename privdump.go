@@ -44,8 +44,8 @@ func parse_header(header types.Header, bytes []byte) []string {
 			loc := readers.Read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
 
-			out = append(out, fmt.Sprintf("   %v-%v: Unknown - %v", cur, cur+1, bytes[cur:cur+2]))
-			cur += 2
+			missions := readers.Read_int16(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur+1, missions))
 
 			guild_status := map[uint8]string{
 				0: "Nonmember",
