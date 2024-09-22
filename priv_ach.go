@@ -280,6 +280,15 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 	}
 }
 
+func is_all_zero(bs []byte) bool {
+	for _, b := range bs {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // Here is the list of achievements.
 // Achievement id-s must remain unchanged FOREVER, even if they contain the worst possible typos,
 // as they are stored in state files, and we don't want to have a situation where upgrading
@@ -322,7 +331,7 @@ var cheev_list = []struct {
 
 		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			kills := forms[types.OFFSET_PLAY].Get("KILL")
-			return !slices.Equal(kills.Data, make([]byte, len(kills.Data)))
+			return !is_all_zero(kills.Data)
 		}},
 
 		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
@@ -353,6 +362,16 @@ var cheev_list = []struct {
 
 		{"AID_COLOUR_SCANNER", "\"Red\" rhymes with \"Dead\"", "Equip a colour scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO").Data[len("TARGETNG")]-60 > 2
+		}},
+
+		{"AID_SCANNER_DAMAGE", "Crackle crackle", "Forget to repair your scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			armour := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
+
+			// Scanner damage, no armour damage, no repair bot.  This is a very easy mistake to make due to scanner repair being
+			// only available in the "Software" store.
+			return forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil &&
+				!is_all_zero(forms[types.OFFSET_REAL].Get("FITE", "TRGT", "DAMG").Data) &&
+				slices.Equal(armour.Data[:8], armour.Data[8:])
 		}},
 
 		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
@@ -816,6 +835,7 @@ func handle_file(filename string) {
 			identity := name + ":" + callsign
 			if last_identity != identity {
 				fmt.Println("Identity is", identity)
+				fmt.Println()
 				last_identity = identity
 			}
 			if !global_state.Unlocked[identity][cheev.id] && cheev.test(header, bytes, forms) {
