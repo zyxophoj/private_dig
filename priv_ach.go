@@ -734,7 +734,7 @@ var cheev_list = []struct {
 
 		{"AID_CARGO_IS_TWICE_BIGGER", "How much glue do you have?", "Carry more than twice as much cargo as will fit in your ship", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// Probably the easiest way to do this is to get a centurion without a secret compartment, buy 50T of whatever,
-			// then accept 4 cargo missions.  That's now I did it, anyway.  Some savescumming required.
+			// then accept 4 cargo missions.  That's how I did it, anyway.  Some savescumming required.
 			info := forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
 			capacity := int(info.Data[4])
 			if info.Data[6] != 0 {
