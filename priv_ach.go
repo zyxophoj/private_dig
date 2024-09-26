@@ -347,6 +347,9 @@ var cheev_list = []struct {
 
 		{"AID_TACHYON", "Now witness the firepower", "Equip a Tachyon Cannon", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			if guns == nil {
+				return false
+			}
 			for n := 0; n < len(guns.Data); n += 4 {
 				if guns.Data[n] == 7 {
 					return true
@@ -425,12 +428,13 @@ var cheev_list = []struct {
 
 		{"AID_STELTEK_GUN", "Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
-			for n := 0; n < len(guns.Data); n += 4 {
-				if guns.Data[n] >= 8 { //8==steltek gun, 9==super steltek gun.
-					return true
+			if guns != nil { //Newly-bought ships have no GUNS record
+				for n := 0; n < len(guns.Data); n += 4 {
+					if guns.Data[n] >= 8 { //8==steltek gun, 9==super steltek gun.
+						return true
+					}
 				}
 			}
-
 			return false
 		}},
 
@@ -448,9 +452,11 @@ var cheev_list = []struct {
 		{"AID_CENTURION", "Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			count := 0
 			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
-			for n := 1; n < len(guns.Data); n += 4 {
-				if guns.Data[n] >= 1 && guns.Data[n] <= 4 {
-					count += 1
+			if guns != nil {
+				for n := 1; n < len(guns.Data); n += 4 {
+					if guns.Data[n] >= 1 && guns.Data[n] <= 4 {
+						count += 1
+					}
 				}
 			}
 			if count < 4 {
@@ -675,6 +681,9 @@ var cheev_list = []struct {
 				return false
 			}
 			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			if guns == nil {
+				return false
+			}
 			for n := 0; n < len(guns.Data); n += 4 {
 				if guns.Data[n] >= 8 && (guns.Data[n+1] == 2 || guns.Data[n+1] == 3) {
 					return true
@@ -682,6 +691,11 @@ var cheev_list = []struct {
 			}
 
 			return false
+		}},
+
+		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			cur := h.Offsets[types.OFFSET_SHIP] + 3
+			return readers.Read_int16(bs, &cur) >= 100
 		}},
 
 		// TODO: these would be fun but needs multi-file checking
@@ -712,6 +726,7 @@ var cheev_list = []struct {
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
 		}},
+
 		{"AID_VERY_RICH", "Probably sufficient to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
