@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -853,7 +854,22 @@ func handle_file(filename string) {
 				fmt.Println()
 				last_identity = identity
 			}
-			if !global_state.Unlocked[identity][cheev.id] && cheev.test(header, bytes, forms) {
+
+			// Really not a fan of panic-recover, but I suppose there's a case for it here
+			// Recovering will prevent a shittily-written cheev test from bringing the entire app down.
+			ct_wrap := func(a *Achievement, header types.Header, bytes []byte, form map[int]*types.Form) bool {
+				defer func() {
+					if recover() != nil {
+						fmt.Println("Something went *very* wrong when calculating achievement \"" + a.name + "\":")
+						debug.PrintStack()
+						// If this happens, the ct_wrap funciton returns the default value, which is false
+					}
+				}()
+
+				return a.test(header, bytes, forms)
+			}
+
+			if !global_state.Unlocked[identity][cheev.id] && ct_wrap(&cheev, header, bytes, forms) {
 				fmt.Println(cheev.name)
 				fmt.Println(cheev.expl)
 				fmt.Println("Category:", list.category)
