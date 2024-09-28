@@ -371,9 +371,11 @@ var cheev_list = []struct {
 		{"AID_SCANNER_DAMAGE", "Crackle crackle", "Forget to repair your scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			armour := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
 
+			//fmt.Println("Repairbot", forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil)
+
 			// Scanner damage, no armour damage, no repair bot.  This is a very easy mistake to make due to scanner repair being
 			// only available in the "Software" store.
-			return forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil &&
+			return forms[types.OFFSET_REAL].Get("FITE", "REPR") == nil &&
 				!is_all_zero(forms[types.OFFSET_REAL].Get("FITE", "TRGT", "DAMG").Data) &&
 				slices.Equal(armour.Data[:8], armour.Data[8:])
 		}},
