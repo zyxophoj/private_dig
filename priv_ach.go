@@ -301,7 +301,7 @@ func is_all_zero(bs []byte) bool {
 //
 // Don't be too specific.  For example, use "AID_KILL_LOTS_OF_PIRATES"; not "AID_KILL_100_PIRATES",
 // ...because we might change our minds over how many pirate kills is a reasonable number for a cheev
-// (especially if "we" is a pseedrunner who can't remember how to play the game normally)
+// (especially if "we" is a seeedrunner who can't remember how to play the game normally)
 //
 // Check for typos before pushing!
 var cheev_list = []struct {
@@ -473,7 +473,7 @@ var cheev_list = []struct {
 			return count == 20
 		}},
 
-		{"AID_GALAXY", "I'm a trader, really!", "Carry more than 200T of cargo in a Galaxy", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// This check is necessary, because of cargo misions and also because it's possible to exchange ships when you shouldn't be able to thanks to
 			// (I guess) 8-bit wrap around in stored cargo.
 			if bs[h.Offsets[types.OFFSET_SHIP]] != tables.SHIP_GALAXY {
@@ -549,7 +549,7 @@ var cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_BAD_FRIENDLY", "Questonable Morailty", "Become friendly with Pirates and Kilrathi", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_BAD_FRIENDLY", "Questionable morality", "Become friendly with Pirates and Kilrathi", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			rep := forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_PIRATES, tables.FACTION_KILRATHI} {
 				cur := 2 * f
@@ -663,7 +663,7 @@ var cheev_list = []struct {
 			return len(destinations) == 1
 		}},
 
-		{"AID_FAIL_ESCORT", "Wing Commander Nostalgia", "Fail a Drayman escort mission", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// There are 3 such missions - Oxford 1, 3 and 4.
 			cur := h.Offsets[types.OFFSET_PLOT]
 			str, _, _ := readers.Read_string(bs, &cur)
@@ -715,16 +715,17 @@ var cheev_list = []struct {
 	}},
 
 	{"Mass-murder?  I hardly...", []Achievement{
-		mcs_kill("AID_KILL_MANY_RETROS", "Guardian Angel of Toasters", 100, tables.FACTION_RETROS),
+		mcs_kill("AID_KILL_MANY_RETROS", "Guardian angel of toasters", 100, tables.FACTION_RETROS),
 		mcs_kill("AID_KILL_MANY_PIRATES", "Your Letter of Marque is in the post", 100, tables.FACTION_PIRATES),
 		mcs_kill("AID_KILL_MANY_HUNTERS", "Joan Jett mode", 100, tables.FACTION_HUNTERS),
 		mcs_kill("AID_KILL_MANY_KILRATHI", "Also Try Wing Commander 3", 50, tables.FACTION_KILRATHI),
-		mcs_kill("AID_KILL_MANY_MILITIA", "Menesch's Apprentice", 30, tables.FACTION_MILITIA),
-		mcs_kill("AID_KILL_MANY_CONFEDS", "Arch-Traitor", 30, tables.FACTION_CONFEDS),
+		mcs_kill("AID_KILL_MANY_MILITIA", "Menesch's apprentice", 30, tables.FACTION_MILITIA),
+		mcs_kill("AID_KILL_MANY_CONFEDS", "Arch-traitor", 30, tables.FACTION_CONFEDS),
 	}},
 
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// People have done this; I'm not one of them.  The hunter fights at Palan are generally handled by kiting them into the asteroid field.
 			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
 		}},
 
@@ -734,6 +735,9 @@ var cheev_list = []struct {
 		}},
 
 		{"AID_FIX_HUNTER_REP", "Grinder", "Recover hunter reputation to non-hostile before winning", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// Hunters are notoriously hard to please.  The problem is that you have to kill a lot of them to win the game,
+			// losing 15 rep per Demon and 20 rep per Centurion - but nothing (except the drone) will improve hunter rep by more than 1.
+			// (That's right, killing a pirate talon impresses them exactly as much as killing a Kamekh)
 			cur := h.Offsets[types.OFFSET_PLOT]
 			str, _, _ := readers.Read_string(bs, &cur)
 			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
