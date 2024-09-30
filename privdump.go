@@ -33,10 +33,10 @@ func parse_header(header types.Header, bytes []byte) []string {
 		switch o {
 		case types.OFFSET_SHIP:
 			ships := map[uint8]string{
-				tables.SHIP_TARSUS: "Tarsus",
-				tables.SHIP_ORION: "Orion",
+				tables.SHIP_TARSUS:    "Tarsus",
+				tables.SHIP_ORION:     "Orion",
 				tables.SHIP_CENTURION: "Centurion",
-				tables.SHIP_GALAXY: "Galaxy",
+				tables.SHIP_GALAXY:    "Galaxy",
 			}
 			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
 			cur += 2
@@ -89,10 +89,10 @@ func parse_header(header types.Header, bytes []byte) []string {
 			}
 			// Does this make any sense??
 			// "Complete" looks like a special case
-			// 32: Accepted bit
-			// 64: Bad Bit - you failed so hard you can't win the game now
-			// 2: Failed bit - you failed the mission but this is recoverable (e.g. sandoval 1, Murphy 3)
-			// 16,8: Only appear together in "complete but talky" state?
+			// Here's my best guess:
+			// 128: Accepted bit
+			// 64: Failed bit
+			// 32-1 Objectives bits - mission dependent?
 
 			out = append(out, fmt.Sprintf("   Status: %v", safe_lookup(mstatus, final[0])))
 			// This byte can't tell the difference between "You haven't talked to someone yet", and "you talked, rejected, but they'll still be here if you change your mind"
