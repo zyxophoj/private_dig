@@ -418,7 +418,11 @@ var cheev_list = []struct {
 			}
 
 			// Possibility 2: last mission in "failed" status
-			if str == "s2md" && (flag == 162 || flag == 226) {
+			// Observed values: 128 for accepted
+			// 161 if we launch and immediately land   128 + 32+1
+			// 161 if we went directly to oxford
+			// 191 if we went to newcastle             128 + 32+16+8+4+2+1
+			if str == "s2md" && (flag == 161 || flag == 162 || flag == 191 || flag == 226) {
 				return true
 			}
 
