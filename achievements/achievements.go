@@ -92,7 +92,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			return forms[types.OFFSET_REAL].Get("FITE", "JRDV", "INFO") == nil
+			return forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
 		}},
 
 		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
