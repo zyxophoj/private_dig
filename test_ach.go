@@ -104,6 +104,15 @@ func main() {
 					error_count += 1
 				}
 			}
+
+			delete(cheev_map, s.Name())
+		}
+	}
+
+	if len(cheev_map) > 0 {
+		fmt.Println("Untested:", len(cheev_map))
+		for k := range cheev_map {
+			fmt.Println(k)
 		}
 	}
 }
