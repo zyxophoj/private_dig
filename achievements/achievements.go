@@ -509,7 +509,7 @@ var Cheev_list = []struct {
 			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
 		}},
 
-		{"AID_VERY_RICH", "Probably sufficient to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			cur := 0
 			return readers.Read_int_le(forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
 		}},
