@@ -506,7 +506,7 @@ var Cheev_list = []struct {
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			// People have done this; I'm not one of them.  The hunter fights at Palan are generally handled by kiting them into the asteroid field.
-			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP+2]] == 59
+			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP]+2] == 59
 		}},
 
 		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
