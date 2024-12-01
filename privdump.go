@@ -391,13 +391,17 @@ func parse_record(prefix string, record types.Record) []string {
 		// 16 bytes, which looks like 8 16-bit ints.
 		// First 4 entries are fully-repaired values - which also seem to be doing double duty as armor type.
 		// These are always the same, so we only bother with the first.
+		// Selling armour - or buying a new ship - results in armour type 0, but launch-landing changes that armour type to 1.
+		// (maybe they didn't want to divide by 0, which they would normally have to do to show armour %age).  In any case,
+		// that means there are two different types of nothing that we have to deal with.  Sigh.
 		cur := 0
 		out = append(out, "Armour:")
 		names := map[int]string{
-			0:    "(none)",
+			0:    "none (0)",
+			1:    "none (1)",
 			250:  "Plasteel",
 			500:  "Tungsten",
-			3000: "Isometal",
+			3000: "Isometal",  // Yes, really.  This is why RF player ships are so tanky.
 		}
 		armor_type := readers.Read_int16(record.Data, &cur)
 		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
