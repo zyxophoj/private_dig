@@ -111,10 +111,12 @@ var Cheev_list = []struct {
 		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
-			for i := 0; i < len(launchers.Data); i += 4 {
-				if launchers.Data[i] == 50 {
-					count += 1
-				}
+			if launchers != nil {
+			    for i := 0; i < len(launchers.Data); i += 4 {
+				    if launchers.Data[i] == 50 {
+					    count += 1
+				    }
+			    }
 			}
 			return count == 2
 		}},
@@ -138,18 +140,19 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_COLOUR_SCANNER", "\"Red\" rhymes with \"Dead\"", "Equip a colour scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			return forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO").Data[len("TARGETNG")]-60 > 2
+		    scanner := forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO")
+			return (scanner != nil) && (scanner.Data[len("TARGETNG")]-60 > 2)
 		}},
 
 		{"AID_SCANNER_DAMAGE", "Crackle crackle", "Forget to repair your scanner", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			armour := forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
-
+            scanner := forms[types.OFFSET_REAL].Get("FITE", "TRGT", "DAMG")
 			//fmt.Println("Repairbot", forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil)
 
 			// Scanner damage, no armour damage, no repair bot.  This is a very easy mistake to make due to scanner repair being
 			// only available in the "Software" store.
 			return forms[types.OFFSET_REAL].Get("FITE", "REPR") == nil &&
-				!is_all_zero(forms[types.OFFSET_REAL].Get("FITE", "TRGT", "DAMG").Data) &&
+				(scanner != nil) && !is_all_zero(scanner.Data) &&
 				slices.Equal(armour.Data[:8], armour.Data[8:])
 		}},
 
@@ -298,7 +301,7 @@ var Cheev_list = []struct {
 				armours[i] = readers.Read_int16(armour.Data, &cur)
 			}
 			for i := 0; i < 4; i += 1 {
-				if armours[i] == armours[i+4] {
+				if armours[i] == 1 || armours[i] == armours[i+4] {
 					return false
 				}
 			}
@@ -310,9 +313,11 @@ var Cheev_list = []struct {
 		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
 			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
-			for i := 0; i < len(launchers.Data); i += 4 {
-				if launchers.Data[i] == 52 {
-					count += 1
+			if launchers != nil {
+				for i := 0; i < len(launchers.Data); i += 4 {
+					if launchers.Data[i] == 52 {
+						count += 1
+					}
 				}
 			}
 			return count > 1
