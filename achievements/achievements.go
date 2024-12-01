@@ -505,8 +505,29 @@ var Cheev_list = []struct {
 
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			// People have done this; I'm not one of them.  The hunter fights at Palan are generally handled by kiting them into the asteroid field.
-			return bs[h.Offsets[types.OFFSET_SHIP]] == tables.SHIP_TARSUS && bs[h.Offsets[types.OFFSET_SHIP]+2] == 59
+			// I've done this.  It was painful.
+			// The Centurions at Palan can be handled by kiting them into the asteroid field.
+			// Cross 3 method: clear nav 1 (asteroids will help you here), then hit nav 4, wipe out the Gothri there, again taking full advantage of the asteroids. 
+			// Run from the Kamekh, auto to nav 3, then to nav 2, kill 2 out of 3 Dralthi then burn back to nav 1.
+			if  bs[h.Offsets[types.OFFSET_SHIP]] != tables.SHIP_TARSUS {
+				return false
+			}
+
+			/// actually at the derelict
+			if bs[h.Offsets[types.OFFSET_SHIP]+2] == 59 {
+				return true
+			}
+
+			// Anyone with the steltek gun must have been there
+			guns := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			if guns != nil {
+				for n := 0; n < len(guns.Data); n += 4 {
+					if guns.Data[n] >= 8 { //8==steltek gun, 9==super steltek gun.
+						return true
+					}
+				}
+			}
+			return false
 		}},
 
 		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
