@@ -38,18 +38,18 @@ Unfortunately, if I really was trying to trojan you, I'd probably do something s
 
 ### Ok, how do I compile it myself then?
 
-Get the latest code - https://github.com/zyxophoj/private_dig/archive/refs/heads/main.zip - and unzip it somewhere.
+* Get the latest code - https://github.com/zyxophoj/private_dig/archive/refs/heads/main.zip - and unzip it somewhere.
 
-Download and install the go compiler if you don't already have one.  https://go.dev/dl/  is a good place to start. (Just in case it matters, I'm currenlty using go version 1.23.1)
+* Download and install the go compiler if you don't already have one.  https://go.dev/dl/  is a good place to start. (Just in case it matters, I'm currenlty using go version 1.23.1)
 
-On the command line, go to wherever you unzipped the source code to (the dir containing priv_ach.go), and do:  ```go build priv_ach.go``` 
+* On the command line, go to wherever you unzipped the source code to (the dir containing priv_ach.go), and do:  ```go build priv_ach.go``` 
 
 
 This is a bit more effort than clicking a link, and I'm sorry that Microsoft's virus detection is a steaming pile of machine learning, but there is a silver lining - Downloaders get some bonus extra features:
 
 * privdump.go - a save file dumping program. 
-* ach_test.go - a test program for the acheivement code 
-* and the source code for priv_ach
+* ach_test.go - a test program for the acheivement code.  This could be useful if you want to make your own achievements and send them to me, which is very much encouraged. 
+* the source code for everything
 
 ### "Fictitious, Unasked, Questions" is a bit of a mouthful.  Is there an abbreviation?
 
