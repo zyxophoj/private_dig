@@ -48,7 +48,7 @@ On the command line, go to wherever you unzipped the source code to (the dir con
 This is a bit more effort than clicking a link, and I'm sorry that Microsoft's virus detection is a steaming pile of machine learning, but there is a silver lining - Downloaders get some bonus extra features:
 
 * privdump.go - a save file dumping program. 
-* ach_test.go -  
+* ach_test.go - a test program for the acheivement code 
 * and the source code for priv_ach
 
 ### "Fictitious, Unasked, Questions" is a bit of a mouthful.  Is there an abbreviation?
