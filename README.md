@@ -17,3 +17,11 @@ Every time a new save file appears, priv_ach examines the file, and awards achie
 Achievements are awarded to an identity, which is constructed from name and callsign.  Two files with matching names and callsigns are therefore considered to belong to the same identity.  I am not sure if this is a bug or a feature, but it does make it possible to collect missed achievements - Tarsus-only ones, for example - by starting a new game with the same identity as an existing one.
 
 Achievement state is stored in the pracst.json file; delete that file to reset all achievements.
+
+
+
+## Fictitious, Unasked, Questions
+
+### Windows Defender si complaing about viruses.  Are you trying to trojan me?
+
+Probably not.  
