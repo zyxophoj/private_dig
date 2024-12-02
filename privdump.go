@@ -1,11 +1,18 @@
 package main
 
+// privateer save file dumper
+// usage: go run privdump.go savefile.sav
+//
+// save flie location is read from the ini file
+
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
 	"slices"
 	"strings"
+
+	"gopkg.in/ini.v1"
 
 	"privdump/readers"
 	"privdump/tables"
@@ -401,7 +408,7 @@ func parse_record(prefix string, record types.Record) []string {
 			1:    "none (1)",
 			250:  "Plasteel",
 			500:  "Tungsten",
-			3000: "Isometal",  // Yes, really.  This is why RF player ships are so tanky.
+			3000: "Isometal",  // Yes, really.  RF is bonkers.
 		}
 		armor_type := readers.Read_int16(record.Data, &cur)
 		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
@@ -533,12 +540,33 @@ func parse_record(prefix string, record types.Record) []string {
 	return out
 }
 
+
+func get_dir() string {
+	// dir from command line
+	if len(os.Args) > 1 && os.Args[1] == "--dir" {
+		return os.Args[2]
+	}
+
+	//dir from ini file
+	cfg, err := ini.Load("priv_ach.ini")
+	if err == nil {
+		// Classic read of values, default section can be represented as empty string
+		dir := cfg.Section("").Key("dir").String()
+		if dir != "" {
+			return dir
+		}
+	}
+
+	wd, _ := os.Getwd()
+	return wd
+}
+
 func main() {
 
-	basedir := "C:\\Program Files (x86)\\GOG Galaxy\\Games\\Wing Commander Privateer\\cloud_saves\\"
+	basedir := get_dir()
 
 	filename := os.Args[1]
-	full_filename := basedir + filename
+	full_filename := basedir + "/" + filename
 
 	bytes, err := ioutil.ReadFile(full_filename)
 	if err != nil {
