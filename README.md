@@ -7,7 +7,7 @@ Go to the releases page (https://github.com/zyxophoj/private_dig/releases) and d
 ### How to run it
 
 - Edit the priv_ach.ini file.  There is only one setting, which should be the location of your Privateer saved games.  Change it if it is wrong.
-- Run priv_ach.go.
+- Run priv_ach.exe
 - Play Privateer!
 
 ### Some other useful commands
