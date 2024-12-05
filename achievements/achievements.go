@@ -310,12 +310,14 @@ var Cheev_list = []struct {
 	}},
 
 	{"Random", []Achievement{
-		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams in front mounts", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// It is diccucult to imagine a reason (other than the cargo duping exploit) to have multiple front tractor beams
+			// OTOH, a Galaxy with a tracter in each turret isn't particularly suspicious ans shouldn't get this cheev.
 			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
 			if launchers != nil {
 				for i := 0; i < len(launchers.Data); i += 4 {
-					if launchers.Data[i] == 52 {
+					if launchers.Data[i] == 52 && launchers.Data[i+1]<6{
 						count += 1
 					}
 				}
