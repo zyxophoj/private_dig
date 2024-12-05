@@ -558,10 +558,23 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			// Not onto Murphy 3 (we need to get at least this far to have the bad rep
-			if str[0] == 's' && str[1] == '4' && str[3] < 'd' {
+			// Not onto Murphy 3 (we need to get past the 3 "Kill hunters" missions to have the bad rep)
+			if str[0] == 's' && str[1] == '4' && str[3] < 'c' {
 				return false
 			}
+
+			// Murphy  3 not yet complete
+			// Some notes:
+			// The "correct" way to do this is to kill all the hunters, resulting in flag=191
+			// The alternative is to just afterburn past them and land at Palan, resulting in flag=162.
+			// The game is still winnable; just pick up Dr. Monkhouse and continue.
+			// But if you fail the mission then go back and talk to Murphy without doing Monkhouse first she sets the plot to "failed"
+			if str[0] == 's' && str[1] == '4' && str[3] == 'c' {
+				if !(flag==162 || flag== 191){
+					return false
+				}
+			}
+			// If we get this far, the player has done (possibly unsuccessfully) the first 3 Palan missions and is not in an unwinnable state
 
 			if flag == 226 {
 				// failed!
