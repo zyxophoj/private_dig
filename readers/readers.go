@@ -46,6 +46,15 @@ func Read_uint8(bytes []byte, cur *int) uint8 {
 	return out
 }
 
+func Read_fixed_uint8(bytes []byte, cur *int, expected uint8) error {
+	out := bytes[*cur]
+	*cur += 1
+	if out != expected {
+		return errors.New(fmt.Sprintf("Expected %v; read %v", expected, out))
+	}
+	return nil
+}
+
 func Read_int(bytes []byte, cur *int) int {
 	// big-endian
 	out := uint(0)
@@ -100,6 +109,7 @@ func Read_header(in []byte) types.Header {
 	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
 	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
 	//   This number can be determined by peeking where the MISSIONS offset points.  (Or by caculating based on the first offset?  Are we sure there's never a footer??)
+	//   We currently peek, which means we can't properly read the header without reading one byte from the body.
 	// bytes ??-?? : footer
 	//   That which lies between the offset block and the first offset.
 	out := types.Header{}

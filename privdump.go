@@ -27,7 +27,7 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-func parse_header(header types.Header, bytes []byte) []string {
+func parse_savedata(header types.Header, bytes []byte) []string {
 	out := []string{}
 
 	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.File_size))
@@ -39,38 +39,54 @@ func parse_header(header types.Header, bytes []byte) []string {
 		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, types.Offset_name(o), cur))
 		switch o {
 		case types.OFFSET_SHIP:
+			// 0 : ship (0-3), see SHIP constants in tables.go)
+			// 1 : Always 0? (It's possible that ship type is actually an int64, but then why is location just a byte?  Editing this does not appear to do anything.)
+			// 2 : Location (see Locations in tables.go)
+			// 3-4 : Missions completed (int16)
+			// 5: Merchants guild member (1 or 0)
+			// 6: Mercenaries guild member (1 or 0)
 			ships := map[uint8]string{
 				tables.SHIP_TARSUS:    "Tarsus",
 				tables.SHIP_ORION:     "Orion",
 				tables.SHIP_CENTURION: "Centurion",
 				tables.SHIP_GALAXY:    "Galaxy",
 			}
-			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur, safe_lookup(ships, bytes[cur])))
-			cur += 2
+			ship := readers.Read_uint8(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur-1, safe_lookup(ships, ship)))
+
+			e := readers.Read_fixed_uint8(bytes, &cur, 0)
+			if e != nil {
+				out = append(out, fmt.Sprintf("   %v: UNEXPECTED BYTE! ", cur-1)+e.Error())
+			}
 
 			loc := readers.Read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
 
 			missions := readers.Read_int16(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur+1, missions))
+			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur-1, missions))
 
 			guild_status := map[uint8]string{
 				0: "Nonmember",
 				1: "Member",
 			}
-			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur, safe_lookup(guild_status, bytes[cur])))
-			cur += 1
-			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur, safe_lookup(guild_status, bytes[cur])))
-			cur += 1
+			member := readers.Read_uint8(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur-1, safe_lookup(guild_status, member)))
+			member = readers.Read_uint8(bytes, &cur)
+			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur-1, safe_lookup(guild_status, readers.Read_uint8(bytes, &cur))))
 
 		case types.OFFSET_PLOT:
+			// This is a null-terminated string of max length 8 (9 including the null) with a "flag" byte in the 10th position
+			// There are special vlaues for "plot not started" and "plot failed", but otherwise, the string
+			// is "s"+(series nubmer)+"m"+(mission letter) e.g. s2mc
+			// One advantage of doing it this way is that alphabetical string comparision can be used.
+			// flag byte is mission status (accepted/done/failed) althoguh this is not well understood.
 			status, _, _ := readers.Read_string(bytes, &cur)
 			if status == "" {
 				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
 			} else if status == "FFFFFFFF" {
 				out = append(out, fmt.Sprintf("   (Plot failed!)"))
 			} else {
-				// This section begins with something like "s4m2" indicating series and mission number
+				// This section begins with something like "s4mb" indicating series and mission number
 				series := map[string]string{
 					"s0": "Sandoval",
 					"s1": "Tayla",
@@ -88,7 +104,8 @@ func parse_header(header types.Header, bytes []byte) []string {
 			// There remains one poorly understood byte.
 			final := bytes[header.Offsets[o]+8+1 : header.Offsets[o+1]] // This looks like a bitfield
 			mstatus := map[uint8]string{
-				160: "Accepted",           //128+32
+				128: "Accepted (128)",     //128
+				160: "Accepted (160)",     //128+32
 				162: "Failed but good",    //128+32+2
 				191: "Complete but talky", //128+32+16+8+4+2+1
 				226: "Failed",             //128+64+32+2
@@ -106,7 +123,7 @@ func parse_header(header types.Header, bytes []byte) []string {
 			// That info is in the WTF section... somewhere.
 
 		case types.OFFSET_MISSIONS:
-			// 2-bytes, loks like just the mission count
+			// 2-bytes, looks like just the mission count
 			missions := readers.Read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   Non-plot missions: %v", missions))
 		case types.OFFSET_WTF:
@@ -123,6 +140,7 @@ func parse_header(header types.Header, bytes []byte) []string {
 			out = append(out, parse_form("", form)...)
 
 		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
+			// name and callsign are null-terminated strings.
 			s, _, _ := readers.Read_string(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: %v", types.Offset_name(o), s))
 		}
@@ -144,6 +162,10 @@ func parse_header(header types.Header, bytes []byte) []string {
 
 		out = append(out, parse_form("", form)...)
 
+	}
+
+	if len(header.Footer) > 0 {
+		out = append(out, fmt.Sprintf("FOOTER DETECTED: $v", header.Footer))
 	}
 
 	return out
@@ -408,7 +430,7 @@ func parse_record(prefix string, record types.Record) []string {
 			1:    "none (1)",
 			250:  "Plasteel",
 			500:  "Tungsten",
-			3000: "Isometal",  // Yes, really.  RF is bonkers.
+			3000: "Isometal", // Yes, really.  RF is bonkers.
 		}
 		armor_type := readers.Read_int16(record.Data, &cur)
 		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
@@ -540,7 +562,6 @@ func parse_record(prefix string, record types.Record) []string {
 	return out
 }
 
-
 func get_dir() string {
 	// dir from command line
 	if len(os.Args) > 1 && os.Args[1] == "--dir" {
@@ -576,7 +597,7 @@ func main() {
 
 	header := readers.Read_header(bytes)
 	fmt.Println()
-	for _, line := range parse_header(header, bytes) {
+	for _, line := range parse_savedata(header, bytes) {
 		fmt.Println(line)
 	}
 	fmt.Println()
