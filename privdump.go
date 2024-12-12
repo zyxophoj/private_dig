@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"slices"
 	"strings"
 
 	"gopkg.in/ini.v1"
@@ -407,13 +406,19 @@ func parse_record(prefix string, record types.Record) []string {
 
 	case "REPR":
 		out = append(out, "Repair Droid:")
-		// There doesn't seem to be any variation here
-		// TODO: check RF's super repair droid
-		expected := []byte{0x90, 1, 0, 0}
-		if slices.Equal(record.Data, expected) {
-			out = append(out, "Normal")
-		} else {
-			out = append(out, fmt.Sprintf("Unusual Repair Droid!!! Expected %v; found %v", expected, record.Data))
+		droids := map[int]string{
+			400: "Repair Droid",
+			200: "Advanced Droid",
+		}
+		cur := 0
+		out = append(out, fmt.Sprintf("%v", safe_lookup(droids, readers.Read_int16(record.Data, &cur))))
+
+		// 2 0 bytes?
+		for cur < 4 {
+			e := readers.Read_fixed_uint8(record.Data, &cur, 0)
+			if e != nil {
+				out = append(out, fmt.Sprintf("   %v: UNEXPECTED BYTE! ", cur-1)+e.Error())
+			}
 		}
 
 	case "ARMR":
@@ -549,6 +554,18 @@ func parse_record(prefix string, record types.Record) []string {
 		cur := 0
 		pays := readers.Read_int_le(record.Data, &cur)
 		out = append(out, fmt.Sprintf("%v credits", pays))
+
+	case "COOL":
+		out = append(out, "Gun Cooler")
+
+	case "SHBO":
+		out = append(out, "Shield Regenerator")
+
+	case "SPEE":
+		out = append(out, "Speed Enhancer")
+
+	case "THRU":
+		out = append(out, "Thrust Enhancer")
 
 	case "FORM":
 		// Do nothing!  Subforms are handled at the end of the functon.
