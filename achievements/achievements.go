@@ -14,7 +14,7 @@ type Achievement struct {
 	Test func(types.Header, []byte, map[int]*types.Form) bool
 }
 
-// achievment helper functions
+// achievement helper functions
 
 //mcs_kill makes a "kill a bunch of peoplke" achievement
 func mcs_kill(id string, name string, number int, who int) Achievement {
@@ -29,7 +29,7 @@ func mcs_kill(id string, name string, number int, who int) Achievement {
 	}
 }
 
-//mcs_kill makes a "Finish a mission series" achievement
+//mcs_complete_serie makes a "Finish a mission series" achievement
 func mcs_complete_series(id string, name string, expl string, number uint8) Achievement {
 	return Achievement{
 		id,
@@ -311,8 +311,8 @@ var Cheev_list = []struct {
 
 	{"Random", []Achievement{
 		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams in front mounts", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
-			// It is diccucult to imagine a reason (other than the cargo duping exploit) to have multiple front tractor beams
-			// OTOH, a Galaxy with a tracter in each turret isn't particularly suspicious ans shouldn't get this cheev.
+			// It is difficult to imagine a reason (other than the cargo duping exploit) to have multiple front tractor beams
+			// OTOH, a Galaxy with a tracter in each turret isn't particularly suspicious and shouldn't get this cheev.
 			launchers := forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
 			if launchers != nil {
@@ -423,6 +423,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", func(h types.Header, bs []byte, forms map[int]*types.Form) bool {
+			// Captain Tagon - from the Schlock Mercenary webcomic - loved to get paid twice(or more) for essentally the same task.
 			if len(h.Mission_offsets) != 6 {
 				return false
 			}
@@ -551,7 +552,7 @@ var Cheev_list = []struct {
 			flag := bs[h.Offsets[types.OFFSET_PLOT]+9]
 
 			if len(str) != 4 {
-				// Either too early or too latge
+				// Either too early or too late
 				return false
 			}
 
@@ -565,7 +566,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			// Murphy  3 not yet complete
+			// Murphy 3 not yet complete
 			// Some notes:
 			// The "correct" way to do this is to kill all the hunters, resulting in flag=191
 			// The alternative is to just afterburn past them and land at Palan, resulting in flag=162.
