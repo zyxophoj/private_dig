@@ -1,9 +1,10 @@
 package types
 
 import (
-//"fmt"
+	//"fmt"
 	"strings"
 )
+
 
 const (
 	OFFSET_SHIP = iota // Ship type, location, guild membership
@@ -61,7 +62,7 @@ func (f *Form) Get(what ...string) *Record {
 	}
 
 	for _, rec := range f.Records {
-		if strings.HasSuffix(rec.Name,what[len(what)-1]) {
+		if strings.HasSuffix(rec.Name, what[len(what)-1]) {
 			return &rec
 		}
 	}

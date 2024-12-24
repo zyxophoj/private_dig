@@ -39,7 +39,7 @@ func parse_savedata(header types.Header, bytes []byte) []string {
 		switch o {
 		case types.OFFSET_SHIP:
 			// 0 : ship (0-3), see SHIP constants in tables.go)
-			// 1 : Always 0? (It's possible that ship type is actually an int64, but then why is location just a byte?  Editing this does not appear to do anything.)
+			// 1 : Always 0? (It's possible that ship type is actually an int16, but then why is location just a byte?  Editing this does not appear to do anything.)
 			// 2 : Location (see Locations in tables.go)
 			// 3-4 : Missions completed (int16)
 			// 5: Merchants guild member (1 or 0)
