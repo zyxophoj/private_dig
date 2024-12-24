@@ -512,15 +512,29 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 				strd += fmt.Sprintf("%v", n)
 			}
 			// Yes, really.  There is clearly some structure in here, but I can't make any sense out of it.
+			// As a practical matter, you can edit level 7 engines into a Centurion and have an absurdly overpowered ship,
+			// but the things that you'd expect to appear next in the list (like "122531415162" are worse than level 2 engines.
 			levels := map[string]string{
 				"1261":         "(None)",
 				"124151":       "Level 1",
 				"12314151":     "Level 2",
 				"1231415162":   "Level 3",
 				"122131415161": "Level 4",
+				"122131415162": "Level 4",
 				"122231415162": "Level 5",
+				"122331415162": "Level 6",
+				"122431415162": "Level 7",
 			}
+			
+			// This calculation is on probation
+			// Since it only uses a small amount of the information on offer, it's probably not completely correct.
+			dirty := len(strd)/2-2
+			if strd[2]=='2'{
+				dirty += int(strd[3]-'1')
+			}
+			
 			out = append(out, fmt.Sprintf("Engine: %v", safe_lookup(levels, strd)))
+			out = append(out, fmt.Sprintf("Dirty Value: %v", dirty))
 		default:
 			out = append(out, fmt.Sprintf("Unknown info type: %v", infotype))
 
