@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+type Game int
+
+const (
+	GT_NONE Game = iota
+	GT_PRIV
+	GT_RF
+)
 
 const (
 	OFFSET_SHIP = iota // Ship type, location, guild membership

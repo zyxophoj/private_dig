@@ -2,9 +2,10 @@ package tables
 
 // These tables are in their own file because they are large.
 
-
+import "privdump/types"
 
 var Factions = []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "", "Retros"}
+
 const (
 	FACTION_MERCHANTS = iota
 	FACTION_HUNTERS
@@ -91,7 +92,7 @@ var Locations = map[uint8]string{
 	59: "Derelict Base  (Delta Prime)",
 }
 
-var Systems = map[uint8]string{
+var systems = map[uint8]string{
 	//Generated with rip.go (hence the strange order, which is ASCIIbetical-within-quadrant)
 	10: "CM-N1054",
 	16: "Freyja",
@@ -165,6 +166,23 @@ var Systems = map[uint8]string{
 	50: "Rikel",
 	55: "Surtur",
 	57: "Tingerhoff",
+}
+
+var systems_rf = func() map[uint8]string {
+	m := map[uint8]string{}
+	for k, v := range systems {
+		m[k] = v
+	}
+	m[68] = "Eden"
+	return m
+}()
+
+func Systems(gt types.Game) map[uint8]string {
+	if gt == types.GT_RF {
+		return systems_rf
+	}
+
+	return systems
 }
 
 var Cargo = map[uint8]string{

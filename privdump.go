@@ -26,7 +26,7 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-func parse_savedata(header types.Header, bytes []byte) []string {
+func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 	out := []string{}
 
 	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.File_size))
@@ -136,7 +136,7 @@ func parse_savedata(header types.Header, bytes []byte) []string {
 				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 				break
 			}
-			out = append(out, parse_form("", form)...)
+			out = append(out, parse_form("", form, gt)...)
 
 		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
 			// name and callsign are null-terminated strings.
@@ -159,7 +159,7 @@ func parse_savedata(header types.Header, bytes []byte) []string {
 			break
 		}
 
-		out = append(out, parse_form("", form)...)
+		out = append(out, parse_form("", form, gt)...)
 
 	}
 
@@ -170,11 +170,11 @@ func parse_savedata(header types.Header, bytes []byte) []string {
 	return out
 }
 
-func parse_form(prefix string, form types.Form) []string {
+func parse_form(prefix string, form types.Form, gt types.Game) []string {
 	out := []string{}
 	out = append(out, "Form "+form.Name)
 	for _, r := range form.Records {
-		record := parse_record(prefix+form.Name+"-", r)
+		record := parse_record(prefix+form.Name+"-", r, gt)
 		for k := range record {
 			record[k] = "   " + record[k]
 		}
@@ -184,7 +184,7 @@ func parse_form(prefix string, form types.Form) []string {
 	//fmt.Println("SUBFORMS")
 	prefix += (form.Name + "-")
 	for _, f := range form.Subforms {
-		subform := parse_form(prefix, f)
+		subform := parse_form(prefix, f, gt)
 		//fmt.Println("SUBFORM", f.Name)
 		for k := range subform {
 			subform[k] = "   " + subform[k]
@@ -199,7 +199,7 @@ func parse_form(prefix string, form types.Form) []string {
 	return out
 }
 
-func parse_record(prefix string, record types.Record) []string {
+func parse_record(prefix string, record types.Record, gt types.Game) []string {
 	out := []string{}
 
 	// Record format depends on record name
@@ -259,7 +259,7 @@ func parse_record(prefix string, record types.Record) []string {
 		for cur < len(record.Data) {
 			from := readers.Read_uint8(record.Data, &cur)
 			to := readers.Read_uint8(record.Data, &cur)
-			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
+			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems(gt), from), safe_lookup(tables.Systems(gt), to)))
 		}
 
 	case "SECT":
@@ -268,7 +268,7 @@ func parse_record(prefix string, record types.Record) []string {
 		for cur < len(record.Data) {
 			from := readers.Read_uint8(record.Data, &cur)
 			to := readers.Read_uint8(record.Data, &cur)
-			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems, from), safe_lookup(tables.Systems, to)))
+			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems(gt), from), safe_lookup(tables.Systems(gt), to)))
 		}
 		// There is some strangeness here.  This record is often one jump point behind reality.
 		// Launching and landing will generally fix this - perhaps things get updated at launch but there's no way to test this.
@@ -287,11 +287,16 @@ func parse_record(prefix string, record types.Record) []string {
 			7: "Tachyon Cannon",
 			2: "Ionic Pulse Cannon",
 			6: "Plasma Gun",
-			8: "Steltek Gun",
+		}
 
+		if gt == types.GT_PRIV {
+			guns[8] = "Steltek Gun"
 			// This one lacks an official name, but the Steltek say they attach
 			// a power booster, so let's go with that.
-			9: "Boosted Steltek Gun",
+			guns[9] = "Boosted Steltek Gun"
+		}
+		if gt == types.GT_RF {
+			guns[8] = "Fusion Cannon"
 		}
 		mounts := map[int]string{
 			1: "Left outer",
@@ -606,15 +611,30 @@ func main() {
 	filename := os.Args[1]
 	full_filename := basedir + "/" + filename
 
+	dot := strings.LastIndex(full_filename, ".")
+	if dot < 0 {
+		fmt.Println("Failed to load file", full_filename, ": file has no extension")
+		os.Exit(1)
+	}
+	gt := map[string]types.Game{
+		".SAV": types.GT_PRIV,
+		".PRS": types.GT_RF,
+	}[strings.ToUpper(full_filename[dot:])]
+
+	if gt == types.GT_NONE {
+		fmt.Println("Failed to load file", full_filename, ": file extension not recognised")
+		os.Exit(1)
+	}
+
 	bytes, err := ioutil.ReadFile(full_filename)
 	if err != nil {
 		fmt.Println("Failed to load file", full_filename, "-", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	header := readers.Read_header(bytes)
 	fmt.Println()
-	for _, line := range parse_savedata(header, bytes) {
+	for _, line := range parse_savedata(header, bytes, gt) {
 		fmt.Println(line)
 	}
 	fmt.Println()
