@@ -313,9 +313,14 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		for i := range len(record.Data) / 4 {
 			gun := int(record.Data[i*4])
 			mount := int(record.Data[i*4+1])
-			// TODO: Next byte indicates damage, but how?
+			damage := int(record.Data[i*4+2])
+			d := ""
+			if damage > 0 {
+				d += " (damaged)"
+			}
+			// I have no clue what the fourth byte is for.  It always seems to be 0.
 
-			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(guns, gun)))
+			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(guns, gun))+d)
 		}
 
 	case "LNCH":
