@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -113,7 +114,7 @@ func main() {
 	}
 
 	dir := get_dir()
-	state_file = dir + "\\pracst.json"
+	state_file = filepath.Join(dir, "pracst.json")
 
 	switch main_arg {
 	case "help":
