@@ -299,7 +299,7 @@ func handle_file(filename string) {
 					}
 				}()
 
-				return a.Test(&achievements.Ach_arg{header, bytes, forms})
+				return a.Test(&achievements.Arg{header, bytes, forms})
 			}
 
 			if !global_state.Unlocked[identity][cheev.Id] && ct_wrap(&cheev, header, bytes, forms) {

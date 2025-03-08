@@ -38,7 +38,7 @@ func read_file(filename string) (error, types.Header, []byte, map[int]*types.For
 
 func main() {
 
-	cheev_map := map[string]func(a *achievements.Ach_arg) bool{}
+	cheev_map := map[string]func(a *achievements.Arg) bool{}
 	for _, list := range achievements.Cheev_list {
 		for _, cheev := range list.Cheeves {
 			cheev_map[cheev.Id] = cheev.Test
