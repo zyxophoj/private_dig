@@ -13,6 +13,23 @@ type Arg struct {
 	Forms map[int]*types.Form
 }
 
+func (a *Arg) offset(i int) []byte {
+	// TODO: return only a sub-offset
+	return a.Bs[a.H.Offsets[i]:]
+}
+
+func (a *Arg) plot_info() (string, byte) {
+	plot := a.offset(types.OFFSET_PLOT)
+	cur := 0
+	str, _, _ := readers.Read_string(plot, &cur)
+	flag := plot[9]
+
+	return str, flag
+}
+
+
+
+
 type Achievement struct {
 	Id   string
 	Name string
@@ -22,7 +39,7 @@ type Achievement struct {
 
 // achievement helper functions
 
-//mcs_kill makes a "kill a bunch of peoplke" achievement
+// mcs_kill makes a "kill a bunch of peoplke" achievement
 func mcs_kill(id string, name string, number int, who int) Achievement {
 	return Achievement{
 		id,
@@ -35,16 +52,14 @@ func mcs_kill(id string, name string, number int, who int) Achievement {
 	}
 }
 
-//mcs_complete_serie makes a "Finish a mission series" achievement
+// mcs_complete_serie makes a "Finish a mission series" achievement
 func mcs_complete_series(id string, name string, expl string, number uint8) Achievement {
 	return Achievement{
 		id,
 		name,
 		expl,
 		func(a *Arg) bool {
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
+			str, flag := a.plot_info()
 
 			// Possibility 1: already on later missions
 			if len(str) == 4 && str[0] == 's' && str[1] > '0'+number {
@@ -94,7 +109,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_OPTIMISM", "Optimism", "Have Merchant's guild membership but no jump drive", func(a *Arg) bool {
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]+6] == 0 {
+			if a.offset(types.OFFSET_SHIP)[6] == 0 {
 				return false
 			}
 
@@ -163,7 +178,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", func(a *Arg) bool {
-			switch a.Bs[a.H.Offsets[types.OFFSET_SHIP]+2] {
+			switch a.offset(types.OFFSET_SHIP)[2] {
 			case 0, 15, 17:
 				return false
 			}
@@ -190,9 +205,7 @@ var Cheev_list = []struct {
 		{"AID_LYNCH", "Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", func(a *Arg) bool {
 			// Note: The final "Get ambushed by Miggs" mission can't have completed status.
 			// We're lying in the description to avoid spoiling a 30-year-old game.
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
+			str, flag := a.plot_info()
 
 			// Possibility 1: already on later missions
 			if len(str) == 4 && str[0] == 's' && str[1] > '2' {
@@ -228,9 +241,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_WON", "That'll be 30000 credits", "Win the game (and get paid for it)", func(a *Arg) bool {
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
+			str, flag := a.plot_info()
 
 			// This flag is 191 regardless of whether we've returned to the Admiral and heard his "well done" speech.
 			return str == "s7mb" && flag == 191
@@ -265,7 +276,7 @@ var Cheev_list = []struct {
 		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", func(a *Arg) bool {
 			// This check is necessary, because of cargo misions and also because it's possible to exchange ships when you shouldn't be able to thanks to
 			// (I guess) 8-bit wrap around in stored cargo.
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]] != tables.SHIP_GALAXY {
+			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_GALAXY {
 				return false
 			}
 
@@ -292,7 +303,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(a *Arg) bool {
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]] != tables.SHIP_TARSUS {
+			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
 				return false
 			}
 
@@ -405,10 +416,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			cur = a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
-
+			str, flag := a.plot_info()
 			return str == "s7mb" && flag == 191
 		}},
 
@@ -420,10 +428,7 @@ var Cheev_list = []struct {
 				}
 			}
 
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
-
+			str, flag := a.plot_info()
 			return str == "s7mb" && flag == 191
 		}},
 
@@ -458,9 +463,7 @@ var Cheev_list = []struct {
 
 		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", func(a *Arg) bool {
 			// There are 3 such missions - Oxford 1, 3 and 4.
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
+			str, flag := a.plot_info()
 
 			switch str {
 			case "s3ma", "s3mc", "s3md":
@@ -471,7 +474,7 @@ var Cheev_list = []struct {
 
 		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", func(a *Arg) bool {
 			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]] != 2 {
+			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_CENTURION {
 				return false
 			}
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
@@ -488,8 +491,8 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", func(a *Arg) bool {
-			cur := a.H.Offsets[types.OFFSET_SHIP] + 3
-			return readers.Read_int16(a.Bs, &cur) >= 100
+			cur := 3
+			return readers.Read_int16(a.offset(types.OFFSET_SHIP), &cur) >= 100
 		}},
 
 		// TODO: these would be fun but needs multi-file checking
@@ -522,12 +525,12 @@ var Cheev_list = []struct {
 			// The Centurions at Palan can be handled by kiting them into the asteroid field.
 			// Cross 3 method: clear nav 1 (asteroids will help you here), then hit nav 4, wipe out the Gothri there, again taking full advantage of the asteroids.
 			// Run from the Kamekh, auto to nav 3, then to nav 2, kill 2 out of 3 Dralthi then burn back to nav 1.
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]] != tables.SHIP_TARSUS {
+			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
 				return false
 			}
 
 			/// actually at the derelict
-			if a.Bs[a.H.Offsets[types.OFFSET_SHIP]+2] == 59 {
+			if a.offset(types.OFFSET_SHIP)[2] == 59 {
 				return true
 			}
 
@@ -552,9 +555,7 @@ var Cheev_list = []struct {
 			// Hunters are notoriously hard to please.  The problem is that you have to kill a lot of them to win the game,
 			// losing 15 rep per Demon and 20 rep per Centurion - but nothing (except the drone) will improve hunter rep by more than 1.
 			// (That's right, killing a pirate talon impresses them exactly as much as killing a Kamekh)
-			cur := a.H.Offsets[types.OFFSET_PLOT]
-			str, _, _ := readers.Read_string(a.Bs, &cur)
-			flag := a.Bs[a.H.Offsets[types.OFFSET_PLOT]+9]
+			str, flag := a.plot_info()
 
 			if len(str) != 4 {
 				// Either too early or too late
@@ -594,7 +595,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			cur = 2 * tables.FACTION_HUNTERS
+			cur := 2 * tables.FACTION_HUNTERS
 			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("SCOR").Data, &cur) >= -25
 		}},
 
