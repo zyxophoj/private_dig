@@ -38,7 +38,7 @@ func read_file(filename string) (error, types.Header, []byte, map[int]*types.For
 
 func main() {
 
-	cheev_map := map[string]func(types.Header, []byte, map[int]*types.Form) bool{}
+	cheev_map := map[string]func(a *achievements.Arg) bool{}
 	for _, list := range achievements.Cheev_list {
 		for _, cheev := range list.Cheeves {
 			cheev_map[cheev.Id] = cheev.Test
@@ -74,7 +74,9 @@ func main() {
 					continue
 				}
 
-				result := cheev_map[s.Name()](header, bytes, forms)
+				result := cheev_map[s.Name()](&achievements.Arg{
+					header, bytes, forms,
+				})
 				if !result {
 					fmt.Println("File:", filename, "does not have achievement", s.Name())
 					error_count += 1
@@ -98,7 +100,9 @@ func main() {
 					continue
 				}
 
-				result := cheev_map[s.Name()](header, bytes, forms)
+				result := cheev_map[s.Name()](&achievements.Arg{
+					header, bytes, forms,
+				})
 				if result {
 					fmt.Println("File:", filename, "has achievement", s.Name(), "and should not")
 					error_count += 1
