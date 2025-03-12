@@ -11,6 +11,9 @@ type Arg struct {
 	H     types.Header
 	Bs    []byte
 	Forms map[int]*types.Form
+
+	Visited  map[uint8]bool
+	Progress string
 }
 
 func (a *Arg) offset(i int) []byte {
@@ -27,14 +30,12 @@ func (a *Arg) plot_info() (string, byte) {
 	return str, flag
 }
 
-
-
-
 type Achievement struct {
-	Id   string
-	Name string
-	Expl string
-	Test func(a *Arg) bool
+	Id    string
+	Name  string
+	Expl  string
+	Multi bool
+	Test  func(a *Arg) bool
 }
 
 // achievement helper functions
@@ -45,6 +46,7 @@ func mcs_kill(id string, name string, number int, who int) Achievement {
 		id,
 		name,
 		fmt.Sprintf("Kill %v %v", number, tables.Factions[who]),
+		false,
 		func(a *Arg) bool {
 			cur := 2 * who
 			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) >= number
@@ -58,6 +60,7 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 		id,
 		name,
 		expl,
+		false,
 		func(a *Arg) bool {
 			str, flag := a.plot_info()
 
@@ -104,11 +107,11 @@ var Cheev_list = []struct {
 }{
 	{"Tarsus Grind", []Achievement{ //Because not everybody gets their Centurion at the 3-minute mark :D
 
-		{"AID_AFTERBURNER", "I am speed", "Equip an afterburner", func(a *Arg) bool {
+		{"AID_AFTERBURNER", "I am speed", "Equip an afterburner", false, func(a *Arg) bool {
 			return a.Forms[types.OFFSET_REAL].Get("FITE", "AFTB") != nil
 		}},
 
-		{"AID_OPTIMISM", "Optimism", "Have Merchant's guild membership but no jump drive", func(a *Arg) bool {
+		{"AID_OPTIMISM", "Optimism", "Have Merchant's guild membership but no jump drive", false, func(a *Arg) bool {
 			if a.offset(types.OFFSET_SHIP)[6] == 0 {
 				return false
 			}
@@ -116,7 +119,7 @@ var Cheev_list = []struct {
 			return a.Forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
 		}},
 
-		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", func(a *Arg) bool {
+		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", false, func(a *Arg) bool {
 			shields := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO")
 			if shields == nil {
 				return false
@@ -124,12 +127,12 @@ var Cheev_list = []struct {
 			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", func(a *Arg) bool {
+		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", false, func(a *Arg) bool {
 			kills := a.Forms[types.OFFSET_PLAY].Get("KILL")
 			return !is_all_zero(kills.Data)
 		}},
 
-		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", func(a *Arg) bool {
+		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", false, func(a *Arg) bool {
 			launchers := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
 			if launchers != nil {
@@ -142,7 +145,7 @@ var Cheev_list = []struct {
 			return count == 2
 		}},
 
-		{"AID_TACHYON", "Now witness the firepower", "Equip a Tachyon Cannon", func(a *Arg) bool {
+		{"AID_TACHYON", "Now witness the firepower", "Equip a Tachyon Cannon", false, func(a *Arg) bool {
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			if guns == nil {
 				return false
@@ -156,16 +159,16 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_REPAIRBOT", "They fix Everything", "Have a repair-bot", func(a *Arg) bool {
+		{"AID_REPAIRBOT", "They fix Everything", "Have a repair-bot", false, func(a *Arg) bool {
 			return a.Forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil
 		}},
 
-		{"AID_COLOUR_SCANNER", "\"Red\" rhymes with \"Dead\"", "Equip a colour scanner", func(a *Arg) bool {
+		{"AID_COLOUR_SCANNER", "\"Red\" rhymes with \"Dead\"", "Equip a colour scanner", false, func(a *Arg) bool {
 			scanner := a.Forms[types.OFFSET_REAL].Get("FITE", "TRGT", "INFO")
 			return (scanner != nil) && (scanner.Data[len("TARGETNG")]-60 > 2)
 		}},
 
-		{"AID_SCANNER_DAMAGE", "Crackle crackle", "Forget to repair your scanner", func(a *Arg) bool {
+		{"AID_SCANNER_DAMAGE", "Crackle crackle", "Forget to repair your scanner", false, func(a *Arg) bool {
 			armour := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
 			scanner := a.Forms[types.OFFSET_REAL].Get("FITE", "TRGT", "DAMG")
 			//fmt.Println("Repairbot", forms[types.OFFSET_REAL].Get("FITE", "REPR") != nil)
@@ -177,7 +180,7 @@ var Cheev_list = []struct {
 				slices.Equal(armour.Data[:8], armour.Data[8:])
 		}},
 
-		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", func(a *Arg) bool {
+		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", false, func(a *Arg) bool {
 			switch a.offset(types.OFFSET_SHIP)[2] {
 			case 0, 15, 17:
 				return false
@@ -189,7 +192,7 @@ var Cheev_list = []struct {
 
 	{"Plot", []Achievement{
 
-		{"AID_SANDOVAL", "Cargo parasite", "Start the plot", func(a *Arg) bool {
+		{"AID_SANDOVAL", "Cargo parasite", "Start the plot", false, func(a *Arg) bool {
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
 				if cargo.Data[n] == 42 {
@@ -202,7 +205,7 @@ var Cheev_list = []struct {
 
 		mcs_complete_series("AID_TAYLA", "I'm not a pirate, I just work for them", "Complete Tayla's missions", 1),
 
-		{"AID_LYNCH", "Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", func(a *Arg) bool {
+		{"AID_LYNCH", "Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", false, func(a *Arg) bool {
 			// Note: The final "Get ambushed by Miggs" mission can't have completed status.
 			// We're lying in the description to avoid spoiling a 30-year-old game.
 			str, flag := a.plot_info()
@@ -228,7 +231,7 @@ var Cheev_list = []struct {
 		mcs_complete_series("AID_PALAN", "I travel the galaxy", "Complete the Palan missions", 4),
 		mcs_complete_series("AID_RYGANNON", "...and far beyond", "Complete Taryn Cross's missions", 5),
 
-		{"AID_STELTEK_GUN", "Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", func(a *Arg) bool {
+		{"AID_STELTEK_GUN", "Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", false, func(a *Arg) bool {
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			if guns != nil { //Newly-bought ships have no GUNS record
 				for n := 0; n < len(guns.Data); n += 4 {
@@ -240,7 +243,7 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_WON", "That'll be 30000 credits", "Win the game (and get paid for it)", func(a *Arg) bool {
+		{"AID_WON", "That'll be 30000 credits", "Win the game (and get paid for it)", false, func(a *Arg) bool {
 			str, flag := a.plot_info()
 
 			// This flag is 191 regardless of whether we've returned to the Admiral and heard his "well done" speech.
@@ -250,7 +253,7 @@ var Cheev_list = []struct {
 
 	{"Ships", []Achievement{ // The idea here is one achievement per ship which exemplifies what that ship is for.
 
-		{"AID_CENTURION", "Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", func(a *Arg) bool {
+		{"AID_CENTURION", "Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", false, func(a *Arg) bool {
 			count := 0
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			if guns != nil {
@@ -273,7 +276,7 @@ var Cheev_list = []struct {
 			return count == 20
 		}},
 
-		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", func(a *Arg) bool {
+		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", false, func(a *Arg) bool {
 			// This check is necessary, because of cargo misions and also because it's possible to exchange ships when you shouldn't be able to thanks to
 			// (I guess) 8-bit wrap around in stored cargo.
 			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_GALAXY {
@@ -290,7 +293,7 @@ var Cheev_list = []struct {
 			return total > 200
 		}},
 
-		{"AID_ORION", "Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", func(a *Arg) bool {
+		{"AID_ORION", "Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", false, func(a *Arg) bool {
 			if !slices.Equal(a.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data, []byte{'E', 'N', 'E', 'R', 'G', 'Y', 0, 0, 1, 2, 2, 2, 3, 1, 4, 1, 5, 1, 6, 2}) {
 				return false
 			}
@@ -302,7 +305,7 @@ var Cheev_list = []struct {
 			return shields.Data[8] == 89+5 //Why do we start counting at 90?  I have no clue
 		}},
 
-		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", func(a *Arg) bool {
+		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", false, func(a *Arg) bool {
 			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
 				return false
 			}
@@ -327,7 +330,7 @@ var Cheev_list = []struct {
 	}},
 
 	{"Random", []Achievement{
-		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams in front mounts", func(a *Arg) bool {
+		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams in front mounts", false, func(a *Arg) bool {
 			// It is difficult to imagine a reason (other than the cargo duping exploit) to have multiple front tractor beams
 			// OTOH, a Galaxy with a tracter in each turret isn't particularly suspicious and shouldn't get this cheev.
 			launchers := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
@@ -342,7 +345,7 @@ var Cheev_list = []struct {
 			return count > 1
 		}},
 
-		{"AID_PORNO", "I trade it for the articles", "Carry at least one ton of PlayThing(tm)", func(a *Arg) bool {
+		{"AID_PORNO", "I trade it for the articles", "Carry at least one ton of PlayThing(tm)", false, func(a *Arg) bool {
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
 				if cargo.Data[n] == 27 {
@@ -353,7 +356,7 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_BAD_FRIENDLY", "Questionable morality", "Become friendly with Pirates and Kilrathi", func(a *Arg) bool {
+		{"AID_BAD_FRIENDLY", "Questionable morality", "Become friendly with Pirates and Kilrathi", false, func(a *Arg) bool {
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_PIRATES, tables.FACTION_KILRATHI} {
 				cur := 2 * f
@@ -365,7 +368,7 @@ var Cheev_list = []struct {
 			return true
 		}},
 
-		{"AID_SUPERFRIENDLY", "Insane morality", "Become friendly with everyone except retros", func(a *Arg) bool {
+		{"AID_SUPERFRIENDLY", "Insane morality", "Become friendly with everyone except retros", false, func(a *Arg) bool {
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_MERCHANTS, tables.FACTION_HUNTERS, tables.FACTION_CONFEDS, tables.FACTION_KILRATHI, tables.FACTION_MILITIA, tables.FACTION_PIRATES} {
 				cur := 2 * f
@@ -377,12 +380,12 @@ var Cheev_list = []struct {
 			return true
 		}},
 
-		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Credits", func(a *Arg) bool {
+		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Credits", false, func(a *Arg) bool {
 			cur := 0
 			return readers.Read_int_le(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 1000000
 		}},
 
-		{"AID_CARGO_IS_NIGGER", "Just glue it to the outside", "Carry more cargo than will fit in your ship", func(a *Arg) bool {
+		{"AID_CARGO_IS_NIGGER", "Just glue it to the outside", "Carry more cargo than will fit in your ship", false, func(a *Arg) bool {
 			// Assuming the player isn't just cheating, this is possible because cargo-delivery missions don't bother to check cargo capacity when you accept them.
 			// This could be a bug, but maybe it's a convenience feature?
 
@@ -403,14 +406,14 @@ var Cheev_list = []struct {
 			return stored > capacity
 		}},
 
-		{"AID_KILL_DRONE", "No kill stealing", "Personally kill the Steltek Drone", func(a *Arg) bool {
+		{"AID_KILL_DRONE", "No kill stealing", "Personally kill the Steltek Drone", false, func(a *Arg) bool {
 			// Although only the improved Steltek gun can knock down the drone's shields,
 			// anything can damage the soft and squishy egg inside.
 			cur := 2 * tables.FACTION_DRONE
 			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
 		}},
 
-		{"AID_WIN_KILL_NO_KILRATHI", "Cat Lover", "Win the game without killing any Kilrathi", func(a *Arg) bool {
+		{"AID_WIN_KILL_NO_KILRATHI", "Cat Lover", "Win the game without killing any Kilrathi", false, func(a *Arg) bool {
 			cur := 2 * tables.FACTION_KILRATHI
 			if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
 				return false
@@ -420,7 +423,7 @@ var Cheev_list = []struct {
 			return str == "s7mb" && flag == 191
 		}},
 
-		{"AID_WIN_KILL_NO_GOOD", "Good Guy", "Win the game without killing any Militia, Merchants or Confeds", func(a *Arg) bool {
+		{"AID_WIN_KILL_NO_GOOD", "Good Guy", "Win the game without killing any Militia, Merchants or Confeds", false, func(a *Arg) bool {
 			for _, faction := range []int{tables.FACTION_MILITIA, tables.FACTION_MERCHANTS, tables.FACTION_CONFEDS} {
 				cur := 2 * faction
 				if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
@@ -432,7 +435,7 @@ var Cheev_list = []struct {
 			return str == "s7mb" && flag == 191
 		}},
 
-		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", func(a *Arg) bool {
+		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", false, func(a *Arg) bool {
 			// Captain Tagon - from the Schlock Mercenary webcomic - loved to get paid twice(or more) for essentally the same task.
 			if len(a.H.Mission_offsets) != 6 {
 				return false
@@ -461,7 +464,7 @@ var Cheev_list = []struct {
 			return len(destinations) == 1
 		}},
 
-		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", func(a *Arg) bool {
+		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", false, func(a *Arg) bool {
 			// There are 3 such missions - Oxford 1, 3 and 4.
 			str, flag := a.plot_info()
 
@@ -472,7 +475,7 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", func(a *Arg) bool {
+		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", false, func(a *Arg) bool {
 			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
 			if a.offset(types.OFFSET_SHIP)[0] != tables.SHIP_CENTURION {
 				return false
@@ -490,15 +493,34 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", func(a *Arg) bool {
+		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", false, func(a *Arg) bool {
 			cur := 3
 			return readers.Read_int16(a.offset(types.OFFSET_SHIP), &cur) >= 100
+		}},
+
+		{"AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", true, func(a *Arg) bool {
+			// Since we do not (currently) store base type (because rip.go doesn't extract base type), we just list the locations here
+			// TODO: improve rip.go and dynamically determine this list.
+			locations := []uint8{8, 27, 36, 49, 54}
+
+			count := 0
+			missed := ""
+			for _, l := range locations {
+				if a.Visited[l] {
+					count += 1
+				} else {
+					missed = tables.Locations[l]
+				}
+			}
+
+			a.Progress = fmt.Sprintf("%v/%v (visit %v)", count, len(locations), missed)
+
+			return count == len(locations)
 		}},
 
 		// TODO: these would be fun but needs multi-file checking
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
 		// "How does that work?", "Transfer your secret compartment to a new ship"
-		// "Press C to spill secrets", "Visit all secret bases"
 	}},
 
 	{"Mostly Peaceful", []Achievement{
@@ -520,7 +542,7 @@ var Cheev_list = []struct {
 	}},
 
 	{"Feats of Insanity", []Achievement{
-		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", func(a *Arg) bool {
+		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", false, func(a *Arg) bool {
 			// I've done this.  It was painful.
 			// The Centurions at Palan can be handled by kiting them into the asteroid field.
 			// Cross 3 method: clear nav 1 (asteroids will help you here), then hit nav 4, wipe out the Gothri there, again taking full advantage of the asteroids.
@@ -546,12 +568,12 @@ var Cheev_list = []struct {
 			return false
 		}},
 
-		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", func(a *Arg) bool {
+		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", false, func(a *Arg) bool {
 			cur := 0
 			return readers.Read_int_le(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
 		}},
 
-		{"AID_FIX_HUNTER_REP", "Grinder", "Recover hunter reputation to non-hostile before winning", func(a *Arg) bool {
+		{"AID_FIX_HUNTER_REP", "Grinder", "Recover hunter reputation to non-hostile before winning", false, func(a *Arg) bool {
 			// Hunters are notoriously hard to please.  The problem is that you have to kill a lot of them to win the game,
 			// losing 15 rep per Demon and 20 rep per Centurion - but nothing (except the drone) will improve hunter rep by more than 1.
 			// (That's right, killing a pirate talon impresses them exactly as much as killing a Kamekh)
@@ -599,7 +621,7 @@ var Cheev_list = []struct {
 			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("SCOR").Data, &cur) >= -25
 		}},
 
-		{"AID_CARGO_IS_TWICE_BIGGER", "How much glue do you have?", "Carry more than twice as much cargo as will fit in your ship", func(a *Arg) bool {
+		{"AID_CARGO_IS_TWICE_BIGGER", "How much glue do you have?", "Carry more than twice as much cargo as will fit in your ship", false, func(a *Arg) bool {
 			// Probably the easiest way to do this is to get a centurion without a secret compartment, buy 50T of whatever,
 			// then accept 4 cargo missions.  That's how I did it, anyway.  Some savescumming required.
 			info := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
@@ -619,7 +641,7 @@ var Cheev_list = []struct {
 			return stored > capacity*2
 		}},
 
-		{"AID_INSANE_FRIENDLY", "No-one, you see, is smarter than he", "Become friendly with every real faction", func(a *Arg) bool {
+		{"AID_INSANE_FRIENDLY", "No-one, you see, is smarter than he", "Become friendly with every real faction", false, func(a *Arg) bool {
 			// The problem here is that retros start out hostile, and it is not possible to improve retro rep by any means.. other than getting it below -32768,
 			// causing 16-bit wraparound, flipping them to maximally friendly!  This will require about 6000 retro kills.
 			// Cheev name is a reference to "Flipper", which is sort of a hint as to the only way to do this.

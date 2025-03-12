@@ -51,7 +51,8 @@ func get_dir() string {
 
 var global_state = struct {
 	Unlocked map[string]map[string]bool
-}{map[string]map[string]bool{}}
+	Visited  map[string]map[uint8]bool
+}{map[string]map[string]bool{}, map[string]map[uint8]bool{}}
 
 var state_file = ""
 
@@ -185,6 +186,13 @@ func main() {
 				for _, i := range indices {
 					fmt.Println("   " + cat_list.Cheeves[i].Name)
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
+
+					if cat_list.Cheeves[i].Multi {
+						arg := achievements.Arg{types.Header{}, nil, nil, global_state.Visited[subargs[0]], ""}
+						cat_list.Cheeves[i].Test(&arg)
+						fmt.Println("   Progress: " + arg.Progress)
+					}
+
 					fmt.Println()
 				}
 				fmt.Println()
@@ -279,9 +287,55 @@ func handle_file(filename string) {
 		return
 	}
 
+	identity := name + ":" + callsign
+	location := bytes[header.Offsets[types.OFFSET_SHIP]+2]
+
+	_, ok := global_state.Visited[identity]
+	if !ok {
+		global_state.Visited[identity] = map[uint8]bool{}
+	}
+	global_state.Visited[identity][location] = true
+
+	// generic visited updates...
+	global_state.Visited[identity][0] = true //starting system
+
+	// Locations that must have been visited to advance the plot.
+	//
+	// The best we can do without using the poorly understood flag byte is to detect if a mission has been accepted.
+	// This doesn't work perfectly - for example, New Constantinople is provably visited on completion of Tayla 3,
+	// but we only acknowledge the start of Tayla 4.
+	plot := bytes[header.Offsets[types.OFFSET_PLOT]:]
+	cur = 0
+	str, _, _ := readers.Read_string(plot, &cur)
+	if len(str) == 4 {
+		for _, info := range []struct {
+			plot     string
+			location uint8
+		}{
+			{"s0ma", 32}, // New Detroit
+			{"s1mb", 36}, // Oakham
+			{"s1mc", 15}, // Hector
+			{"s1md", 31}, // New Constantinople
+			{"s2mc", 48}, // Siva
+			{"s2md", 42}, // Remus
+			{"s3ma", 39}, // Oxford
+			{"s4ma", 3},  // Basra
+			{"s4md", 40}, // Palan
+			{"s5ma", 46}, // Rygannon
+			{"s6ma", 59}, // Derelict
+			{"s7mb", 41}, // Perry
+		} {
+			if str >= info.plot {
+				global_state.Visited[identity][info.location] = true
+			}
+		}
+	}
+
+	arg := achievements.Arg{header, bytes, forms, global_state.Visited[identity], ""}
+
 	for _, list := range achievements.Cheev_list {
 		for _, cheev := range list.Cheeves {
-			identity := name + ":" + callsign
+
 			if last_identity != identity {
 				fmt.Println("Identity is", identity)
 				fmt.Println()
@@ -299,7 +353,7 @@ func handle_file(filename string) {
 					}
 				}()
 
-				return a.Test(&achievements.Arg{header, bytes, forms})
+				return a.Test(&arg)
 			}
 
 			if !global_state.Unlocked[identity][cheev.Id] && ct_wrap(&cheev, header, bytes, forms) {

@@ -75,7 +75,7 @@ func main() {
 				}
 
 				result := cheev_map[s.Name()](&achievements.Arg{
-					header, bytes, forms,
+					header, bytes, forms, nil, "",
 				})
 				if !result {
 					fmt.Println("File:", filename, "does not have achievement", s.Name())
@@ -101,7 +101,7 @@ func main() {
 				}
 
 				result := cheev_map[s.Name()](&achievements.Arg{
-					header, bytes, forms,
+					header, bytes, forms, nil, "",
 				})
 				if result {
 					fmt.Println("File:", filename, "has achievement", s.Name(), "and should not")
