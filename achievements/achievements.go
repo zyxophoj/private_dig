@@ -82,6 +82,30 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 	}
 }
 
+func mcs_go_places(id string, name string, expl string, locations []uint8) Achievement {
+	return Achievement{
+		id,
+		name,
+		expl,
+		true,
+		func(a *Arg) bool {
+			count := 0
+			missed := ""
+			for _, l := range locations {
+				if a.Visited[l] {
+					count += 1
+				} else {
+					missed = tables.Locations[l]
+				}
+			}
+
+			a.Progress = fmt.Sprintf("%v/%v (visit %v)", count, len(locations), missed)
+
+			return count == len(locations)
+		},
+	}
+}
+
 func is_all_zero(bs []byte) bool {
 	for _, b := range bs {
 		if b != 0 {
@@ -502,25 +526,10 @@ var Cheev_list = []struct {
 			return readers.Read_int16(a.Offset(types.OFFSET_SHIP), &cur) >= 100
 		}},
 
-		{"AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", true, func(a *Arg) bool {
-			// Since we do not (currently) store base type (because rip.go doesn't extract base type), we just list the locations here
-			// TODO: improve rip.go and dynamically determine this list.
-			locations := []uint8{8, 27, 36, 49, 54}
-
-			count := 0
-			missed := ""
-			for _, l := range locations {
-				if a.Visited[l] {
-					count += 1
-				} else {
-					missed = tables.Locations[l]
-				}
-			}
-
-			a.Progress = fmt.Sprintf("%v/%v (visit %v)", count, len(locations), missed)
-
-			return count == len(locations)
-		}},
+		// Since we do not (currently) store base type (because rip.go doesn't extract base type), we just list the locations here
+		// TODO: improve rip.go and dynamically determine these lists.
+		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", []uint8{8, 27, 36, 49, 54}),
+		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", []uint8{25, 30, 50, 34, 24, 37, 12, 18}),
 
 		// TODO: these would be fun but needs multi-file checking
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
