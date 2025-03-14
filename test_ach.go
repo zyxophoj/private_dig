@@ -36,6 +36,10 @@ func read_file(filename string) (error, types.Header, []byte, map[int]*types.For
 	return nil, header, bytes, forms
 }
 
+func boolmap[K any](t K, f K) map[bool]K {
+	return map[bool]K{true: t, false: f}
+}
+
 func main() {
 
 	cheev_map := map[string]func(a *achievements.Arg) bool{}
@@ -56,61 +60,37 @@ func main() {
 
 	for _, s := range files.Sections() {
 		if s.Name() != "DEFAULT" {
-			for _, file := range strings.Split(s.Key("yes").String(), ",") {
-				filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file)) + ".SAV"
+			for _, expected := range []bool{true, false} {
+				for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
+					filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file)) + ".SAV"
 
-				err, header, bytes, forms := read_file(filename)
+					err, header, bytes, forms := read_file(filename)
 
-				if err != nil {
-					fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
-					error_count += 1
-					continue
-				}
+					if err != nil {
+						fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
+						error_count += 1
+						continue
+					}
 
-				_, exists := cheev_map[s.Name()]
-				if !exists {
-					fmt.Println("Error: achievemnt", s.Name(), "does not exist")
-					error_count += 1
-					continue
-				}
+					_, exists := cheev_map[s.Name()]
+					if !exists {
+						fmt.Println("Error: achievment", s.Name(), "does not exist")
+						error_count += 1
+						continue
+					}
 
-				result := cheev_map[s.Name()](&achievements.Arg{
-					header, bytes, forms, nil, "",
-				})
-				if !result {
-					fmt.Println("File:", filename, "does not have achievement", s.Name())
-					error_count += 1
-				}
-			}
-			for _, file := range strings.Split(s.Key("no").String(), ",") {
-				filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file)) + ".SAV"
-
-				err, header, bytes, forms := read_file(filename)
-
-				if err != nil {
-					fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
-					error_count += 1
-					continue
-				}
-
-				_, exists := cheev_map[s.Name()]
-				if !exists {
-					fmt.Println("Error: achievemnt", s.Name(), "does not exist")
-					error_count += 1
-					continue
-				}
-
-				result := cheev_map[s.Name()](&achievements.Arg{
-					header, bytes, forms, nil, "",
-				})
-				if result {
-					fmt.Println("File:", filename, "has achievement", s.Name(), "and should not")
-					error_count += 1
+					if cheev_map[s.Name()](&achievements.Arg{header, bytes, forms, nil, ""}) != expected {
+						fmt.Printf(boolmap("File: %s does not have achievement %s", "File: %s has achievement %s but should not")[expected], filename, s.Name())
+						error_count += 1
+					}
 				}
 			}
-
 			delete(cheev_map, s.Name())
 		}
+	}
+
+	if error_count > 0 {
+		fmt.Println(error_count, "errors!!!")
 	}
 
 	if len(cheev_map) > 0 {
