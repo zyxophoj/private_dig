@@ -14,6 +14,7 @@ type Arg struct {
 
 	Visited  map[uint8]bool
 	Progress string
+	Secrets  uint8
 }
 
 func (a *Arg) Offset(i int) []byte {
@@ -528,12 +529,15 @@ var Cheev_list = []struct {
 
 		// Since we do not (currently) store base type (because rip.go doesn't extract base type), we just list the locations here
 		// TODO: improve rip.go and dynamically determine these lists.
+		// The alleged joke here is that the object of "pick up" could be women or STDs.
 		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", []uint8{8, 27, 36, 49, 54}),
 		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", []uint8{25, 30, 50, 34, 24, 37, 12, 18}),
 
-		// TODO: these would be fun but needs multi-file checking
+		{"AID_TRANSFER_SECRET", "How does that work?", "Transfer your secret compartment to a new ship", false, func(a *Arg) bool {
+			return ((a.Secrets - 1) & a.Secrets) != 0
+		}},
+		// TODO: would be fun but needs multi-file checking
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
-		// "How does that work?", "Transfer your secret compartment to a new ship"
 	}},
 
 	{"Mostly Peaceful", []Achievement{

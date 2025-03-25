@@ -52,7 +52,8 @@ func get_dir() string {
 var global_state = struct {
 	Unlocked map[string]map[string]bool
 	Visited  map[string]map[uint8]bool
-}{map[string]map[string]bool{}, map[string]map[uint8]bool{}}
+	Secrets  map[string]uint8
+}{map[string]map[string]bool{}, map[string]map[uint8]bool{}, map[string]uint8{}}
 
 var state_file = ""
 
@@ -188,7 +189,7 @@ func main() {
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
 
 					if cat_list.Cheeves[i].Multi {
-						arg := achievements.Arg{types.Header{}, nil, nil, global_state.Visited[subargs[0]], ""}
+						arg := achievements.Arg{types.Header{}, nil, nil, global_state.Visited[subargs[0]], "", global_state.Secrets[subargs[0]]}
 						cat_list.Cheeves[i].Test(&arg)
 						fmt.Println("   Progress: " + arg.Progress)
 					}
@@ -289,9 +290,14 @@ func handle_file(filename string) {
 	if !ok {
 		global_state.Visited[identity] = map[uint8]bool{}
 	}
-	arg := achievements.Arg{header, bytes, forms, global_state.Visited[identity], ""}
+	arg := achievements.Arg{header, bytes, forms, global_state.Visited[identity], "", global_state.Secrets[identity]}
 
 	update_visited(&arg)
+
+	// update secret compartment status
+	if arg.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[6] != 0 {
+		global_state.Secrets[identity] = global_state.Secrets[identity] | (1 << arg.Offset(types.OFFSET_SHIP)[0])
+	}
 
 	for _, list := range achievements.Cheev_list {
 		for _, cheev := range list.Cheeves {

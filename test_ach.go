@@ -79,7 +79,7 @@ func main() {
 						continue
 					}
 
-					if cheev_map[s.Name()](&achievements.Arg{header, bytes, forms, nil, ""}) != expected {
+					if cheev_map[s.Name()](&achievements.Arg{header, bytes, forms, nil, "", 0}) != expected {
 						fmt.Printf(boolmap("File: %s does not have achievement %s", "File: %s has achievement %s but should not")[expected], filename, s.Name())
 						error_count += 1
 					}
