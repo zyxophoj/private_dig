@@ -420,7 +420,7 @@ var Cheev_list = []struct {
 			info := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
 			capacity := int(info.Data[4])
 			if info.Data[6] != 0 {
-				capacity += 20 //secfet compartment
+				capacity += 20 //secret compartment
 			}
 
 			stored := 0

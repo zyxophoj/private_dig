@@ -77,8 +77,8 @@ func main() {
 		{"help", 0, "Display this possibly helpful info"},
 		{"check", 0, "Sanity check"},
 		{"list", 0, "List identities"},
-		{"show", 1, "Show achievemnts for an identity"},
-		{"show_missing", 1, "Show missing achievemnts for an identity"},
+		{"show", 1, "Show achievements for an identity"},
+		{"show_missing", 1, "Show missing achievements for an identity"},
 		{"run", 0, "Run and monitor achievements.  Also the default."},
 	}
 
@@ -249,11 +249,8 @@ func main() {
 var last_identity = ""
 
 func handle_file(filename string) {
-
+	// Wait for Privateer itself to finish with the file
 	time.Sleep(5 * time.Second)
-
-	//fmt.Println("   Detected file", filename)
-	//fmt.Println()
 
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -312,7 +309,7 @@ func handle_file(filename string) {
 					if recover() != nil {
 						fmt.Println("Something went *very* wrong when calculating achievement \"" + a.Name + "\":")
 						debug.PrintStack()
-						// If this happens, the ct_wrap funciton returns the default value, which is false
+						// If this happens, the ct_wrap function returns the default value, which is false
 					}
 				}()
 
@@ -339,7 +336,7 @@ func handle_file(filename string) {
 	//fmt.Println()
 }
 
-// update_visited updates the visited list based on file state_file
+// update_visited updates the visited list based on file state.
 // In addition to the obvious current_location, any base the player has provably been to
 // should be added to the Visited list.
 //
