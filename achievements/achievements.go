@@ -673,5 +673,42 @@ var Cheev_list = []struct {
 
 			return true
 		}},
+
+		{"AID_TROY_TRADE", "Optimism Rewarded", "Accept a cargo mission between two bases in the Troy system", false, func(a *Arg) bool {
+			in_troy := map[uint8]bool{
+				0:  true, // Achilles
+				15: true, // Hector
+				17: true, // Helen
+			}
+
+			if !in_troy[a.Location()] {
+				return false
+			}
+
+			cur := 0
+			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
+			for m := 0; m < missions; m += 1 {
+				cur = a.H.Mission_offsets[2*m+1]
+				form, err := readers.Read_form(a.Bs, &cur)
+
+				if err != nil {
+					//Huh?
+					return false
+				}
+
+				cargo := form.Get("CARG")
+				if cargo == nil {
+					// not a cargo mission
+					continue
+				}
+
+				if in_troy[cargo.Data[0]] {
+					return true
+				}
+			}
+
+			// No missions to troy
+			return false
+		}},
 	}},
 }
