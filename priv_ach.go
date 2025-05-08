@@ -297,6 +297,7 @@ func handle_file(filename string) {
 	// update secret compartment status
 	if arg.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[6] != 0 {
 		global_state.Secrets[identity] = global_state.Secrets[identity] | (1 << arg.Offset(types.OFFSET_SHIP)[0])
+		arg.Secrets = global_state.Secrets[identity]
 	}
 
 	for _, list := range achievements.Cheev_list {
