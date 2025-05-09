@@ -50,7 +50,7 @@ type Achievement struct {
 
 // achievement helper functions
 
-// mcs_kill makes a "kill a bunch of peoplke" achievement
+// mcs_kill makes a "kill a bunch of people" achievement
 func mcs_kill(id string, name string, number int, who int) Achievement {
 	return Achievement{
 		id,
@@ -64,7 +64,7 @@ func mcs_kill(id string, name string, number int, who int) Achievement {
 	}
 }
 
-// mcs_complete_serie makes a "Finish a mission series" achievement
+// mcs_complete_series makes a "Finish a mission series" achievement
 func mcs_complete_series(id string, name string, expl string, number uint8) Achievement {
 	return Achievement{
 		id,
@@ -88,6 +88,7 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 	}
 }
 
+// mcs_go_places makes a "visit places" achievement
 func mcs_go_places(id string, name string, expl string, locations []uint8) Achievement {
 	return Achievement{
 		id,
@@ -366,7 +367,7 @@ var Cheev_list = []struct {
 	{"Random", []Achievement{
 		{"AID_DUPER", "I know what you did", "Equip multiple tractor beams in front mounts", false, func(a *Arg) bool {
 			// It is difficult to imagine a reason (other than the cargo duping exploit) to have multiple front tractor beams
-			// OTOH, a Galaxy with a tracter in each turret isn't particularly suspicious and shouldn't get this cheev.
+			// OTOH, a Galaxy with a tractor in each turret isn't particularly suspicious and shouldn't get this cheev.
 			launchers := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 			count := 0
 			if launchers != nil {
@@ -664,7 +665,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_INSANE_FRIENDLY", "No-one, you see, is smarter than he", "Become friendly with every real faction", false, func(a *Arg) bool {
-			// The problem here is that retros start out hostile, and it is not possible to improve retro rep by any means.. other than getting it below -32768,
+			// The problem here is that retros start out hostile, and it is not possible to improve retro rep by any means... other than getting it below -32768,
 			// causing 16-bit wraparound, flipping them to maximally friendly!  This will require about 6000 retro kills.
 			// Cheev name is a reference to "Flipper", which is sort of a hint as to the only way to do this.
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")

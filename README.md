@@ -16,7 +16,7 @@ Go to the releases page (https://github.com/zyxophoj/private_dig/releases) and d
 * ```priv_ach show (identity)``` - lists achievements that an identity has
 * ```priv_ach show_missing (identity)``` - lists achievements that an identity does not have
 
-It is also possible to get a full list of achievements by doing: ```priv_ach show_missing nobody```.  This is because there is no record of "nobody" (and there can't be, since any real identity contains a colon) so priv_ach assumes that "nobody" jusg hasn't got any achievements yet.
+It is also possible to get a full list of achievements by doing: ```priv_ach show_missing nobody```.  This is because there is no record of "nobody" (and there can't be, since any real identity contains a colon) so priv_ach assumes that "nobody" just hasn't got any achievements yet.
 
 
 ## Fictitious, Unasked, Questions
