@@ -12,9 +12,14 @@ type Arg struct {
 	Bs    []byte
 	Forms map[int]*types.Form
 
-	Visited  map[uint8]bool
+	// These are "the actual variables* from global_state, not copies.
+	// In the case of maps, that works by itself.  Otherwise, some contortions
+	// in global_state were needed to allow pointers to be exported.
+	Visited map[uint8]bool
+	Secrets *uint8
+
+	// optput variable used only (and optionally) by multi-file-achievements
 	Progress string
-	Secrets  uint8
 }
 
 func (a *Arg) Offset(i int) []byte {
@@ -534,7 +539,7 @@ var Cheev_list = []struct {
 		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", []uint8{25, 30, 50, 34, 24, 37, 12, 18}),
 
 		{"AID_TRANSFER_SECRET", "How does that work?", "Transfer your secret compartment to a new ship", false, func(a *Arg) bool {
-			return ((a.Secrets - 1) & a.Secrets) != 0
+			return ((*a.Secrets - 1) & *a.Secrets) != 0
 		}},
 		// TODO: would be fun but needs multi-file checking
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
