@@ -147,11 +147,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_OPTIMISM", "Optimism", "Have Merchant's guild membership but no jump drive", false, func(a *Arg) bool {
-			if a.Offset(types.OFFSET_SHIP)[6] == 0 {
-				return false
-			}
-
-			return a.Forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
+			return a.Offset(types.OFFSET_SHIP)[6] != 0 && a.Forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
 		}},
 
 		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", false, func(a *Arg) bool {
@@ -163,8 +159,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", false, func(a *Arg) bool {
-			kills := a.Forms[types.OFFSET_PLAY].Get("KILL")
-			return !is_all_zero(kills.Data)
+			return !is_all_zero(a.Forms[types.OFFSET_PLAY].Get("KILL").Data)
 		}},
 
 		{"AID_2LAUNCHERS", "\"I am become death, destroyer of Talons\"", "Have 2 missile launchers", false, func(a *Arg) bool {
@@ -312,7 +307,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", false, func(a *Arg) bool {
-			// This check is necessary, because of cargo misions and also because it's possible to exchange ships when you shouldn't be able to thanks to
+			// This check is necessary, because of cargo missions and also because it's possible to exchange ships when you shouldn't be able to thanks to
 			// (I guess) 8-bit wrap around in stored cargo.
 			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_GALAXY {
 				return false
@@ -356,6 +351,7 @@ var Cheev_list = []struct {
 				armours[i] = readers.Read_int16(armour.Data, &cur)
 			}
 			for i := 0; i < 4; i += 1 {
+				// Empty armour slot can show up as 0 or 1
 				if armours[i] == 1 || armours[i] == armours[i+4] {
 					return false
 				}
