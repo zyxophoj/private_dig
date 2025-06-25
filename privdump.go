@@ -42,8 +42,8 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			// 1 : Always 0? (It's possible that ship type is actually an int16, but then why is location just a byte?  Editing this does not appear to do anything.)
 			// 2 : Location (see Locations in tables.go)
 			// 3-4 : Missions completed (int16)
-			// 5: Merchants guild member (1 or 0)
-			// 6: Mercenaries guild member (1 or 0)
+			// 5: Mercenaries guild member (1 or 0)
+			// 6: Merchants guild member (1 or 0)
 			ships := map[uint8]string{
 				tables.SHIP_TARSUS:    "Tarsus",
 				tables.SHIP_ORION:     "Orion",
@@ -69,9 +69,9 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				1: "Member",
 			}
 			member := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur-1, safe_lookup(guild_status, member)))
+			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur-1, safe_lookup(guild_status, member)))
 			member = readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur-1, safe_lookup(guild_status, readers.Read_uint8(bytes, &cur))))
+			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur-1, safe_lookup(guild_status, member)))
 
 		case types.OFFSET_PLOT:
 			// This is a null-terminated string of max length 8 (9 including the null) with a "flag" byte in the 10th position
