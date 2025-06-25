@@ -75,9 +75,11 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 
 		case types.OFFSET_PLOT:
 			// This is a null-terminated string of max length 8 (9 including the null) with a "flag" byte in the 10th position
-			// There are special vlaues for "plot not started" and "plot failed", but otherwise, the string
+			// There are special values for "plot not started" and "plot failed", but otherwise, the string
 			// is "s"+(series nubmer)+"m"+(mission letter) e.g. s2mc
-			// One advantage of doing it this way is that alphabetical string comparision can be used.
+			// Note: alphabetical string comparision is CONSIDERED EXTREMELY HARMFUL now that we handle
+			// RF missions, which can have a double-digit series number.
+
 			// flag byte is mission status (accepted/done/failed) althoguh this is not well understood.
 			status, _, _ := readers.Read_string(bytes, &cur)
 			if status == "" {
@@ -86,7 +88,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				out = append(out, fmt.Sprintf("   (Plot failed!)"))
 			} else {
 				// This section begins with something like "s4mb" indicating series and mission number
-				series := map[string]string{
+				serieses := map[string]string{
 					"s0": "Sandoval",
 					"s1": "Tayla",
 					"s2": "Roman Lynch", //and Miggs!
@@ -95,8 +97,17 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 					"s5": "Taryn Cross",
 					"s6": "Goodin?",
 					"s7": "Final",
+
+					"s8":  "Tayla (RF)",
+					"s9":  "Murphy (RF)",
+					"s10": "Goodin (RF)",
+					"s11": "Masterson (RF)",
+					"s12": "Monte",
+					"s13": "Goodin 5 (RF)",
+					"s14": "Final", //Patrol Mission of the Apocalypse + Kill Jones?
 				}
-				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(series, status[0:2]), status[3:4]))
+				series, mission := status[0:len(status)-2], status[len(status)-1:len(status)]
+				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(serieses, series), mission))
 			}
 
 			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
@@ -119,7 +130,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 
 			out = append(out, fmt.Sprintf("   Status: %v", safe_lookup(mstatus, final[0])))
 			// This byte can't tell the difference between "You haven't talked to someone yet", and "you talked, rejected, but they'll still be here if you change your mind"
-			// That info is in the WTF section... somewhere.
+			// That info is in the WTF section
 
 		case types.OFFSET_MISSIONS:
 			// 2-bytes, looks like just the mission count
@@ -129,6 +140,31 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			// Basically 0% understood right now
 			// Probably has something to do with fixer status
 			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.Offsets[o+1]]))
+
+			// The first 11 bytes appear to be total nonsense
+			// they are not even preserved by loadsaving.
+
+			// Next we have a bunch of flags.  Meanings are probably not preserved between priv and RF
+			flags := map[int]string{
+				1:  "Tayla hello",
+				2:  "Tayla Goodbye",
+				3:  "Masterson Hello",
+				4:  "Masterson/Murphy Goodbye",
+				5:  "Monkhouse Goodbye",
+				6:  "Met Goodin",
+				9:  "Current plot mission rejected",
+				10: "Monkhouse Goodbye 2",
+				11: "Angry Drone?",
+				12: "Terrel in credits mode",
+
+				49: "Roman Lynch introduced (RF)",
+			}
+			for i := 0; i < header.Offsets[o+1]-cur-11; i += 1 {
+				if bytes[cur+i+11] != 0 {
+					out = append(out, fmt.Sprintf("  flag %v (%v): %v", i, safe_lookup(flags, i), bytes[cur+i+11]))
+				}
+			}
+
 		case types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL:
 			// It's just a form...
 			form, err := readers.Read_form(bytes, &cur)
