@@ -106,7 +106,12 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 					"s13": "Goodin 5 (RF)",
 					"s14": "Final", //Patrol Mission of the Apocalypse + Kill Jones?
 				}
-				series, mission := status[0:len(status)-2], status[len(status)-1:len(status)]
+
+				// Just to make things more annoying, RF introduces sub-missions.
+				// e.g. "Monte 2 (go to Capella)" is "s12mb1", and the informant mission (go to New Detroit) is "s12mb2"
+				m := strings.Index(status, "m")
+				series, mission := status[0:m], status[m+1:len(status)]
+				//out = append(out, fmt.Sprintf("   Status: %v", status))
 				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(serieses, series), mission))
 			}
 
