@@ -102,7 +102,7 @@ func mcs_go_places(id string, name string, expl string, locations []uint8) Achie
 				if a.Visited[l] {
 					count += 1
 				} else {
-					missed = tables.Locations[l]
+					missed = tables.Locations(types.GT_PRIV)[l] //TODO: RF achievements?
 				}
 			}
 

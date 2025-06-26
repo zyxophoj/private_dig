@@ -59,7 +59,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			}
 
 			loc := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations, loc)))
+			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations(gt), loc)))
 
 			missions := readers.Read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur-1, missions))
@@ -607,7 +607,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		// Byte 0: destination
 		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
-		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), safe_lookup(tables.Locations, record.Data[0])))
+		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), safe_lookup(tables.Locations(gt), record.Data[0])))
 
 	case "PAYS":
 		//Mission payment (4 bytes, although I've never seen a mission that needed that)

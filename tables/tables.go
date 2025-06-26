@@ -28,7 +28,7 @@ const (
 	SHIP_GALAXY    = 3
 )
 
-var Locations = map[uint8]string{
+var locations = map[uint8]string{
 	//Generated with rip.go
 	0:  "Achilles  (Troy)",
 	1:  "Anapolis  (Perry)",
@@ -90,6 +90,23 @@ var Locations = map[uint8]string{
 	57: "Vishnu  (Rikel)",
 	58: "Wickerton  (Manchester)",
 	59: "Derelict Base  (Delta Prime)",
+}
+
+var locations_rf = func() map[uint8]string {
+	m := map[uint8]string{}
+	for k, v := range locations {
+		m[k] = v
+	}
+	m[59] = "Gaea (Gaea)"
+	return m
+}()
+
+func Locations(gt types.Game) map[uint8]string {
+	if gt == types.GT_RF {
+		return locations_rf
+	}
+
+	return locations
 }
 
 var systems = map[uint8]string{
