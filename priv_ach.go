@@ -50,9 +50,9 @@ func get_dir() string {
 }
 
 var global_state = struct {
-	Unlocked map[string]map[string]bool
-	Visited  map[string]map[uint8]bool
-	Secrets  map[string]*uint8
+	Unlocked map[string]map[string]bool // cheeves earned
+	Visited  map[string]map[uint8]bool  // locations visited
+	Secrets  map[string]*uint8          // which ships have had the secret compartment
 }{map[string]map[string]bool{}, map[string]map[uint8]bool{}, map[string]*uint8{}}
 
 var state_file = ""
@@ -286,7 +286,7 @@ func handle_file(filename string) {
 	}
 	identity := name + ":" + callsign
 
-    // Set up proper "uninitialised" values
+	// Set up proper "uninitialised" values
 	_, ok := global_state.Visited[identity]
 	if !ok {
 		global_state.Visited[identity] = map[uint8]bool{}
@@ -294,8 +294,8 @@ func handle_file(filename string) {
 	_, ok = global_state.Secrets[identity]
 	if !ok {
 		global_state.Secrets[identity] = new(uint8)
-    }
-	
+	}
+
 	arg := achievements.Arg{header, bytes, forms, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
 	update_visited(&arg)
