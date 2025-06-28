@@ -83,6 +83,9 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 
 			// flag byte is mission status (accepted/done/failed) althoguh this is not well understood.
 			status, _, _ := readers.Read_string(bytes, &cur)
+			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
+			// There remains one poorly understood byte.
+			final := bytes[header.Offsets[o]+8+1 : header.Offsets[o+1]] // This looks like a bitfield
 			if status == "" {
 				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
 			} else if status == "FFFFFFFF" {
@@ -112,13 +115,11 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				// e.g. "Monte 2 (go to Capella)" is "s12mb1", and the informant mission (go to New Detroit) is "s12mb2"
 				m := strings.Index(status, "m")
 				series, mission := status[0:m], status[m+1:len(status)]
-				//out = append(out, fmt.Sprintf("   Status: %v", status))
+				out = append(out, fmt.Sprintf("   %v - %v", status, final))
 				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(serieses, series), mission))
 			}
 
-			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
-			// There remains one poorly understood byte.
-			final := bytes[header.Offsets[o]+8+1 : header.Offsets[o+1]] // This looks like a bitfield
+
 			mstatus := map[uint8]string{
 				128: "Accepted (128)",     //128
 				160: "Accepted (160)",     //128+32
