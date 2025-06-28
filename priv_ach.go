@@ -149,6 +149,7 @@ func main() {
 		got := global_state.Unlocked[subargs[0]]
 		ttotal := 0
 		for _, cat_list := range achievements.Cheev_list {
+			cat_list.Cheeves = append(cat_list.Cheeves, achievements.Cheev_list_rf[cat_list.Category]...)
 			total := len(cat_list.Cheeves)
 			ttotal += total
 			indices := []int{}
@@ -174,7 +175,19 @@ func main() {
 
 		load_state()
 		got := global_state.Unlocked[subargs[0]]
+
+		// TODO:  a per-character "rf" flag would help here.
+		is_rf := false
+		for cheev := range got {
+			if strings.HasPrefix(cheev, "AID_RF") {
+				is_rf = true
+				break
+			}
+		}
 		for _, cat_list := range achievements.Cheev_list {
+			if is_rf {
+				cat_list.Cheeves = append(cat_list.Cheeves, achievements.Cheev_list_rf[cat_list.Category]...)
+			}
 			total := len(cat_list.Cheeves)
 			indices := []int{}
 			for i, cheev := range cat_list.Cheeves {
@@ -189,7 +202,7 @@ func main() {
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
 
 					if cat_list.Cheeves[i].Multi {
-						arg := achievements.Arg{types.Header{}, nil, nil, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
+						arg := achievements.Arg{types.Header{}, nil, nil, types.GT_PRIV, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
 						cat_list.Cheeves[i].Test(&arg)
 						fmt.Println("   Progress: " + arg.Progress)
 					}
@@ -224,7 +237,7 @@ func main() {
 					return
 				}
 				if event.Has(fsnotify.Write) {
-					if strings.HasSuffix(event.Name, ".SAV") {
+					if strings.HasSuffix(event.Name, ".SAV") || strings.HasSuffix(event.Name, ".PRS") {
 						handle_file(event.Name)
 					}
 
@@ -296,7 +309,15 @@ func handle_file(filename string) {
 		global_state.Secrets[identity] = new(uint8)
 	}
 
-	arg := achievements.Arg{header, bytes, forms, global_state.Visited[identity], global_state.Secrets[identity], ""}
+	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
+	game := types.GT_PRIV
+	hidden := forms[types.OFFSET_SSSS].Get("ORIG").Data
+	if hidden[len(hidden)-1] == 68 {
+		game = types.GT_RF
+		//fmt.Printf("RF mode engaged!")
+	}
+
+	arg := achievements.Arg{header, bytes, forms, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
 	update_visited(&arg)
 
@@ -306,7 +327,13 @@ func handle_file(filename string) {
 	}
 
 	for _, list := range achievements.Cheev_list {
-		for _, cheev := range list.Cheeves {
+
+		cheeves := list.Cheeves
+		if arg.Game == types.GT_RF {
+			cheeves = append(cheeves, achievements.Cheev_list_rf[list.Category]...)
+		}
+
+		for _, cheev := range cheeves {
 
 			if last_identity != identity {
 				fmt.Println("Identity is", identity)
@@ -356,56 +383,63 @@ func handle_file(filename string) {
 func update_visited(arg *achievements.Arg) {
 	arg.Visited[arg.Location()] = true // current location
 
-	arg.Visited[0] = true // Achilles, the starting location
+	switch arg.Game {
+	case types.GT_PRIV:
 
-	// Locations that must have been visited to advance the plot.
-	//
-	// The best we can do without using the poorly understood flag byte is to detect if a mission has been accepted.
-	// This doesn't work perfectly - for example, New Constantinople is provably visited on completion of Tayla 3,
-	// but we only acknowledge the start of Tayla 4.
-	infos := []struct {
-		plot     string
-		location uint8
-	}{
-		{"s0ma", 32}, // New Detroit
-		{"s1mb", 36}, // Oakham
-		{"s1mc", 15}, // Hector
-		{"s1md", 31}, // New Constantinople
-		{"s2mc", 48}, // Siva
-		{"s2md", 42}, // Remus
-		{"s3ma", 39}, // Oxford
-		{"s4ma", 3},  // Basra
-		{"s4md", 40}, // Palan
-		{"s5ma", 46}, // Rygannon
-		{"s6ma", 59}, // Derelict
-		{"s7mb", 41}, // Perry
-	}
+		arg.Visited[0] = true // Achilles, the starting location
 
-	str, _ := arg.Plot_info()
-	if len(str) == 4 {
-		for _, info := range infos {
-			if str >= info.plot {
-				arg.Visited[info.location] = true
+		// Locations that must have been visited to advance the plot.
+		//
+		// The best we can do without using the poorly understood flag byte is to detect if a mission has been accepted.
+		// This doesn't work perfectly - for example, New Constantinople is provably visited on completion of Tayla 3,
+		// but we only acknowledge the start of Tayla 4.
+		infos := []struct {
+			plot     string
+			location uint8
+		}{
+			{"s0ma", 32}, // New Detroit
+			{"s1mb", 36}, // Oakham
+			{"s1mc", 15}, // Hector
+			{"s1md", 31}, // New Constantinople
+			{"s2mc", 48}, // Siva
+			{"s2md", 42}, // Remus
+			{"s3ma", 39}, // Oxford
+			{"s4ma", 3},  // Basra
+			{"s4md", 40}, // Palan
+			{"s5ma", 46}, // Rygannon
+			{"s6ma", 59}, // Derelict
+			{"s7mb", 41}, // Perry
+		}
+
+		str, _ := arg.Plot_info()
+		if len(str) == 4 {
+			for _, info := range infos {
+				if str >= info.plot {
+					arg.Visited[info.location] = true
+				}
 			}
 		}
-	}
 
-	// Either Steltek gun proves the player got to the derelict
-	guns := arg.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
-	if guns != nil {
-		for n := 0; n < len(guns.Data); n += 4 {
-			if guns.Data[n] >= 8 {
-				for _, info := range infos {
-					arg.Visited[info.location] = true
-					if info.location == 59 && guns.Data[n] == 9 {
-						break
+		// Either Steltek gun proves the player got to the derelict
+		guns := arg.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+		if guns != nil {
+			for n := 0; n < len(guns.Data); n += 4 {
+				if guns.Data[n] >= 8 {
+					for _, info := range infos {
+						arg.Visited[info.location] = true
+						if info.location == 59 && guns.Data[n] == 9 {
+							break
+						}
 					}
 				}
 			}
 		}
-	}
 
-	// TODO: theoretically, the player could have visited the derelict and not picked up a gun
-	// Ths should in principle be detectable by the "angry drone" state, but where is that stored in the save file?
-	// Also, who does that?
+		// TODO: theoretically, the player could have visited the derelict and not picked up a gun
+		// Ths should in principle be detectable by the "angry drone" state, but where is that stored in the save file?
+		// Also, who does that?
+
+	case types.GT_RF:
+		arg.Visited[18] = true // Jolson, the starting location
+	}
 }

@@ -2,6 +2,8 @@ package achievements
 
 import "fmt"
 import "slices"
+import "strconv"
+import "strings"
 
 import "privdump/tables"
 import "privdump/types"
@@ -11,6 +13,7 @@ type Arg struct {
 	H     types.Header
 	Bs    []byte
 	Forms map[int]*types.Form
+	Game  types.Game
 
 	// These are "the actual variables* from global_state, not copies.
 	// In the case of maps, that works by itself.  Otherwise, some contortions
@@ -18,7 +21,7 @@ type Arg struct {
 	Visited map[uint8]bool
 	Secrets *uint8
 
-	// optput variable used only (and optionally) by multi-file-achievements
+	// output variable used only (and optionally) by multi-file-achievements
 	Progress string
 }
 
@@ -38,6 +41,16 @@ func (a *Arg) Plot_info() (string, byte) {
 
 func (a *Arg) Location() uint8 {
 	return a.Offset(types.OFFSET_SHIP)[2]
+}
+
+func (a *Arg) Has_flags(flags ...int) bool {
+	data := a.Offset(types.OFFSET_WTF)[11:]
+	for _, flag := range flags {
+		if data[flag] == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 type Achievement struct {
@@ -72,6 +85,12 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 		expl,
 		false,
 		func(a *Arg) bool {
+			if a.Game == types.GT_RF {
+				// RF plot info tells us nothing about what (if anything) was done in Privateer
+
+				// TODO: however, deductions can and should be made from secret compartment, unlocked jump points, and drone kill
+				return false
+			}
 			str, flag := a.Plot_info()
 
 			// Possibility 1: already on later missions
@@ -102,7 +121,7 @@ func mcs_go_places(id string, name string, expl string, locations []uint8) Achie
 				if a.Visited[l] {
 					count += 1
 				} else {
-					missed = tables.Locations(types.GT_PRIV)[l] //TODO: RF achievements?
+					missed = tables.Locations(a.Game)[l]
 				}
 			}
 
@@ -236,6 +255,11 @@ var Cheev_list = []struct {
 		mcs_complete_series("AID_TAYLA", "I'm not a pirate, I just work for them", "Complete Tayla's missions", 1),
 
 		{"AID_LYNCH", "Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", false, func(a *Arg) bool {
+			if a.Game == types.GT_RF {
+				// RF plot info tells us nothing about what (if anything) was done in Privateer
+				return false
+			}
+
 			// Note: The final "Get ambushed by Miggs" mission can't have completed status.
 			// We're lying in the description to avoid spoiling a 30-year-old game.
 			str, flag := a.Plot_info()
@@ -262,6 +286,11 @@ var Cheev_list = []struct {
 		mcs_complete_series("AID_RYGANNON", "...and far beyond", "Complete Taryn Cross's missions", 5),
 
 		{"AID_STELTEK_GUN", "Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", false, func(a *Arg) bool {
+			if a.Game == types.GT_RF {
+				// Gun type 8 is re-used in RF for the fusion cannon
+				return false
+			}
+
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			if guns != nil { //Newly-bought ships have no GUNS record
 				for n := 0; n < len(guns.Data); n += 4 {
@@ -508,6 +537,11 @@ var Cheev_list = []struct {
 
 		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", false, func(a *Arg) bool {
 			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
+			if a.Game == types.GT_RF {
+				// Gun type 8 is re-used in RF for the fusion cannon
+				return false
+			}
+
 			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_CENTURION {
 				return false
 			}
@@ -713,4 +747,138 @@ var Cheev_list = []struct {
 			return false
 		}},
 	}},
+}
+
+var Cheev_list_rf = map[string][]Achievement{
+	"Plot": []Achievement{
+		// RF's use of flags makes these considerably easier than the Privateer plot achievements
+		{"AID_RF_TAYLA", "For medicinal use only", "Complete Tayla's missions  (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(154)
+		}},
+		{"AID_RF_MURPHY", "Corporate lackey", "Complete Lynn Murphy's missions (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(158)
+		}},
+		{"AID_RF_GOODIN", "Kamekhs and Kamikazes", "Complete Sandra Goodin's missions (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(162)
+		}},
+		{"AID_RF_MASTERSON", "Not Brogues", "Complete Masterson's missions (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(167)
+		}},
+		{"AID_RF_MONTE", "The full Monte", "Complete the sociologist's missions (RF)", false, func(a *Arg) bool {
+			// There's no flag for this!
+			status, flag := a.Plot_info()
+			if status == "" {
+				return false // plot not started
+			}
+
+			m := strings.Index(status, "m")
+			series, err := strconv.Atoi(status[1:m])
+			if err != nil {
+				// This simply should not happen
+				return false
+			}
+			mission := status[m+1 : len(status)]
+
+			return series > 12 || (series == 12 && mission == "d" && flag == 191)
+		}},
+		{"AID_RF_GOODIN_5", "Kahl and Collusion", "Complete Sandra Goodin's final mission (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(173)
+		}},
+		{"AID_RF_TERRELL", "Patrol Mission of the Apocalypse", "Complete Admiral Terrell's mission (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(174)
+		}},
+		{"AID_RF_WIN", "God Emperor of toasters", "Kill Mordecai Jones (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(176)
+		}},
+	},
+	"Random": []Achievement{
+		{"AID_RF_IMPORT_WINNER", "The adventure continues", "Import a privateer savefile that killed the drone (RF)", false, func(a *Arg) bool {
+			cur := 2 * tables.FACTION_DRONE
+			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
+		}},
+		{"AID_RF_ALL_STARTERS", "Overqualified", "Do all 3 Murphy/Tayla/Goodin mission sets (RF)", false, func(a *Arg) bool {
+			return a.Has_flags(154, 158, 162)
+		}},
+		{"AID_RF_PAID_3_TIMES", "Tagon would be proud, again", "Collect all 3 rewards for killing Menesch (RF)", false, func(a *Arg) bool {
+			// There is a problem here.
+			// 172 means: Free reset unavailable.  That could be because the reward has already been taken, or it could be because
+			// it was never offered (if the p[layer kills Menesch before even talking to Lynch).  We sort of justify this by
+			// saying that in this case, the third reward is: nothing.
+			return a.Has_flags(52, 22, 172)
+		}},
+		{"AID_RF_SECRET_NAV", "Not so secret", "Accept a non-plot mission involving Nav 4 in Valhalla (RF)", false, func(a *Arg) bool {
+			// That's the jump to Gaea, which is supposed to be secret, but nobody told mission generation that.
+
+			cur := 0
+			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
+			for m := 0; m < missions; m += 1 {
+				cur = a.H.Mission_offsets[2*m+1]
+				form, err := readers.Read_form(a.Bs, &cur)
+				if err != nil {
+					// Messed-up save file
+					continue
+				}
+				objectives := form.Get("SCRP", "PROG")
+				if objectives == nil {
+					continue
+				}
+
+				// MSSN-SCRP-PROG data appears to be a sequence of 4-byte chunks.
+				// I don't have much understanding of what this means, but I think we can recognize "go to navpoint" chunks.
+				for i := 0; i < len(objectives.Data); i += 4 {
+					// 63 is the Valhalla system
+					if objectives.Data[i+1] == 63 && objectives.Data[i+3] == 4 {
+						return true
+					}
+				}
+			}
+			return false
+		}},
+	},
+	"Feats of Insanity": []Achievement{
+		{"AID_RF_PIMPED_TARSUS", "Lipstick on a Pig", "Equip all 6 new technologies on a Tarsus (RF)", false, func(a *Arg) bool {
+			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
+				return false
+			}
+
+			// Easy ones first: these techs are simply present or not.
+			for _, what := range []string{"COOL", "SHBO", "SPEE", "THRU"} {
+				if a.Forms[types.OFFSET_REAL].Get("FITE", what) == nil {
+					return false
+				}
+			}
+
+			// Isometal armour
+			armour := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
+			cur := 0
+			if readers.Read_int16(armour.Data, &cur) != 3000 {
+				return false
+			}
+
+			// Fusion cannons - one is enough
+			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+			if guns != nil { //Newly-bought ships have no GUNS record
+				for n := 0; n < len(guns.Data); n += 4 {
+					if guns.Data[n] == 8 {
+						return true
+					}
+				}
+			}
+			return false
+		}},
+		{"AID_RF_GOODGUY_WIN", "Saint Grayson of Gemini", "Win without having killed any Confeds, Militia, Hunters or Merchants. (RF)", false, func(a *Arg) bool {
+			// Have fun with this one.
+			// Kills from an imported Privateer save do count (mostly because there's no way to exclude them) so you might as well start a new game.
+			// Backdooring Murphy 1 and Monte 4 is definitely recommended, as is a speed enhancer
+			// This is only possible because the kill count considers Menesch to be a pirate (LOL), and Jones a retro (reasonable).
+			for _, faction := range []int{tables.FACTION_MILITIA, tables.FACTION_MERCHANTS, tables.FACTION_CONFEDS, tables.FACTION_HUNTERS} {
+				cur := 2 * faction
+				if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+					return false
+				}
+			}
+
+			return a.Has_flags(176)
+		}},
+	},
 }
