@@ -206,7 +206,9 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 						add_flags(f + " " + strconv.Itoa(m+1))
 					}
 				}
+
 				// Special case: Monte "done" list has 2a and 2b, but no 4
+				// (This doesn't affect "offered" or "accepted" because the intformant sub-mission can't be refused")
 				for m := range 4 {
 					name := "Monte" + " " + strconv.Itoa(m+1)
 					flags[types.GT_RF][offered] = name + " offered"
@@ -214,13 +216,16 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 					flags[types.GT_RF][done] = "Monte " + []string{"1", "2a", "2b", "3"}[m] + " done"
 					offered, accepted, done = offered+1, accepted+1, done+1
 				}
+
 				// Special (as a euphemism for "retarded") case: what is this doing here???
-				flags[types.GT_RF][done] = "Roman Lynch Free Reset used"
+				flags[types.GT_RF][done] = "Roman Lynch Free Reset unavailable"
 				done += 1
+
 				// last 3 missions are refreshingly normal
 				for _, name := range []string{"Goodin 5", "Terrell", "Go to Gaea"} {
 					add_flags(name)
 				}
+
 				// ...and one extra flag
 				// (begging for forgiveness auto-accepts the final mission)
 				flags[types.GT_RF][done] = "Kill Jones done"
@@ -629,14 +634,14 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 				"122331415162": "Level 6",
 				"122431415162": "Level 7",
 			}
-			
+
 			// This calculation is on probation
 			// Since it only uses a small amount of the information on offer, it's probably not completely correct.
-			dirty := len(strd)/2-2
-			if strd[2]=='2'{
-				dirty += int(strd[3]-'1')
+			dirty := len(strd)/2 - 2
+			if strd[2] == '2' {
+				dirty += int(strd[3] - '1')
 			}
-			
+
 			out = append(out, fmt.Sprintf("Engine: %v", safe_lookup(levels, strd)))
 			out = append(out, fmt.Sprintf("Dirty Value: %v", dirty))
 		default:
