@@ -82,11 +82,21 @@ func main() {
 		{"show_missing", 1, "Show missing achievements for an identity"},
 		{"run", 0, "Run and monitor achievements.  Also the default."},
 	}
+	
+	flags:=map[string]bool{
+		"--rf":false,
+	}
 
 	main_arg := ""
 	subargs := []string{}
 	subargs_needed := 0
 	for _, arg := range os.Args[1:] {
+		_, is_flag :=flags[arg]
+		if is_flag {
+			flags[arg]=true
+			fmt.Println("fl;ags", arg)
+			continue
+		}
 		if main_arg == "" {
 			for _, info := range arg_info {
 				if info.arg == arg {
@@ -177,7 +187,7 @@ func main() {
 		got := global_state.Unlocked[subargs[0]]
 
 		// TODO:  a per-character "rf" flag would help here.
-		is_rf := false
+		is_rf := flags["--rf"]
 		for cheev := range got {
 			if strings.HasPrefix(cheev, "AID_RF") {
 				is_rf = true

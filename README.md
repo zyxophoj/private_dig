@@ -8,7 +8,7 @@ Go to the releases page (https://github.com/zyxophoj/private_dig/releases) and d
 
 - Edit the priv_ach.ini file.  There is only one setting, which should be the location of your Privateer saved games.  Change it if it is wrong.
 - Run priv_ach.exe
-- Play Privateer!
+- Play Privateer! (or Righteous Fire)
 
 ### Some other useful commands
 
@@ -16,7 +16,7 @@ Go to the releases page (https://github.com/zyxophoj/private_dig/releases) and d
 * ```priv_ach show (identity)``` - lists achievements that an identity has
 * ```priv_ach show_missing (identity)``` - lists achievements that an identity does not have
 
-It is also possible to get a full list of achievements by doing: ```priv_ach show_missing nobody```.  This is because there is no record of "nobody" (and there can't be, since any real identity contains a colon) so priv_ach assumes that "nobody" just hasn't got any achievements yet.
+It is also possible to get a full list of achievements by doing: ```priv_ach show_missing nobody``` or even ```priv_ach show_missing --rf nobody```.  This is because there is no record of "nobody" (and there can't be, since any real identity contains a colon) so priv_ach assumes that "nobody" just hasn't got any achievements yet.  (The ```--rf``` flag forces the executable to run in "Righteous Fire mode"; without this, it only shows Privateer achievements, because "nobody" hasn't played Righteous Fire yet.)
 
 
 ## Fictitious, Unasked, Questions
@@ -56,6 +56,11 @@ This is a bit more effort than clicking a link, and I'm sorry that Microsoft's v
 * ach_test.go - a test program for the acheivement code.  This could be useful if you want to make your own achievements and send them to me, which is very much encouraged. 
 * the source code for everything
 
+### What about Righteous Fire? ###
+
+From version 0.1 onwards, some achievements for RF exist.  priv_ach will automatically switch to RF mode when it proceses a RF savefile.
+If an identity has one or more RF achievements, ```priv_ach show_missing (identity)``` will include missing RF achievements.
+ 
 ### "Fictitious, Unasked, Questions" is a bit of a mouthful.  Is there an abbreviation?
 
 Uhh...
