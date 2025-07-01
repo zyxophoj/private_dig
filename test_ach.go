@@ -48,6 +48,13 @@ func main() {
 			cheev_map[cheev.Id] = cheev.Test
 		}
 	}
+	for _, list := range achievements.Cheev_list_rf {
+		for _, cheev := range list {
+			cheev_map[cheev.Id] = cheev.Test
+		}
+	}
+
+
 
 	test_dir := "ach_test"
 	files, err := ini.Load(test_dir + "/files.ini")
@@ -60,9 +67,20 @@ func main() {
 
 	for _, s := range files.Sections() {
 		if s.Name() != "DEFAULT" {
+			game := types.GT_PRIV
+			ext := ".SAV"
+			if strings.HasPrefix(s.Name(), "AID_RF_"){
+				game=types.GT_RF
+				ext=".PRS"
+			}
 			for _, expected := range []bool{true, false} {
 				for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
-					filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file)) + ".SAV"
+					filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file))
+					if !strings.Contains(file, "."){
+						filename += ext
+					} else {
+						game = types.GT_RF
+					}
 
 					err, header, bytes, forms := read_file(filename)
 
@@ -79,7 +97,7 @@ func main() {
 						continue
 					}
 
-					if cheev_map[s.Name()](&achievements.Arg{header, bytes, forms, nil, nil, ""}) != expected {
+					if cheev_map[s.Name()](&achievements.Arg{header, bytes, forms, game, nil, nil, ""}) != expected {
 						fmt.Printf(boolmap("File: %s does not have achievement %s\n", "File: %s has achievement %s but should not\n")[expected], filename, s.Name())
 						error_count += 1
 					}
