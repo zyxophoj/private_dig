@@ -63,6 +63,10 @@ type Achievement struct {
 
 // achievement helper functions
 
+func is_completed_status(flag uint8) bool {
+	return flag&1 != 0
+}
+
 // mcs_kill makes a "kill a bunch of people" achievement
 func mcs_kill(id string, name string, number int, who int) Achievement {
 	return Achievement{
@@ -98,7 +102,7 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 				return true
 			}
 			// Possibility 2: last mission in "complete" status
-			if str == fmt.Sprintf("s%vmd", number) && (flag == 191 || flag == 255) {
+			if str == fmt.Sprintf("s%vmd", number) && is_completed_status(flag) {
 				return true
 			}
 
@@ -306,7 +310,7 @@ var Cheev_list = []struct {
 			str, flag := a.Plot_info()
 
 			// This flag is 191 regardless of whether we've returned to the Admiral and heard his "well done" speech.
-			return str == "s7mb" && flag == 191
+			return str == "s7mb" && is_completed_status(flag)
 		}},
 	}},
 
@@ -480,7 +484,7 @@ var Cheev_list = []struct {
 			}
 
 			str, flag := a.Plot_info()
-			return str == "s7mb" && flag == 191
+			return str == "s7mb" && is_completed_status(flag)
 		}},
 
 		{"AID_WIN_KILL_NO_GOOD", "Good Guy", "Win the game without killing any Militia, Merchants or Confeds", false, func(a *Arg) bool {
@@ -492,7 +496,7 @@ var Cheev_list = []struct {
 			}
 
 			str, flag := a.Plot_info()
-			return str == "s7mb" && flag == 191
+			return str == "s7mb" && is_completed_status(flag)
 		}},
 
 		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", false, func(a *Arg) bool {
@@ -526,10 +530,12 @@ var Cheev_list = []struct {
 
 		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", false, func(a *Arg) bool {
 			// There are 3 such missions - Oxford 1, 3 and 4.
+			// RF adds one more.  Even though RF isn't (except when it is) an "unwinnable state" kind of game, teh failure
+			// falag can be set before it is cleared by talking ot MAsterson again
 			str, flag := a.Plot_info()
 
 			switch str {
-			case "s3ma", "s3mc", "s3md":
+			case "s3ma", "s3mc", "s3md", "s11md":
 				return (flag == 226 || flag == 162)
 			}
 			return false
@@ -670,7 +676,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			if str == "s7mb" && flag == 191 {
+			if str == "s7mb" && is_completed_status(flag) {
 				// won the game!
 				return false
 			}
@@ -756,15 +762,20 @@ var Cheev_list = []struct {
 
 var Cheev_list_rf = map[string][]Achievement{
 	"Plot": []Achievement{
-		// RF's use of flags makes these considerably easier than the Privateer plot achievements
+		// RF's use of flags makes these slightly easier than the Privateer plot achievements
+		// flags don't always get set on completion of the last mission; instead, they get set when a new mission sequence would cause the game to forget the status of the old one.
+		// So we generally have to check the flag and check specifically for (last mission && completed state)
 		{"AID_RF_TAYLA", "For medicinal use only", "Complete Tayla's missions  (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(154)
+			mission, flag := a.Plot_info()
+			return a.Has_flags(154) || (mission == "s8md" && is_completed_status(flag))
 		}},
 		{"AID_RF_MURPHY", "Corporate lackey", "Complete Lynn Murphy's missions (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(158)
+			mission, flag := a.Plot_info()
+			return a.Has_flags(158) || (mission == "s9md" && is_completed_status(flag))
 		}},
 		{"AID_RF_GOODIN", "Kamekhs and Kamikazes", "Complete Sandra Goodin's missions (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(162)
+			mission, flag := a.Plot_info()
+			return a.Has_flags(162) || (mission == "s10md" && is_completed_status(flag))
 		}},
 		{"AID_RF_MASTERSON", "Not Brogues", "Complete Masterson's missions (RF)", false, func(a *Arg) bool {
 			return a.Has_flags(167)
@@ -802,12 +813,16 @@ var Cheev_list_rf = map[string][]Achievement{
 			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
 		}},
 		{"AID_RF_ALL_STARTERS", "Overqualified", "Do all 3 Murphy/Tayla/Goodin mission sets (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(154, 158, 162)
+			mission, flag := a.Plot_info()
+			return (a.Has_flags(154) || (mission == "s8md" && is_completed_status(flag))) &&
+				(a.Has_flags(158) || (mission == "s9md" && is_completed_status(flag))) &&
+				(a.Has_flags(162) || (mission == "s10md" && is_completed_status(flag)))
+
 		}},
 		{"AID_RF_PAID_3_TIMES", "Tagon would be proud, again", "Collect all 3 rewards for killing Menesch (RF)", false, func(a *Arg) bool {
 			// There is a problem here.
 			// 172 means: Free reset unavailable.  That could be because the reward has already been taken, or it could be because
-			// it was never offered (if the p[layer kills Menesch before even talking to Lynch).  We sort of justify this by
+			// it was never offered (if the player kills Menesch before even talking to Lynch).  We sort of justify this by
 			// saying that in this case, the third reward is: nothing.
 			return a.Has_flags(52, 22, 172)
 		}},
