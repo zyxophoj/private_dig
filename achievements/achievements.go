@@ -596,6 +596,11 @@ var Cheev_list = []struct {
 
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", false, func(a *Arg) bool {
+			if a.Game == types.GT_RF {
+				// Not possible in RF (and we don't want false positives caused by a fusion cannon)
+				return false
+			}
+
 			// I've done this.  It was painful.
 			// The Centurions at Palan can be handled by kiting them into the asteroid field.
 			// Cross 3 method: clear nav 1 (asteroids will help you here), then hit nav 4, wipe out the Gothri there, again taking full advantage of the asteroids.
