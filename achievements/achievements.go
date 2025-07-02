@@ -15,7 +15,7 @@ type Arg struct {
 	Forms map[int]*types.Form
 	Game  types.Game
 
-	// These are "the actual variables* from global_state, not copies.
+	// These are *the actual variables* from global_state, not copies.
 	// In the case of maps, that works by itself.  Otherwise, some contortions
 	// in global_state were needed to allow pointers to be exported.
 	Visited map[uint8]bool
