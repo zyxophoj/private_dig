@@ -325,17 +325,11 @@ func handle_file(filename string) {
 	hidden := forms[types.OFFSET_SSSS].Get("ORIG").Data
 	if hidden[len(hidden)-1] == 68 {
 		game = types.GT_RF
-		//fmt.Printf("RF mode engaged!")
 	}
 
 	arg := achievements.Arg{header, bytes, forms, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
-	update_visited(&arg)
-
-	// update secret compartment status
-	if arg.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[6] != 0 {
-		*arg.Secrets = *arg.Secrets | (1 << arg.Offset(types.OFFSET_SHIP)[0])
-	}
+	arg.Update()
 
 	for _, list := range achievements.Cheev_list {
 
@@ -384,73 +378,4 @@ func handle_file(filename string) {
 	save_state()
 	//fmt.Println("   Finished with file", filename)
 	//fmt.Println()
-}
-
-// update_visited updates the visited list based on file state.
-// In addition to the obvious current_location, any base the player has provably been to
-// should be added to the Visited list.
-//
-// TODO: is this actually the constructor for achievements.Arg?
-func update_visited(arg *achievements.Arg) {
-	arg.Visited[arg.Location()] = true // current location
-
-	switch arg.Game {
-	case types.GT_PRIV:
-
-		arg.Visited[0] = true // Achilles, the starting location
-
-		// Locations that must have been visited to advance the plot.
-		//
-		// The best we can do without using the poorly understood flag byte is to detect if a mission has been accepted.
-		// This doesn't work perfectly - for example, New Constantinople is provably visited on completion of Tayla 3,
-		// but we only acknowledge the start of Tayla 4.
-		infos := []struct {
-			plot     string
-			location uint8
-		}{
-			{"s0ma", 32}, // New Detroit
-			{"s1mb", 36}, // Oakham
-			{"s1mc", 15}, // Hector
-			{"s1md", 31}, // New Constantinople
-			{"s2mc", 48}, // Siva
-			{"s2md", 42}, // Remus
-			{"s3ma", 39}, // Oxford
-			{"s4ma", 3},  // Basra
-			{"s4md", 40}, // Palan
-			{"s5ma", 46}, // Rygannon
-			{"s6ma", 59}, // Derelict
-			{"s7mb", 41}, // Perry
-		}
-
-		str, _ := arg.Plot_info()
-		if len(str) == 4 {
-			for _, info := range infos {
-				if str >= info.plot {
-					arg.Visited[info.location] = true
-				}
-			}
-		}
-
-		// Either Steltek gun proves the player got to the derelict
-		guns := arg.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
-		if guns != nil {
-			for n := 0; n < len(guns.Data); n += 4 {
-				if guns.Data[n] >= 8 {
-					for _, info := range infos {
-						arg.Visited[info.location] = true
-						if info.location == 59 && guns.Data[n] == 9 {
-							break
-						}
-					}
-				}
-			}
-		}
-
-		// TODO: theoretically, the player could have visited the derelict and not picked up a gun
-		// Ths should in principle be detectable by the "angry drone" state, but where is that stored in the save file?
-		// Also, who does that?
-
-	case types.GT_RF:
-		arg.Visited[18] = true // Jolson, the starting location
-	}
 }

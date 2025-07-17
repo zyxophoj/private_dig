@@ -25,6 +25,149 @@ type Arg struct {
 	Progress string
 }
 
+// Update is almost a constructor for Arg.
+// It updates persistent state (Visited and Secrets) based on file state
+// Because these are pointers to global state (or simulated global state in the tests),
+// it *UPDATES GLOBAL STATE AS A SIDE_EFFECT*.  This is hardly civilized constructor behaviour.
+func (a *Arg) Update() {
+
+	a.Visited[a.Location()] = true // current location
+
+	switch a.Game {
+	case types.GT_PRIV:
+
+		a.Visited[0] = true // Achilles, the starting location
+
+		// Locations that must have been visited to advance the plot.
+		//
+		// The best we can do without using the poorly understood flag byte is to detect if a mission has been accepted.
+		// This doesn't work perfectly - for example, New Constantinople is provably visited on completion of Tayla 3,
+		// but we only acknowledge the start of Tayla 4.
+		infos := []struct {
+			plot     string
+			location uint8
+		}{
+			// TODO: improve rip.go to the point where we don't need these magic numbers
+			{"s0ma", 32}, // New Detroit
+			{"s1mb", 36}, // Oakham
+			{"s1mc", 15}, // Hector
+			{"s1md", 31}, // New Constantinople
+			{"s2mc", 48}, // Siva
+			{"s2md", 42}, // Remus
+			{"s3ma", 39}, // Oxford
+			{"s4ma", 3},  // Basra
+			{"s4md", 40}, // Palan
+			{"s5ma", 46}, // Rygannon
+			{"s6ma", 59}, // Derelict
+			{"s7mb", 41}, // Perry
+		}
+
+		str, _ := a.Plot_info()
+		if len(str) == 4 {
+			for _, info := range infos {
+				if str >= info.plot {
+					a.Visited[info.location] = true
+				}
+			}
+		}
+
+		// Either Steltek gun proves the player got to the derelict
+		guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
+		if guns != nil {
+			for n := 0; n < len(guns.Data); n += 4 {
+				if guns.Data[n] >= 8 {
+					for _, info := range infos {
+						a.Visited[info.location] = true
+						if info.location == 59 && guns.Data[n] == 9 {
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// TODO: theoretically, the player could have visited the derelict and not picked up a gun
+		// Ths should in principle be detectable by the "angry drone" state, but where is that stored in the save file?
+		// Also, who does that?
+
+	case types.GT_RF:
+
+		type RFQG int // Righteous Fire Quest Giver
+		const (
+			RFQG_TAYLA     RFQG = 0
+			RFQG_MURPHY         = 4
+			RFQG_GOODIN         = 8
+			RFQG_MASTERSON      = 12
+			RFQG_MONTE          = 17
+			RFQG_GOODIN5        = 21
+			RFQG_TERRELL        = 22
+			RFQG_INFORMANT      = 23
+		)
+
+		type RFQS int // Righteous Fire Quest status
+		const (
+			RFQS_OFFERED  RFQS = 0
+			RFQS_ACCEPTED      = 24
+			RFQS_DONE          = 150
+		)
+
+		plot_flag := func(giver RFQG, n int, status RFQS) int {
+			// Allow Goodin's last mission to be requested as if it is part of her first sequence.
+			if n == 5 && giver == RFQG_GOODIN {
+				n, giver = 1, RFQG_GOODIN5
+			}
+
+			// TODO: Monte 2a/2b special case
+
+			// Special case: Lynch's flag bumps everything after Monte up by 1
+			if status == RFQS_DONE && giver > RFQG_MONTE {
+				giver += 1
+			}
+
+			return 1 + int(giver) + int(status)
+		}
+
+		a.Visited[18] = true // Jolson, the starting location
+		// Deduce visited based on RF plot state
+		infos := []struct {
+			flag     int
+			location uint8
+		}{
+			{plot_flag(RFQG_TAYLA, 1, RFQS_OFFERED), 36},  // Oakham
+			{plot_flag(RFQG_TAYLA, 1, RFQS_DONE), 54},     // Tuck's
+			{plot_flag(RFQG_TAYLA, 2, RFQS_DONE), 47},     // Saratov
+			{plot_flag(RFQG_TAYLA, 3, RFQS_DONE), 50},     // Speke
+			{plot_flag(RFQG_TAYLA, 4, RFQS_DONE), 2},      // Basque
+			{plot_flag(RFQG_MURPHY, 1, RFQS_OFFERED), 10}, // Edom
+			{plot_flag(RFQG_MURPHY, 2, RFQS_DONE), 22},    // Liverpool
+			{plot_flag(RFQG_MURPHY, 3, RFQS_DONE), 32},    // New Detroit
+			{49, 2}, // UGH!  Roman Lynch talked to, Basque
+			{plot_flag(RFQG_GOODIN, 1, RFQS_OFFERED), 41},    // Perry
+			{plot_flag(RFQG_MASTERSON, 1, RFQS_OFFERED), 39}, // Oxford
+			{plot_flag(RFQG_MASTERSON, 1, RFQS_DONE), 10},    // Edom
+			{plot_flag(RFQG_MASTERSON, 3, RFQS_DONE), 6},     // Burton
+			{plot_flag(RFQG_MASTERSON, 5, RFQS_DONE), 41},    // Perry
+			{plot_flag(RFQG_MONTE, 1, RFQS_OFFERED), 23},     // Macabee
+			{plot_flag(RFQG_MONTE, 1, RFQS_DONE), 32},        // New Detroit
+			{plot_flag(RFQG_MONTE, 2, RFQS_DONE), 32},        // Drake  (this is actually mission 2a)
+			// TODO: Deal with 59 also being used for the derelict
+			{plot_flag(RFQG_INFORMANT, 1, RFQS_DONE), 59}, // Gaea
+		}
+		for _, i := range infos {
+			if a.Has_flags(i.flag) {
+				a.Visited[i.location] = true
+			}
+		}
+
+		// TODO: if imported, deduce visited based on secret compartment, unlocked jump points, and drone kill count
+	}
+
+	// update secret compartment status
+	if a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[6] != 0 {
+		*a.Secrets = *a.Secrets | (1 << a.Offset(types.OFFSET_SHIP)[0])
+	}
+}
+
 func (a *Arg) Offset(i int) []byte {
 	// TODO: return only a sub-offset
 	return a.Bs[a.H.Offsets[i]:]
