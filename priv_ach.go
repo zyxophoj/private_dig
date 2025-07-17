@@ -133,11 +133,9 @@ func main() {
 		for _, info := range arg_info {
 			fmt.Println(info.arg, "-", info.desc)
 		}
-		os.Exit(0)
 
 	case "check":
 		fmt.Println("Target dir is: " + dir)
-		os.Exit(0)
 
 	case "list":
 		load_state()
@@ -149,7 +147,6 @@ func main() {
 		for p := range global_state.Unlocked {
 			fmt.Println(p)
 		}
-		os.Exit(0)
 
 	case "show":
 		fmt.Println("Showing achevements for", subargs[0])
@@ -177,7 +174,6 @@ func main() {
 			fmt.Println()
 		}
 		fmt.Println(fmt.Sprintf("Overall: %v/%v", len(got), ttotal))
-		os.Exit(0)
 
 	case "show_missing":
 		fmt.Println("Showing missing achevements for", subargs[0])
@@ -224,12 +220,15 @@ func main() {
 				fmt.Println()
 			}
 		}
-		os.Exit(0)
 
 	case "run":
-		break
+		main_run(dir)
 	}
 
+	os.Exit(0)
+}
+
+func main_run(dir string) {
 	// Create new watcher.
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
