@@ -575,7 +575,13 @@ var Cheev_list = []struct {
 		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", []uint8{8, 27, 36, 49, 54}),
 		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", []uint8{25, 30, 50, 34, 24, 37, 12, 18}),
 
-		{"AID_TRANSFER_SECRET", "How does that work?", "Transfer your secret compartment to a new ship", false, func(a *Arg) bool {
+		{"AID_TRANSFER_SECRET", "How does that work?", "Transfer your secret compartment to a new ship", true, func(a *Arg) bool {
+			// This is an unfortunate case where json unmarshaling and default values fail us.
+			// nil maps and arrays behave like unmodifiable empty containers, but nil pointers behave like landmines.
+			// ...and we can get uninitialised data when called in progress mode.
+			if a.Secrets == nil {
+				return false
+			}
 			return ((*a.Secrets - 1) & *a.Secrets) != 0
 		}},
 		// TODO: would be fun but needs multi-file checking

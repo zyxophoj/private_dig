@@ -214,7 +214,9 @@ func main() {
 					if cat_list.Cheeves[i].Multi {
 						arg := achievements.Arg{types.Header{}, nil, nil, types.GT_PRIV, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
 						cat_list.Cheeves[i].Test(&arg)
-						fmt.Println("   Progress: " + arg.Progress)
+						if arg.Progress != "" {
+							fmt.Println("   Progress: " + arg.Progress)
+						}
 					}
 
 					fmt.Println()
