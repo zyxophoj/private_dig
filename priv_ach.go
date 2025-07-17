@@ -82,18 +82,18 @@ func main() {
 		{"show_missing", 1, "Show missing achievements for an identity"},
 		{"run", 0, "Run and monitor achievements.  Also the default."},
 	}
-	
-	flags:=map[string]bool{
-		"--rf":false,
+
+	flags := map[string]bool{
+		"--rf": false,
 	}
 
 	main_arg := ""
 	subargs := []string{}
 	subargs_needed := 0
 	for _, arg := range os.Args[1:] {
-		_, is_flag :=flags[arg]
+		_, is_flag := flags[arg]
 		if is_flag {
-			flags[arg]=true
+			flags[arg] = true
 			fmt.Println("fl;ags", arg)
 			continue
 		}
