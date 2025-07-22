@@ -138,6 +138,7 @@ func main() {
 					secrets := uint8(0)
 
 					result := false
+					prog:=""
 					for _, file := range list {
 						game, filename := real_filename(file, is_rf)
 						err, header, bytes, forms := read_file(filename)
@@ -150,10 +151,11 @@ func main() {
 						arg.Update()
 
 						result = cheev.Test(&arg)
+						prog=arg.Progress
 					}
 
 					if result != expected[i] {
-						fmt.Printf(boolmap("File list: %s does not have achievement %s\n", "File list: %s has achievement %s but should not\n")[expected[i]], list, s.Name())
+						fmt.Printf(boolmap("File list: %s does not have achievement %s (%s)\n", "File list: %s has achievement %s but should not%s\n")[expected[i]], list, s.Name(), prog)
 						error_count += 1
 					}
 				}
