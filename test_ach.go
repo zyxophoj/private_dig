@@ -10,6 +10,7 @@ import "gopkg.in/ini.v1"
 import "privdump/achievements"
 import "privdump/readers"
 import "privdump/types"
+import "privdump/tables"
 
 var test_dir = "ach_test"
 
@@ -134,7 +135,7 @@ func main() {
 				}
 
 				for i, list := range file_lists {
-					visited := map[uint8]bool{}
+					visited := map[tables.BASE_ID]bool{}
 					secrets := uint8(0)
 
 					result := false

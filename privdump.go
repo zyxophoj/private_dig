@@ -489,10 +489,10 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 	case "NAVQ":
 		// This one's a bitfield that tracks which of the 4 quadrant maps we have.
 		maps := map[uint8]string{
-			1: "Humboldt",
-			2: "Farris",
-			4: "Potter",
-			8: "Clarke",
+			1<<tables.QUAD_HUMBOLDT: "Humboldt",
+			1<<tables.QUAD_FARISS: "Fariss",
+			1<<tables.QUAD_POTTER: "Potter",
+			1<<tables.QUAD_CLARKE: "Clarke",
 		}
 
 		out = append(out, "Maps:")

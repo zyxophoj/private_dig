@@ -18,7 +18,7 @@ type Arg struct {
 	// These are *the actual variables* from global_state, not copies.
 	// In the case of maps, that works by itself.  Otherwise, some contortions
 	// in global_state were needed to allow pointers to be exported.
-	Visited map[uint8]bool
+	Visited map[tables.BASE_ID]bool
 	Secrets *uint8
 
 	// output variable used only (and optionally) by multi-file-achievements
@@ -45,21 +45,20 @@ func (a *Arg) Update() {
 		// but we only acknowledge the start of Tayla 4.
 		infos := []struct {
 			plot     string
-			location uint8
+			location tables.BASE_ID
 		}{
-			// TODO: improve rip.go to the point where we don't need these magic numbers
-			{"s0ma", 32}, // New Detroit
-			{"s1mb", 36}, // Oakham
-			{"s1mc", 15}, // Hector
-			{"s1md", 31}, // New Constantinople
-			{"s2mc", 48}, // Siva
-			{"s2md", 42}, // Remus
-			{"s3ma", 39}, // Oxford
-			{"s4ma", 3},  // Basra
-			{"s4md", 40}, // Palan
-			{"s5ma", 46}, // Rygannon
-			{"s6ma", 59}, // Derelict
-			{"s7mb", 41}, // Perry
+			{"s0ma", tables.BASE_NEW_DETROIT},
+			{"s1mb", tables.BASE_OAKHAM},
+			{"s1mc", tables.BASE_HECTOR},
+			{"s1md", tables.BASE_NEW_CONSTANTINOPLE},
+			{"s2mc", tables.BASE_SIVA},
+			{"s2md", tables.BASE_REMUS},
+			{"s3ma", tables.BASE_OXFORD},
+			{"s4ma", tables.BASE_BASRA},
+			{"s4md", tables.BASE_PALAN},
+			{"s5ma", tables.BASE_RYGANNON},
+			{"s6ma", tables.BASE_DERELICT_BASE},
+			{"s7mb", tables.BASE_PERRY_NAVAL_BASE},
 		}
 
 		str, _ := a.Plot_info()
@@ -78,9 +77,6 @@ func (a *Arg) Update() {
 				if guns.Data[n] >= 8 {
 					for _, info := range infos {
 						a.Visited[info.location] = true
-						if info.location == 59 && guns.Data[n] == 9 {
-							break
-						}
 					}
 				}
 			}
@@ -127,29 +123,29 @@ func (a *Arg) Update() {
 			return 1 + int(giver) + int(status)
 		}
 
-		a.Visited[18] = true // Jolson, the starting location
+		a.Visited[tables.BASE_JOLSON] = true // the starting location
 		// Deduce visited based on RF plot state
 		infos := []struct {
 			flag     int
-			location uint8
+			location tables.BASE_ID
 		}{
-			{plot_flag(RFQG_TAYLA, 1, RFQS_OFFERED), 36},  // Oakham
-			{plot_flag(RFQG_TAYLA, 1, RFQS_DONE), 54},     // Tuck's
-			{plot_flag(RFQG_TAYLA, 2, RFQS_DONE), 47},     // Saratov
-			{plot_flag(RFQG_TAYLA, 3, RFQS_DONE), 50},     // Speke
-			{plot_flag(RFQG_TAYLA, 4, RFQS_DONE), 2},      // Basque
-			{plot_flag(RFQG_MURPHY, 1, RFQS_OFFERED), 10}, // Edom
-			{plot_flag(RFQG_MURPHY, 2, RFQS_DONE), 22},    // Liverpool
-			{plot_flag(RFQG_MURPHY, 3, RFQS_DONE), 32},    // New Detroit
-			{49, 2}, // UGH!  Roman Lynch talked to, Basque
-			{plot_flag(RFQG_GOODIN, 1, RFQS_OFFERED), 41},    // Perry
-			{plot_flag(RFQG_MASTERSON, 1, RFQS_OFFERED), 39}, // Oxford
-			{plot_flag(RFQG_MASTERSON, 1, RFQS_DONE), 10},    // Edom
-			{plot_flag(RFQG_MASTERSON, 3, RFQS_DONE), 6},     // Burton
-			{plot_flag(RFQG_MASTERSON, 5, RFQS_DONE), 41},    // Perry
-			{plot_flag(RFQG_MONTE, 1, RFQS_OFFERED), 23},     // Macabee
-			{plot_flag(RFQG_MONTE, 1, RFQS_DONE), 32},        // New Detroit
-			{plot_flag(RFQG_MONTE, 2, RFQS_DONE), 32},        // Drake  (this is actually mission 2a)
+			{plot_flag(RFQG_TAYLA, 1, RFQS_OFFERED), tables.BASE_OAKHAM},
+			{plot_flag(RFQG_TAYLA, 1, RFQS_DONE), tables.BASE_TUCK_S},
+			{plot_flag(RFQG_TAYLA, 2, RFQS_DONE), tables.BASE_SARATOV},
+			{plot_flag(RFQG_TAYLA, 3, RFQS_DONE), tables.BASE_SPEKE},
+			{plot_flag(RFQG_TAYLA, 4, RFQS_DONE), tables.BASE_BASQUE},
+			{plot_flag(RFQG_MURPHY, 1, RFQS_OFFERED), tables.BASE_EDOM},
+			{plot_flag(RFQG_MURPHY, 2, RFQS_DONE), tables.BASE_LIVERPOOL},
+			{plot_flag(RFQG_MURPHY, 3, RFQS_DONE), tables.BASE_NEW_DETROIT},
+			{49, tables.BASE_BASQUE}, // Roman Lynch talked to (ugh)
+			{plot_flag(RFQG_GOODIN, 1, RFQS_OFFERED), tables.BASE_PERRY_NAVAL_BASE},
+			{plot_flag(RFQG_MASTERSON, 1, RFQS_OFFERED), tables.BASE_OXFORD},
+			{plot_flag(RFQG_MASTERSON, 1, RFQS_DONE), tables.BASE_EDOM},
+			{plot_flag(RFQG_MASTERSON, 3, RFQS_DONE), tables.BASE_BURTON},
+			{plot_flag(RFQG_MASTERSON, 5, RFQS_DONE), tables.BASE_PERRY_NAVAL_BASE},
+			{plot_flag(RFQG_MONTE, 1, RFQS_OFFERED), tables.BASE_MACABEE},
+			{plot_flag(RFQG_MONTE, 1, RFQS_DONE), tables.BASE_NEW_DETROIT},
+			{plot_flag(RFQG_MONTE, 2, RFQS_DONE), tables.BASE_DRAKE}, // (this is actually mission 2a)
 			// TODO: Deal with 59 also being used for the derelict
 			{plot_flag(RFQG_INFORMANT, 1, RFQS_DONE), 59}, // Gaea
 		}
@@ -182,8 +178,8 @@ func (a *Arg) Plot_info() (string, byte) {
 	return str, flag
 }
 
-func (a *Arg) Location() uint8 {
-	return a.Offset(types.OFFSET_SHIP)[2]
+func (a *Arg) Location() tables.BASE_ID {
+	return tables.BASE_ID(a.Offset(types.OFFSET_SHIP)[2])
 }
 
 func (a *Arg) Has_flags(flags ...int) bool {
@@ -208,6 +204,16 @@ type Achievement struct {
 
 func is_completed_status(flag uint8) bool {
 	return flag&1 != 0
+}
+
+func find_all_places(bt tables.BASE_TYPE) []tables.BASE_ID {
+	out := []tables.BASE_ID{}
+	for id, info := range tables.Locations(types.GT_PRIV) {
+		if info.Type == bt {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // mcs_kill makes a "kill a bunch of people" achievement
@@ -254,13 +260,13 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 	}
 }
 
-func full_location(gt types.Game, id uint8) string {
-	loc := tables.Locations(gt)[tables.BASE_ID(id)]
-	return loc.Name + " ("+tables.Systems(gt)[loc.System].Name+")"
+func full_location(gt types.Game, id tables.BASE_ID) string {
+	loc := tables.Locations(gt)[id]
+	return loc.Name + " (" + tables.Systems(gt)[loc.System].Name + ")"
 }
 
 // mcs_go_places makes a "visit places" achievement
-func mcs_go_places(id string, name string, expl string, locations []uint8) Achievement {
+func mcs_go_places(id string, name string, expl string, locations []tables.BASE_ID) Achievement {
 	return Achievement{
 		id,
 		name,
@@ -382,12 +388,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", false, func(a *Arg) bool {
-			switch a.Location() {
-			case 0, 15, 17:
-				return false
-			}
-
-			return true
+			return slices.Index(tables.Systems(a.Game)[tables.SYS_TROY].Bases, a.Location()) == -1
 		}},
 	}},
 
@@ -396,7 +397,7 @@ var Cheev_list = []struct {
 		{"AID_SANDOVAL", "Cargo parasite", "Start the plot", false, func(a *Arg) bool {
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
-				if cargo.Data[n] == 42 {
+				if cargo.Data[n] == 42 { // Alien Artifact(s)
 					return true
 				}
 			}
@@ -717,11 +718,10 @@ var Cheev_list = []struct {
 			return readers.Read_int16(a.Offset(types.OFFSET_SHIP), &cur) >= 100
 		}},
 
-		// Since we do not (currently) store base type (because rip.go doesn't extract base type), we just list the locations here
-		// TODO: improve rip.go and dynamically determine these lists.
+
+		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", find_all_places(tables.BT_PIRATE)),
 		// The alleged joke here is that the object of "pick up" could be women or STDs.
-		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", []uint8{8, 27, 36, 49, 54}),
-		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", []uint8{25, 30, 50, 34, 24, 37, 12, 18}),
+		mcs_go_places("AID_PLEASURE_BASES", "Pick up more than cargo", "Visit all pleasure planets", find_all_places(tables.BT_PLEASURE)),
 
 		{"AID_TRANSFER_SECRET", "How does that work?", "Transfer your secret compartment to a new ship", true, func(a *Arg) bool {
 			// This is an unfortunate case where json unmarshaling and default values fail us.
@@ -770,7 +770,7 @@ var Cheev_list = []struct {
 			}
 
 			/// actually at the derelict
-			if a.Location() == 59 {
+			if a.Location() == tables.BASE_DERELICT_BASE {
 				return true
 			}
 
@@ -845,7 +845,7 @@ var Cheev_list = []struct {
 			info := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI")
 			capacity := int(info.Data[4])
 			if info.Data[6] != 0 {
-				capacity += 20 //secfet compartment
+				capacity += 20 //secret compartment
 			}
 
 			stored := 0
@@ -876,16 +876,13 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_TROY_TRADE", "Optimism Rewarded", "Accept a cargo mission between two bases in the Troy system", false, func(a *Arg) bool {
-			in_troy := map[uint8]bool{
-				0:  true, // Achilles
-				15: true, // Hector
-				17: true, // Helen
-			}
+			troy_bases := tables.Systems(a.Game)[tables.SYS_TROY].Bases
 
-			if !in_troy[a.Location()] {
+			if slices.Index(troy_bases, a.Location()) == -1 {
+				// Not in troy
 				return false
 			}
-
+ 
 			cur := 0
 			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
 			for m := 0; m < missions; m += 1 {
@@ -903,7 +900,7 @@ var Cheev_list = []struct {
 					continue
 				}
 
-				if in_troy[cargo.Data[0]] {
+				if slices.Index(troy_bases, tables.BASE_ID(cargo.Data[0])) != -1 {
 					return true
 				}
 			}
@@ -1000,8 +997,7 @@ var Cheev_list_rf = map[string][]Achievement{
 				// MSSN-SCRP-PROG data appears to be a sequence of 4-byte chunks.
 				// I don't have much understanding of what this means, but I think we can recognize "go to navpoint" chunks.
 				for i := 0; i < len(objectives.Data); i += 4 {
-					// 63 is the Valhalla system
-					if objectives.Data[i+1] == 63 && objectives.Data[i+3] == 4 {
+					if tables.SYS_ID(objectives.Data[i+1]) == tables.SYS_VALHALLA && objectives.Data[i+3] == 4 {
 						return true
 					}
 				}

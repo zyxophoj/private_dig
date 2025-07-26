@@ -15,6 +15,7 @@ import (
 
 	"privdump/achievements"
 	"privdump/readers"
+	"privdump/tables"
 	"privdump/types"
 )
 
@@ -50,10 +51,10 @@ func get_dir() string {
 }
 
 var global_state = struct {
-	Unlocked map[string]map[string]bool // cheeves earned
-	Visited  map[string]map[uint8]bool  // locations visited
-	Secrets  map[string]*uint8          // which ships have had the secret compartment
-}{map[string]map[string]bool{}, map[string]map[uint8]bool{}, map[string]*uint8{}}
+	Unlocked map[string]map[string]bool         // cheeves earned
+	Visited  map[string]map[tables.BASE_ID]bool // locations visited
+	Secrets  map[string]*uint8                  // which ships have had the secret compartment
+}{map[string]map[string]bool{}, map[string]map[tables.BASE_ID]bool{}, map[string]*uint8{}}
 
 var state_file = ""
 
@@ -313,7 +314,7 @@ func handle_file(filename string) {
 	// Set up proper "uninitialised" values
 	_, ok := global_state.Visited[identity]
 	if !ok {
-		global_state.Visited[identity] = map[uint8]bool{}
+		global_state.Visited[identity] = map[tables.BASE_ID]bool{}
 	}
 	_, ok = global_state.Secrets[identity]
 	if !ok {
