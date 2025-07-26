@@ -254,6 +254,11 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 	}
 }
 
+func full_location(gt types.Game, id uint8) string {
+	loc := tables.Locations(gt)[tables.BASE_ID(id)]
+	return loc.Name + " ("+tables.Systems(gt)[loc.System].Name+")"
+}
+
 // mcs_go_places makes a "visit places" achievement
 func mcs_go_places(id string, name string, expl string, locations []uint8) Achievement {
 	return Achievement{
@@ -268,7 +273,7 @@ func mcs_go_places(id string, name string, expl string, locations []uint8) Achie
 				if a.Visited[l] {
 					count += 1
 				} else {
-					missed = tables.Locations(a.Game)[l]
+					missed = full_location(a.Game, l)
 				}
 			}
 

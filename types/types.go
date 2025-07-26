@@ -76,3 +76,13 @@ func (f *Form) Get(what ...string) *Record {
 
 	return nil
 }
+
+func (f *Form) Get_subform(w string) *Form {
+	//TODO: allow multiple args
+	for _, subform := range f.Subforms {
+		if strings.HasSuffix(subform.Name, w) {
+			return f
+		}
+	}
+	return nil
+}

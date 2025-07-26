@@ -27,6 +27,11 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
+func full_location(gt types.Game, id uint8) string {
+	loc := tables.Locations(gt)[tables.BASE_ID(id)]
+	return loc.Name + " ("+tables.Systems(gt)[loc.System].Name+")"
+}
+
 func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 	out := []string{}
 
@@ -60,7 +65,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			}
 
 			loc := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, safe_lookup(tables.Locations(gt), loc)))
+			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, full_location(gt, loc)))
 
 			missions := readers.Read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur-1, missions))
@@ -269,7 +274,6 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 		}
 
 		out = append(out, parse_form("", form, gt)...)
-
 	}
 
 	if len(header.Footer) > 0 {
@@ -366,18 +370,18 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		// (Maybe record-saving wasn't supported so they had to throw in the whole form?)
 		cur := 0
 		for cur < len(record.Data) {
-			from := readers.Read_uint8(record.Data, &cur)
-			to := readers.Read_uint8(record.Data, &cur)
-			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems(gt), from), safe_lookup(tables.Systems(gt), to)))
+			from := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+			to := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+			out = append(out, fmt.Sprintf("%v <-> %v", tables.Systems(gt)[from].Name, tables.Systems(gt)[to].Name))
 		}
 
 	case "SECT":
 		out = append(out, "Hidden Jump Points:")
 		cur := 0
 		for cur < len(record.Data) {
-			from := readers.Read_uint8(record.Data, &cur)
-			to := readers.Read_uint8(record.Data, &cur)
-			out = append(out, fmt.Sprintf("%v <-> %v", safe_lookup(tables.Systems(gt), from), safe_lookup(tables.Systems(gt), to)))
+			from := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+			to := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+			out = append(out, fmt.Sprintf("%v <-> %v", tables.Systems(gt)[from].Name, tables.Systems(gt)[to].Name))
 		}
 		// There is some strangeness here.  This record is often one jump point behind reality.
 		// Launching and landing will generally fix this - perhaps things get updated at launch but there's no way to test this.
