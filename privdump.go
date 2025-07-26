@@ -144,12 +144,11 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			missions := readers.Read_int16(bytes, &cur)
 			out = append(out, fmt.Sprintf("   Non-plot missions: %v", missions))
 		case types.OFFSET_WTF:
-			// Basically 0% understood right now
-			// Probably has something to do with fixer status
 			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.Offsets[o+1]]))
 
-			// The first 11 bytes appear to be total nonsense
-			// they are not even preserved by loadsaving.
+			// The first 11 bytes appear to be total nonsense - 0% understood right now.
+			// They are not even preserved by loadsaving.
+			cur += 11
 
 			// Next we have a bunch of flags.  Meanings are not preserved between priv and RF
 			flags := map[types.Game]map[int]string{
@@ -233,9 +232,9 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				done += 1
 			}
 
-			for i := 0; i < header.Offsets[o+1]-cur-11; i += 1 {
-				if bytes[cur+i+11] != 0 {
-					out = append(out, fmt.Sprintf("  flag %v (%v): %v", i, safe_lookup(flags[gt], i), bytes[cur+i+11]))
+			for i := 0; i < header.Offsets[o+1]-cur; i += 1 {
+				if bytes[cur+i] != 0 {
+					out = append(out, fmt.Sprintf("  flag %v (%v): %v", i, safe_lookup(flags[gt], i), bytes[cur+i]))
 				}
 			}
 
@@ -597,7 +596,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 				"Hunter AW 6", "Hunter Aw 6i", "Hunter Aw Inf",
 				"BS Tripwire", "B.S.  E.Y.E", "B.S. Omni"}
 
-			// Like anyone cares about the names.  Scanner capabilitiues are determined by position in the 3x3 grid.
+			// Like anyone cares about the names.  Scanner capabilities are determined by position in the 3x3 grid.
 			lockiness := []string{"No Lock", "Lock", "Lock, ITTS"}
 			colorosity := []string{"All Grey", "Colour", "Full Colour"}
 
@@ -651,13 +650,10 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		}
 
 	case "DATA":
-		// TODO: is this really only cargo data?
-
 		// Each 4-byte block is: cargo-type, quantity(2 bytes!), hiddenness
-		// Note that if illegal cargo spills out into the non-secret area, it will have 2 entries here
-		// Maximum cargo capacity is an upgraded Galaxy with secret compartment, totalling 245T,
-		// so 2 bytes for quantity seems excessive, but you can edit yourself over 255T of stuff
-		// by hitting that second byte.
+		// Note that if illegal cargo spills out into the non-secret area, it will have 2 entries here.
+		// Maximum cargo chunk size would appear to be 255T (Galaxy with cargo upgrade), so it's not clear why
+		// we need 16 bits here (maybe there were ships with larger capacity in development?)
 		out = append(out, "Cargo data:")
 		for cur := 0; cur < len(record.Data); {
 			cargo := readers.Read_uint8(record.Data, &cur)
@@ -672,7 +668,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		}
 
 	case "TEXT":
-		// Mission text that displays in the in-game computer.  It's just text.
+		// Mission text that displays in the in-game computer.  It's just ASCII text.
 		out = append(out, "")
 		out = append(out, string(record.Data[1:]))
 
@@ -681,10 +677,10 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		// Byte 0: destination
 		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
-		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), safe_lookup(tables.Locations(gt), record.Data[0])))
+		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), tables.Locations(gt)[tables.BASE_ID(record.Data[0])]))
 
 	case "PAYS":
-		//Mission payment (4 bytes, although I've never seen a mission that needed that)
+		//Mission payment (4 bytes, although I've never seen a mission that needed all that)
 		cur := 0
 		pays := readers.Read_int_le(record.Data, &cur)
 		out = append(out, fmt.Sprintf("%v credits", pays))
@@ -702,13 +698,11 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		out = append(out, "Thrust Enhancer")
 
 	case "FORM":
-		// Do nothing!  Subforms are handled at the end of the functon.
+		// Do nothing!  Subforms are already handled in parse_form.
 
 	default:
 		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.Name))
 	}
-
-	//out = append(out, "")
 
 	return out
 }
