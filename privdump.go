@@ -610,6 +610,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		}
 
 		infotype, _, _ := readers.Read_string(record.Data, &cur)
+		cur-=1
 		out = append(out, "INFO type "+infotype)
 		switch infotype {
 		case "SHIELDS":

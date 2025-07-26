@@ -19,7 +19,8 @@ func Read_string(bytes []byte, cur *int) (string, int, error) {
 		}
 
 		if bytes[*cur] == 0 {
-			return string(bytes[old:*cur]), 0, nil
+			*cur += 1 // Advance past null
+			return string(bytes[old : *cur-1]), 0, nil
 		}
 	}
 
@@ -192,6 +193,11 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 			*cur = form_end
 			break
 		}
+		// We just read a fixed-length string as if it was null-terminated.
+		// we get away with this because an int (record length) follows it, and this is unlikel to use the top byte.
+		// TODO: implement and use read_fixed_length_string
+		*cur -= 1
+
 		length := Read_int(bytes, cur)
 		record_start := *cur
 		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
