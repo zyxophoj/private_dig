@@ -155,7 +155,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 	//   (5) A possible "footer", which is any leftover bytes claimed by the length but not actually containing a record
 	//        This is usually part of something else and may indicate that length is a "Read at least this much" type of suggestion
 	//
-	// Note that the length does not include the length of the name or of the length itself.
+	// Note that the length does not include the length of the identifier "FORM" or of the length itself.
 
 	// Record Format:
 	//
