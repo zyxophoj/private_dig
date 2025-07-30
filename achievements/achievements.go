@@ -650,30 +650,21 @@ var Cheev_list = []struct {
 
 		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", false, func(a *Arg) bool {
 			// Captain Tagon - from the Schlock Mercenary webcomic - loved to get paid twice(or more) for essentally the same task.
-			if len(a.H.Mission_offsets) != 6 {
+			if len(a.H.Offsets) != 6+types.OFFSET_COUNT {
 				return false
 			}
 
 			destinations := map[uint8]bool{}
 			for i := 1; i < 6; i += 2 {
-				cur := a.H.Mission_offsets[i]
-				form, err := readers.Read_form(a.Bs, &cur)
-				if err != nil {
-					//fmt.Println("BAd form!")
-					return false
-				}
-
-				cargo := form.Get("CARG")
+				cargo := a.Forms[types.OFFSET_MISSION_BASE+i].Get("CARG")
 				if cargo == nil {
 					// not a cargo mission
-					//fmt.Println("Bad cargo")
 					return false
 				}
 
 				destinations[cargo.Data[0]] = true
 			}
 
-			//fmt.Println(destinations)
 			return len(destinations) == 1
 		}},
 
@@ -886,15 +877,7 @@ var Cheev_list = []struct {
 			cur := 0
 			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
 			for m := 0; m < missions; m += 1 {
-				cur = a.H.Mission_offsets[2*m+1]
-				form, err := readers.Read_form(a.Bs, &cur)
-
-				if err != nil {
-					//Huh?
-					return false
-				}
-
-				cargo := form.Get("CARG")
+				cargo := a.Forms[types.OFFSET_MISSION_BASE+2*m+1].Get("CARG")
 				if cargo == nil {
 					// not a cargo mission
 					continue
@@ -905,7 +888,7 @@ var Cheev_list = []struct {
 				}
 			}
 
-			// No missions to troy
+			// No missions to Troy
 			return false
 		}},
 	}},
@@ -983,13 +966,7 @@ var Cheev_list_rf = map[string][]Achievement{
 			cur := 0
 			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
 			for m := 0; m < missions; m += 1 {
-				cur = a.H.Mission_offsets[2*m+1]
-				form, err := readers.Read_form(a.Bs, &cur)
-				if err != nil {
-					// Messed-up save file
-					continue
-				}
-				objectives := form.Get("SCRP", "PROG")
+				objectives := a.Forms[types.OFFSET_MISSION_BASE+2*m+1].Get("SCRP", "PROG")
 				if objectives == nil {
 					continue
 				}

@@ -128,8 +128,9 @@ func Read_header(in []byte) types.Header {
 	missions := Read_int16(in, &cur2)
 
 	// Expect 2 more offsets for each missions
+	mission_offsets := []int{}
 	for i := 0; i < 2*missions; i += 1 {
-		out.Mission_offsets = append(out.Mission_offsets, Read_int16(in, &cur))
+		mission_offsets = append(mission_offsets, Read_int16(in, &cur))
 		cur += 2
 	}
 
@@ -138,10 +139,51 @@ func Read_header(in []byte) types.Header {
 		cur += 2
 	}
 
+	out.Offsets = append(out.Offsets, mission_offsets...)
+
 	out.Footer = in[cur:out.Offsets[0]]
 	cur = out.Offsets[0]
 
 	return out
+}
+
+func Read_savedata(header types.Header, bytes []byte) (*types.Savedata, error) {
+	out := types.Savedata{
+		Forms:   map[int]*types.Form{},
+		Strings: map[int]string{},
+		Blobs:   map[int][]byte{},
+	}
+
+	off_forms := []int{types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL}
+	off_strings := []int{types.OFFSET_NAME, types.OFFSET_CALLSIGN}
+	off_blobs := []int{types.OFFSET_SHIP, types.OFFSET_PLOT, types.OFFSET_MISSIONS, types.OFFSET_WTF}
+	for i := range (len(header.Offsets) - types.OFFSET_COUNT) / 2 {
+		off_strings = append(off_blobs, types.OFFSET_MISSION_BASE+2*i)
+		off_forms = append(off_forms, types.OFFSET_MISSION_BASE+2*i+1)
+	}
+
+	//TODO:: switch?
+	for _, i := range off_forms {
+		cur := header.Offsets[i]
+		f, err := Read_form(bytes, &cur)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to load form %v - %v", i, err)
+		}
+		out.Forms[i] = &f
+	}
+	for _, i := range off_strings {
+		cur := header.Offsets[types.OFFSET_NAME]
+		str, _, err := Read_string(bytes, &cur)
+		if err != nil {
+			return nil, errors.New("Failed to read string")
+		}
+		out.Strings[i] = str
+	}
+	for _, i := range off_blobs {
+		out.Blobs[i] = bytes[header.Offsets[i]:header.Offset_end(i)]
+	}
+
+	return &out, nil
 }
 
 func Read_form(bytes []byte, cur *int) (types.Form, error) {

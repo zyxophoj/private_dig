@@ -285,31 +285,12 @@ func handle_file(filename string) {
 	}
 
 	header := readers.Read_header(bytes)
-
-	forms := map[int]*types.Form{}
-	for _, i := range []int{types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL} {
-		cur := header.Offsets[i]
-		f, err := readers.Read_form(bytes, &cur)
-		if err != nil {
-			fmt.Println("Failed to load form", i, "-", err)
-			return
-		}
-		forms[i] = &f
-	}
-
-	cur := header.Offsets[types.OFFSET_NAME]
-	name, _, err := readers.Read_string(bytes, &cur)
+	savedata, err := readers.Read_savedata(header, bytes)
 	if err != nil {
-		fmt.Println("Failed to read name", err)
+		fmt.Println("Failed to parse file", filename, "-", err)
 		return
 	}
-	cur = header.Offsets[types.OFFSET_CALLSIGN]
-	callsign, _, err := readers.Read_string(bytes, &cur)
-	if err != nil {
-		fmt.Println("Failed to read callsign", err)
-		return
-	}
-	identity := name + ":" + callsign
+	identity := savedata.Strings[types.OFFSET_NAME] + ":" + savedata.Strings[types.OFFSET_CALLSIGN]
 
 	// Set up proper "uninitialised" values
 	_, ok := global_state.Visited[identity]
@@ -323,12 +304,12 @@ func handle_file(filename string) {
 
 	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
 	game := types.GT_PRIV
-	hidden := forms[types.OFFSET_SSSS].Get("ORIG").Data
+	hidden := savedata.Forms[types.OFFSET_SSSS].Get("ORIG").Data
 	if hidden[len(hidden)-1] == 68 {
 		game = types.GT_RF
 	}
 
-	arg := achievements.Arg{header, bytes, forms, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
+	arg := achievements.Arg{header, bytes, savedata.Forms, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
 	arg.Update()
 
@@ -349,7 +330,7 @@ func handle_file(filename string) {
 
 			// Really not a fan of panic-recover, but I suppose there's a case for it here
 			// Recovering will prevent a shittily-written cheev test from bringing the entire app down.
-			ct_wrap := func(a *achievements.Achievement, header types.Header, bytes []byte, form map[int]*types.Form) bool {
+			ct_wrap := func(a *achievements.Achievement, arg achievements.Arg) bool {
 				defer func() {
 					if recover() != nil {
 						fmt.Println("Something went *very* wrong when calculating achievement \"" + a.Name + "\":")
@@ -361,7 +342,7 @@ func handle_file(filename string) {
 				return a.Test(&arg)
 			}
 
-			if !global_state.Unlocked[identity][cheev.Id] && ct_wrap(&cheev, header, bytes, forms) {
+			if !global_state.Unlocked[identity][cheev.Id] && ct_wrap(&cheev, arg) {
 				fmt.Println(cheev.Name)
 				fmt.Println(cheev.Expl)
 				fmt.Println("Category:", list.Category)

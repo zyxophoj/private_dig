@@ -260,12 +260,13 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 	}
 
 	// OK, now do missions
-	for m := 0; m < len(header.Mission_offsets)/2; m += 1 {
-		cur = header.Mission_offsets[2*m]
+	for m := 0; m < (len(header.Offsets)-types.OFFSET_COUNT)/2; m += 1 {
+		cur = header.Offsets[types.OFFSET_COUNT+2*m]
 		name, _, _ := readers.Read_string(bytes, &cur)
-		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.Mission_offsets[2*m], m, name))
+		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.Offsets[types.OFFSET_COUNT+2*m], m+1, name))
 
-		cur = header.Mission_offsets[2*m+1]
+		out = append(out, fmt.Sprintf("[%v] Mission %v data... ", header.Offsets[types.OFFSET_COUNT+2*m+1], m+1))
+		cur = header.Offsets[types.OFFSET_COUNT+2*m+1]
 		// Another form!
 		form, err := readers.Read_form(bytes, &cur)
 		if err != nil {

@@ -24,19 +24,13 @@ func read_file(filename string) (error, types.Header, []byte, map[int]*types.For
 	}
 
 	header := readers.Read_header(bytes)
-
-	forms := map[int]*types.Form{}
-	for _, i := range []int{types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL} {
-		cur := header.Offsets[i]
-		f, err := readers.Read_form(bytes, &cur)
-		if err != nil {
-			fmt.Println("Failed to load form", i, "-", err)
-			return err, h0, nil, nil
-		}
-		forms[i] = &f
+	savedata, err := readers.Read_savedata(header, bytes)
+	if err != nil {
+		fmt.Println("Failed to parse file", filename, "-", err)
+		return err, h0, nil, nil
 	}
 
-	return nil, header, bytes, forms
+	return nil, header, bytes, savedata.Forms
 }
 
 func boolmap[K any](t K, f K) map[bool]K {
