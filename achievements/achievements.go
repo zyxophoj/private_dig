@@ -10,10 +10,8 @@ import "privdump/types"
 import "privdump/readers"
 
 type Arg struct {
-	H     types.Header
-	Bs    []byte
-	Forms map[int]*types.Form
-	Game  types.Game
+	types.Savedata
+	Game types.Game
 
 	// These are *the actual variables* from global_state, not copies.
 	// In the case of maps, that works by itself.  Otherwise, some contortions
@@ -160,17 +158,20 @@ func (a *Arg) Update() {
 
 	// update secret compartment status
 	if a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[6] != 0 {
-		*a.Secrets = *a.Secrets | (1 << a.Offset(types.OFFSET_SHIP)[0])
+		*a.Secrets = *a.Secrets | (1 << a.Blobs[types.OFFSET_SHIP][0])
 	}
 }
 
-func (a *Arg) Offset(i int) []byte {
-	// TODO: return only a sub-offset
-	return a.Bs[a.H.Offsets[i]:]
+func (a *Arg) Ship() uint8 {
+	return a.Blobs[types.OFFSET_SHIP][0]
+}
+
+func (a *Arg) Location() tables.BASE_ID {
+	return tables.BASE_ID(a.Blobs[types.OFFSET_SHIP][2])
 }
 
 func (a *Arg) Plot_info() (string, byte) {
-	plot := a.Offset(types.OFFSET_PLOT)
+	plot := a.Blobs[types.OFFSET_PLOT]
 	cur := 0
 	str, _, _ := readers.Read_string(plot, &cur)
 	flag := plot[9]
@@ -178,12 +179,13 @@ func (a *Arg) Plot_info() (string, byte) {
 	return str, flag
 }
 
-func (a *Arg) Location() tables.BASE_ID {
-	return tables.BASE_ID(a.Offset(types.OFFSET_SHIP)[2])
+func (a *Arg) Missions() int {
+	cur := 0
+	return readers.Read_int16(a.Blobs[types.OFFSET_MISSIONS], &cur)
 }
 
 func (a *Arg) Has_flags(flags ...int) bool {
-	data := a.Offset(types.OFFSET_WTF)[11:]
+	data := a.Blobs[types.OFFSET_WTF][11:]
 	for _, flag := range flags {
 		if data[flag] == 0 {
 			return false
@@ -324,7 +326,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_OPTIMISM", "Optimism", "Have Merchant's guild membership but no jump drive", false, func(a *Arg) bool {
-			return a.Offset(types.OFFSET_SHIP)[6] != 0 && a.Forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
+			return a.Blobs[types.OFFSET_SHIP][6] != 0 && a.Forms[types.OFFSET_REAL].Get("FITE", "JDRV", "INFO") == nil
 		}},
 
 		{"AID_NOOBSHIELDS", "Shields to maximum!", "Equip level 2 shields", false, func(a *Arg) bool {
@@ -491,7 +493,7 @@ var Cheev_list = []struct {
 		{"AID_GALAXY", "Star Truck", "Carry more than 200T of cargo in a Galaxy", false, func(a *Arg) bool {
 			// This check is necessary, because of cargo missions and also because it's possible to exchange ships when you shouldn't be able to thanks to
 			// (I guess) 8-bit wrap around in stored cargo.
-			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_GALAXY {
+			if a.Ship() != tables.SHIP_GALAXY {
 				return false
 			}
 
@@ -518,7 +520,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", false, func(a *Arg) bool {
-			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
+			if a.Ship() != tables.SHIP_TARSUS {
 				return false
 			}
 
@@ -650,7 +652,7 @@ var Cheev_list = []struct {
 
 		{"AID_3_DELIVERIES", "Tagon would be proud", "Accept three delivery missions to the same location", false, func(a *Arg) bool {
 			// Captain Tagon - from the Schlock Mercenary webcomic - loved to get paid twice(or more) for essentally the same task.
-			if len(a.H.Offsets) != 6+types.OFFSET_COUNT {
+			if a.Missions() != 3 {
 				return false
 			}
 
@@ -688,7 +690,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_CENTURION {
+			if a.Blobs[types.OFFSET_SHIP][0] != tables.SHIP_CENTURION {
 				return false
 			}
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
@@ -706,9 +708,8 @@ var Cheev_list = []struct {
 
 		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", false, func(a *Arg) bool {
 			cur := 3
-			return readers.Read_int16(a.Offset(types.OFFSET_SHIP), &cur) >= 100
+			return readers.Read_int16(a.Blobs[types.OFFSET_SHIP], &cur) >= 100
 		}},
-
 
 		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", find_all_places(tables.BT_PIRATE)),
 		// The alleged joke here is that the object of "pick up" could be women or STDs.
@@ -756,7 +757,7 @@ var Cheev_list = []struct {
 			// The Centurions at Palan can be handled by kiting them into the asteroid field.
 			// Cross 3 method: clear nav 1 (asteroids will help you here), then hit nav 4, wipe out the Gothri there, again taking full advantage of the asteroids.
 			// Run from the Kamekh, auto to nav 3, then to nav 2, kill 2 out of 3 Dralthi then burn back to nav 1.
-			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
+			if a.Ship() != tables.SHIP_TARSUS {
 				return false
 			}
 
@@ -873,10 +874,8 @@ var Cheev_list = []struct {
 				// Not in troy
 				return false
 			}
- 
-			cur := 0
-			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
-			for m := 0; m < missions; m += 1 {
+
+			for m := 0; m < a.Missions(); m += 1 {
 				cargo := a.Forms[types.OFFSET_MISSION_BASE+2*m+1].Get("CARG")
 				if cargo == nil {
 					// not a cargo mission
@@ -963,8 +962,7 @@ var Cheev_list_rf = map[string][]Achievement{
 		{"AID_RF_SECRET_NAV", "Not so secret", "Accept a non-plot mission involving Nav 4 in Valhalla (RF)", false, func(a *Arg) bool {
 			// That's the jump to Gaea, which is supposed to be secret, but nobody told mission generation that.
 
-			cur := 0
-			missions := readers.Read_int16(a.Offset(types.OFFSET_MISSIONS), &cur)
+			missions := a.Missions()
 			for m := 0; m < missions; m += 1 {
 				objectives := a.Forms[types.OFFSET_MISSION_BASE+2*m+1].Get("SCRP", "PROG")
 				if objectives == nil {
@@ -984,7 +982,7 @@ var Cheev_list_rf = map[string][]Achievement{
 	},
 	"Feats of Insanity": []Achievement{
 		{"AID_RF_PIMPED_TARSUS", "Lipstick on a Pig", "Equip all 6 new technologies on a Tarsus (RF)", false, func(a *Arg) bool {
-			if a.Offset(types.OFFSET_SHIP)[0] != tables.SHIP_TARSUS {
+			if a.Ship() != tables.SHIP_TARSUS {
 				return false
 			}
 

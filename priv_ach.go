@@ -209,7 +209,7 @@ func main() {
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
 
 					if cat_list.Cheeves[i].Multi {
-						arg := achievements.Arg{types.Header{}, nil, nil, types.GT_PRIV, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
+						arg := achievements.Arg{types.Savedata{}, types.GT_PRIV, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
 						cat_list.Cheeves[i].Test(&arg)
 						if arg.Progress != "" {
 							fmt.Println("   Progress: " + arg.Progress)
@@ -309,7 +309,7 @@ func handle_file(filename string) {
 		game = types.GT_RF
 	}
 
-	arg := achievements.Arg{header, bytes, savedata.Forms, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
+	arg := achievements.Arg{*savedata, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
 	arg.Update()
 

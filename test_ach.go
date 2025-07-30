@@ -14,23 +14,21 @@ import "privdump/tables"
 
 var test_dir = "ach_test"
 
-func read_file(filename string) (error, types.Header, []byte, map[int]*types.Form) {
-	h0 := types.Header{}
-
+func read_file(filename string) (*types.Savedata, error) {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Failed to load file", filename, "-", err)
-		return err, h0, nil, nil
+		return nil, err
 	}
 
 	header := readers.Read_header(bytes)
 	savedata, err := readers.Read_savedata(header, bytes)
 	if err != nil {
 		fmt.Println("Failed to parse file", filename, "-", err)
-		return err, h0, nil, nil
+		return nil, err
 	}
 
-	return nil, header, bytes, savedata.Forms
+	return savedata, nil
 }
 
 func boolmap[K any](t K, f K) map[bool]K {
@@ -100,7 +98,7 @@ func main() {
 					for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
 
 						game, filename := real_filename(file, is_rf)
-						err, header, bytes, forms := read_file(filename)
+						savedata, err := read_file(filename)
 
 						if err != nil {
 							fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
@@ -108,7 +106,7 @@ func main() {
 							continue
 						}
 
-						if cheev.Test(&achievements.Arg{header, bytes, forms, game, nil, nil, ""}) != expected {
+						if cheev.Test(&achievements.Arg{*savedata, game, nil, nil, ""}) != expected {
 							fmt.Printf(boolmap("File: %s does not have achievement %s\n", "File: %s has achievement %s but should not\n")[expected], filename, s.Name())
 							error_count += 1
 						}
@@ -133,20 +131,20 @@ func main() {
 					secrets := uint8(0)
 
 					result := false
-					prog:=""
+					prog := ""
 					for _, file := range list {
 						game, filename := real_filename(file, is_rf)
-						err, header, bytes, forms := read_file(filename)
+						savedata, err := read_file(filename)
 						if err != nil {
 							fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
 							error_count += 1
 							goto cheev_end
 						}
-						arg := achievements.Arg{header, bytes, forms, game, visited, &secrets, ""}
+						arg := achievements.Arg{*savedata, game, visited, &secrets, ""}
 						arg.Update()
 
 						result = cheev.Test(&arg)
-						prog=arg.Progress
+						prog = arg.Progress
 					}
 
 					if result != expected[i] {
