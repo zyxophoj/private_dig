@@ -173,7 +173,11 @@ func (a *Arg) Location() tables.BASE_ID {
 func (a *Arg) Plot_info() (string, byte) {
 	plot := a.Blobs[types.OFFSET_PLOT]
 	cur := 0
-	str, _, _ := readers.Read_string(plot, &cur)
+	str, _, err := readers.Read_string(plot, &cur)
+	if err != nil {
+		// *very* corrupt savefile
+		panic(err)
+	}
 	flag := plot[9]
 
 	return str, flag
@@ -508,6 +512,11 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_ORION", "Expensive Paperweight", "Have Level 5 engines and level 5 shields (on an Orion)", false, func(a *Arg) bool {
+			if a.Ship() != tables.SHIP_ORION {
+				// It's possible in RF for a Galaxy to have level 5 shields and engines.
+				// TODO: we need a test case for this one
+				return false
+			}
 			if !slices.Equal(a.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data, []byte{'E', 'N', 'E', 'R', 'G', 'Y', 0, 0, 1, 2, 2, 2, 3, 1, 4, 1, 5, 1, 6, 2}) {
 				return false
 			}
@@ -787,6 +796,11 @@ var Cheev_list = []struct {
 			// Hunters are notoriously hard to please.  The problem is that you have to kill a lot of them to win the game,
 			// losing 15 rep per Demon and 20 rep per Centurion - but nothing (except the drone) will improve hunter rep by more than 1.
 			// (That's right, killing a pirate talon impresses them exactly as much as killing a Kamekh)
+			if a.Game == types.GT_RF {
+				// This one doesn't make any sense in RF
+				return false
+			}
+
 			str, flag := a.Plot_info()
 
 			if len(str) != 4 {
