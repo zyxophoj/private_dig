@@ -733,6 +733,16 @@ var Cheev_list = []struct {
 			}
 			return ((*a.Secrets - 1) & *a.Secrets) != 0
 		}},
+
+		{"AID_NO_ARMOR_LAUNCH", "I feel the same breeze you do", "Survive a trip with no armour", false, func(a *Arg) bool {
+			// Suggested by Grok - yes, really.
+			// It is a little bit surprising that this achievement is even possible to implement.
+			// No armour is represented as 0 when you first buy a new ship or sell existing armour, but after
+			// launch-landing, it changes to 1.
+			armour := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
+			cur := 0
+			return readers.Read_int16(armour.Data, &cur) == 1
+		}},
 		// TODO: would be fun but needs multi-file checking
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
 	}},
