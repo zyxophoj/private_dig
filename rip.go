@@ -8,6 +8,7 @@ import (
 
 	"privdump/readers"
 	"privdump/types"
+	"privdump/utils"
 )
 
 //rip.go
@@ -32,6 +33,19 @@ func code_string(in string) string {
 }
 
 func make_enum[K any](from []K, prefix string, name string, extractor func(int, K) (string, int)) {
+	fmt.Println("const(")
+	defer fmt.Println(")")
+
+	indent := "\t"
+	for index, k := range from {
+		iname, i := extractor(index, k)
+		if iname != "" {
+			fmt.Println(indent+id_from_string(prefix, iname), name, "=", i)
+		}
+	}
+}
+
+func make_enum2[K any](from map[int]K, prefix string, name string, extractor func(int, K) (string, int)) {
 	fmt.Println("const(")
 	defer fmt.Println(")")
 
@@ -275,4 +289,38 @@ func main() {
 		}
 	}
 	fmt.Println("}")
+
+	flags := utils.Make_flags()
+	// Although it would be funny, we don't really want flags in random order
+	type flag struct {
+		value int
+		str   string
+	}
+	sorted_flags := map[types.Game][]flag{}
+	for g, m := range flags {
+		for i := 0; len(sorted_flags[g]) < len(m); i += 1 {
+			if name, ok := m[i]; ok {
+				sorted_flags[g] = append(sorted_flags[g], flag{i, name})
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("// Flags...")
+	fmt.Println("// These are used to deal with fixer states that are a bit too subtle to be represented in the plot chunk")
+	fmt.Println("// In Privateer, that's details like temporarily rejecting a mission.")
+	fmt.Println("// In RF, it's pretty much the entire plot mission state, since multiple mission chains can be active at once")
+	fmt.Println("// and a simple plot string is completely incapable of dealing with that.")
+
+	make_enum(sorted_flags[types.GT_PRIV], "FLAG_PRIV", "", func(_ int, f flag) (string, int) {
+		return f.str, f.value
+	})
+	fmt.Println()
+	// Generate Righteous Fire flag enums
+
+	make_enum(sorted_flags[types.GT_RF], "FLAG_RF", "", func(_ int, f flag) (string, int) {
+		return f.str, f.value
+	})
+
+	fmt.Println()
 }

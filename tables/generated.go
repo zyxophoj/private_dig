@@ -309,3 +309,106 @@ var Bases = map[BASE_ID]Baseinfo{
 	BASE_WICKERTON:          Baseinfo{Name: "Wickerton", Type: BT_REFINERY, System: SYS_MANCHESTER},
 	BASE_DERELICT_BASE:      Baseinfo{Name: "Derelict Base", Type: BT_SPECIAL, System: SYS_DELTA_PRIME},
 }
+
+// Flags...
+// These are used to deal with fixer states that are a bit too subtle to be represented in the plot chunk
+// In Privateer, that's details like temporarily rejecting a mission.
+// In RF, it's pretty much the entire plot mission state, since multiple mission chains can be active at once
+// and a simple plot string is completely incapable of dealing with that.
+const (
+	FLAG_PRIV_TAYLA_HELLO                   = 1
+	FLAG_PRIV_TAYLA_GOODBYE                 = 2
+	FLAG_PRIV_MASTERSON_HELLO               = 3
+	FLAG_PRIV_MASTERSON_MURPHY_GOODBYE      = 4
+	FLAG_PRIV_MONKHOUSE_GOODBYE             = 5
+	FLAG_PRIV_CROSS_GOODBYE                 = 6
+	FLAG_PRIV_CURRENT_PLOT_MISSION_REJECTED = 9
+	FLAG_PRIV_MONKHOUSE_GOODBYE_2           = 10
+	FLAG_PRIV_ANGRY_DRONE                   = 11
+	FLAG_PRIV_TERREL_IN_CREDITS_MODE        = 12
+)
+
+const (
+	FLAG_RF_TAYLA_1_OFFERED                    = 1
+	FLAG_RF_TAYLA_2_OFFERED                    = 2
+	FLAG_RF_TAYLA_3_OFFERED                    = 3
+	FLAG_RF_TAYLA_4_OFFERED                    = 4
+	FLAG_RF_MURPHY_1_OFFERED                   = 5
+	FLAG_RF_MURPHY_2_OFFERED                   = 6
+	FLAG_RF_MURPHY_3_OFFERED                   = 7
+	FLAG_RF_MURPHY_4_OFFERED                   = 8
+	FLAG_RF_GOODIN_1_OFFERED                   = 9
+	FLAG_RF_GOODIN_2_OFFERED                   = 10
+	FLAG_RF_GOODIN_3_OFFERED                   = 11
+	FLAG_RF_GOODIN_4_OFFERED                   = 12
+	FLAG_RF_MASTERSON_1_OFFERED                = 13
+	FLAG_RF_MASTERSON_2_OFFERED                = 14
+	FLAG_RF_MASTERSON_3_OFFERED                = 15
+	FLAG_RF_MASTERSON_4_OFFERED                = 16
+	FLAG_RF_MASTERSON_5_OFFERED                = 17
+	FLAG_RF_MONTE_1_OFFERED                    = 18
+	FLAG_RF_MONTE_2_OFFERED                    = 19
+	FLAG_RF_MONTE_3_OFFERED                    = 20
+	FLAG_RF_MONTE_4_OFFERED                    = 21
+	FLAG_RF_GOODIN_5_OFFERED                   = 22
+	FLAG_RF_TERRELL_OFFERED                    = 23
+	FLAG_RF_GO_TO_GAEA_OFFERED                 = 24
+	FLAG_RF_TAYLA_1_ACCEPTED                   = 25
+	FLAG_RF_TAYLA_2_ACCEPTED                   = 26
+	FLAG_RF_TAYLA_3_ACCEPTED                   = 27
+	FLAG_RF_TAYLA_4_ACCEPTED                   = 28
+	FLAG_RF_MURPHY_1_ACCEPTED                  = 29
+	FLAG_RF_MURPHY_2_ACCEPTED                  = 30
+	FLAG_RF_MURPHY_3_ACCEPTED                  = 31
+	FLAG_RF_MURPHY_4_ACCEPTED                  = 32
+	FLAG_RF_GOODIN_1_ACCEPTED                  = 33
+	FLAG_RF_GOODIN_2_ACCEPTED                  = 34
+	FLAG_RF_GOODIN_3_ACCEPTED                  = 35
+	FLAG_RF_GOODIN_4_ACCEPTED                  = 36
+	FLAG_RF_MASTERSON_1_ACCEPTED               = 37
+	FLAG_RF_MASTERSON_2_ACCEPTED               = 38
+	FLAG_RF_MASTERSON_3_ACCEPTED               = 39
+	FLAG_RF_MASTERSON_4_ACCEPTED               = 40
+	FLAG_RF_MASTERSON_5_ACCEPTED               = 41
+	FLAG_RF_MONTE_1_ACCEPTED                   = 42
+	FLAG_RF_MONTE_2_ACCEPTED                   = 43
+	FLAG_RF_MONTE_3_ACCEPTED                   = 44
+	FLAG_RF_MONTE_4_ACCEPTED                   = 45
+	FLAG_RF_GOODIN_5_ACCEPTED                  = 46
+	FLAG_RF_TERRELL_ACCEPTED                   = 47
+	FLAG_RF_GO_TO_GAEA_ACCEPTED                = 48
+	FLAG_RF_ROMAN_LYNCH_INTRODUCED             = 49
+	FLAG_RF_TAYLA_GONE                         = 51
+	FLAG_RF_MURPHY_BOUNTY_PAID                 = 52
+	FLAG_RF_GOODIN_BOUNTY_OFFERED              = 53
+	FLAG_RF_MONTE_UNLOCKED                     = 54
+	FLAG_RF_MONTE_GONE                         = 55
+	FLAG_RF_INFORMANT_GONE                     = 57
+	FLAG_RF_TERRELL_IN_CREDITS_MODE            = 58
+	FLAG_RF_TAYLA_1_DONE                       = 151
+	FLAG_RF_TAYLA_2_DONE                       = 152
+	FLAG_RF_TAYLA_3_DONE                       = 153
+	FLAG_RF_TAYLA_4_DONE                       = 154
+	FLAG_RF_MURPHY_1_DONE                      = 155
+	FLAG_RF_MURPHY_2_DONE                      = 156
+	FLAG_RF_MURPHY_3_DONE                      = 157
+	FLAG_RF_MURPHY_4_DONE                      = 158
+	FLAG_RF_GOODIN_1_DONE                      = 159
+	FLAG_RF_GOODIN_2_DONE                      = 160
+	FLAG_RF_GOODIN_3_DONE                      = 161
+	FLAG_RF_GOODIN_4_DONE                      = 162
+	FLAG_RF_MASTERSON_1_DONE                   = 163
+	FLAG_RF_MASTERSON_2_DONE                   = 164
+	FLAG_RF_MASTERSON_3_DONE                   = 165
+	FLAG_RF_MASTERSON_4_DONE                   = 166
+	FLAG_RF_MASTERSON_5_DONE                   = 167
+	FLAG_RF_MONTE_1_DONE                       = 168
+	FLAG_RF_MONTE_2A_DONE                      = 169
+	FLAG_RF_MONTE_2B_DONE                      = 170
+	FLAG_RF_MONTE_3_DONE                       = 171
+	FLAG_RF_ROMAN_LYNCH_FREE_RESET_UNAVAILABLE = 172
+	FLAG_RF_GOODIN_5_DONE                      = 173
+	FLAG_RF_TERRELL_DONE                       = 174
+	FLAG_RF_GO_TO_GAEA_DONE                    = 175
+	FLAG_RF_KILL_JONES_DONE                    = 176
+)
