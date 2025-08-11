@@ -64,6 +64,28 @@ type Savedata struct {
 	Blobs   map[int][]byte
 }
 
+func (sd *Savedata) Chunk_length(n int) int {
+	// Ugh... some kind of polymprphism might help here
+	if sd.Forms[n] != nil {
+		return sd.Forms[n].Real_size()
+	}
+	if n == OFFSET_NAME {
+		return 18
+	}
+	if n == OFFSET_CALLSIGN {
+		return 15
+	}
+	if n > OFFSET_MISSION_BASE && (n-OFFSET_MISSION_BASE)%2 == 0 {
+		return 8
+	}
+	if sd.Blobs[n] != nil {
+		return len(sd.Blobs[n])
+	}
+
+	panic("what offset?")
+
+}
+
 type Record struct {
 	Name string
 	Data []byte
@@ -94,9 +116,10 @@ func (f *Form) Get(what ...string) *Record {
 		}
 	}
 
-	for _, rec := range f.Records {
+	for i, rec := range f.Records {
 		if strings.HasSuffix(rec.Name, what[len(what)-1]) {
-			return &rec
+			// Do not return a copy, caller may be getting to edit
+			return &f.Records[i]
 		}
 	}
 
@@ -111,4 +134,35 @@ func (f *Form) Get_subform(w string) *Form {
 		}
 	}
 	return nil
+}
+
+func (f *Form) Real_size() int {
+	total := 12 //("FORM"(4), length(4), name(4))
+	for _, rec := range f.Records {
+		if rec.Name == "FORM" {
+			continue
+		}
+		total += (4 + len(rec.Name) + len(rec.Data)) //(name(4), length(4) +data(whatever))
+	}
+	for _, sf := range f.Subforms {
+		total += sf.Real_size()
+	}
+
+	if total%2 != 0 {
+		total += 1
+	}
+
+	return total
+}
+
+func (f *Form) Needs_footer() bool {
+	t := 0
+	for _, rec := range f.Records {
+		if rec.Name == "FORM" {
+			continue
+		}
+		t += (4 + len(rec.Name) + len(rec.Data)) //(name(4), length(4) +data(whatever))
+	}
+
+	return t%2 == 1
 }
