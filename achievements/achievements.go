@@ -86,66 +86,31 @@ func (a *Arg) Update() {
 
 	case types.GT_RF:
 
-		type RFQG int // Righteous Fire Quest Giver
-		const (
-			RFQG_TAYLA     RFQG = 0
-			RFQG_MURPHY         = 4
-			RFQG_GOODIN         = 8
-			RFQG_MASTERSON      = 12
-			RFQG_MONTE          = 17
-			RFQG_GOODIN5        = 21
-			RFQG_TERRELL        = 22
-			RFQG_INFORMANT      = 23
-		)
-
-		type RFQS int // Righteous Fire Quest status
-		const (
-			RFQS_OFFERED  RFQS = 0
-			RFQS_ACCEPTED      = 24
-			RFQS_DONE          = 150
-		)
-
-		plot_flag := func(giver RFQG, n int, status RFQS) int {
-			// Allow Goodin's last mission to be requested as if it is part of her first sequence.
-			if n == 5 && giver == RFQG_GOODIN {
-				n, giver = 1, RFQG_GOODIN5
-			}
-
-			// TODO: Monte 2a/2b special case
-
-			// Special case: Lynch's flag bumps everything after Monte up by 1
-			if status == RFQS_DONE && giver > RFQG_MONTE {
-				giver += 1
-			}
-
-			return 1 + int(giver) + int(status)
-		}
-
 		a.Visited[tables.BASE_JOLSON] = true // the starting location
 		// Deduce visited based on RF plot state
 		infos := []struct {
 			flag     int
 			location tables.BASE_ID
 		}{
-			{plot_flag(RFQG_TAYLA, 1, RFQS_OFFERED), tables.BASE_OAKHAM},
-			{plot_flag(RFQG_TAYLA, 1, RFQS_DONE), tables.BASE_TUCK_S},
-			{plot_flag(RFQG_TAYLA, 2, RFQS_DONE), tables.BASE_SARATOV},
-			{plot_flag(RFQG_TAYLA, 3, RFQS_DONE), tables.BASE_SPEKE},
-			{plot_flag(RFQG_TAYLA, 4, RFQS_DONE), tables.BASE_BASQUE},
-			{plot_flag(RFQG_MURPHY, 1, RFQS_OFFERED), tables.BASE_EDOM},
-			{plot_flag(RFQG_MURPHY, 2, RFQS_DONE), tables.BASE_LIVERPOOL},
-			{plot_flag(RFQG_MURPHY, 3, RFQS_DONE), tables.BASE_NEW_DETROIT},
-			{49, tables.BASE_BASQUE}, // Roman Lynch talked to (ugh)
-			{plot_flag(RFQG_GOODIN, 1, RFQS_OFFERED), tables.BASE_PERRY_NAVAL_BASE},
-			{plot_flag(RFQG_MASTERSON, 1, RFQS_OFFERED), tables.BASE_OXFORD},
-			{plot_flag(RFQG_MASTERSON, 1, RFQS_DONE), tables.BASE_EDOM},
-			{plot_flag(RFQG_MASTERSON, 3, RFQS_DONE), tables.BASE_BURTON},
-			{plot_flag(RFQG_MASTERSON, 5, RFQS_DONE), tables.BASE_PERRY_NAVAL_BASE},
-			{plot_flag(RFQG_MONTE, 1, RFQS_OFFERED), tables.BASE_MACABEE},
-			{plot_flag(RFQG_MONTE, 1, RFQS_DONE), tables.BASE_NEW_DETROIT},
-			{plot_flag(RFQG_MONTE, 2, RFQS_DONE), tables.BASE_DRAKE}, // (this is actually mission 2a)
+			{tables.FLAG_RF_TAYLA_1_OFFERED, tables.BASE_OAKHAM},
+			{tables.FLAG_RF_TAYLA_1_DONE, tables.BASE_TUCK_S},
+			{tables.FLAG_RF_TAYLA_2_DONE, tables.BASE_SARATOV},
+			{tables.FLAG_RF_TAYLA_3_DONE, tables.BASE_SPEKE},
+			{tables.FLAG_RF_TAYLA_4_DONE, tables.BASE_BASQUE},
+			{tables.FLAG_RF_MURPHY_1_OFFERED, tables.BASE_EDOM},
+			{tables.FLAG_RF_MURPHY_2_DONE, tables.BASE_LIVERPOOL},
+			{tables.FLAG_RF_MURPHY_3_DONE, tables.BASE_NEW_DETROIT},
+			{tables.FLAG_RF_ROMAN_LYNCH_INTRODUCED, tables.BASE_BASQUE},
+			{tables.FLAG_RF_GOODIN_1_OFFERED, tables.BASE_PERRY_NAVAL_BASE},
+			{tables.FLAG_RF_MASTERSON_1_OFFERED, tables.BASE_OXFORD},
+			{tables.FLAG_RF_MASTERSON_1_DONE, tables.BASE_EDOM},
+			{tables.FLAG_RF_MASTERSON_3_DONE, tables.BASE_SPEKE},
+			{tables.FLAG_RF_MASTERSON_5_DONE, tables.BASE_PERRY_NAVAL_BASE},
+			{tables.FLAG_RF_MONTE_1_OFFERED, tables.BASE_MACABEE},
+			{tables.FLAG_RF_MONTE_1_DONE, tables.BASE_NEW_DETROIT},
+			{tables.FLAG_RF_MONTE_2A_DONE, tables.BASE_DRAKE}, // (this is actually mission 2a)
 			// TODO: Deal with 59 also being used for the derelict
-			{plot_flag(RFQG_INFORMANT, 1, RFQS_DONE), 59}, // Gaea
+			{tables.FLAG_RF_GO_TO_GAEA_DONE, 59}, // Gaea
 		}
 		for _, i := range infos {
 			if a.Has_flags(i.flag) {
@@ -924,18 +889,18 @@ var Cheev_list_rf = map[string][]Achievement{
 		// So we generally have to check the flag and check specifically for (last mission && completed state)
 		{"AID_RF_TAYLA", "For medicinal use only", "Complete Tayla's missions  (RF)", false, func(a *Arg) bool {
 			mission, flag := a.Plot_info()
-			return a.Has_flags(154) || (mission == "s8md" && is_completed_status(flag))
+			return a.Has_flags(tables.FLAG_RF_TAYLA_4_DONE) || (mission == "s8md" && is_completed_status(flag))
 		}},
 		{"AID_RF_MURPHY", "Corporate lackey", "Complete Lynn Murphy's missions (RF)", false, func(a *Arg) bool {
 			mission, flag := a.Plot_info()
-			return a.Has_flags(158) || (mission == "s9md" && is_completed_status(flag))
+			return a.Has_flags(tables.FLAG_RF_MURPHY_4_DONE) || (mission == "s9md" && is_completed_status(flag))
 		}},
 		{"AID_RF_GOODIN", "Kamekhs and Kamikazes", "Complete Sandra Goodin's missions (RF)", false, func(a *Arg) bool {
 			mission, flag := a.Plot_info()
-			return a.Has_flags(162) || (mission == "s10md" && is_completed_status(flag))
+			return a.Has_flags(tables.FLAG_RF_GOODIN_4_DONE) || (mission == "s10md" && is_completed_status(flag))
 		}},
 		{"AID_RF_MASTERSON", "Not Brogues", "Complete Masterson's missions (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(167)
+			return a.Has_flags(tables.FLAG_RF_MASTERSON_5_DONE)
 		}},
 		{"AID_RF_MONTE", "The full Monte", "Complete the sociologist's missions (RF)", false, func(a *Arg) bool {
 			// There's no flag for this!
@@ -955,13 +920,13 @@ var Cheev_list_rf = map[string][]Achievement{
 			return series > 12 || (series == 12 && mission == "d" && flag == 191)
 		}},
 		{"AID_RF_GOODIN_5", "Kahl and Collusion", "Complete Sandra Goodin's final mission (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(173)
+			return a.Has_flags(tables.FLAG_RF_GOODIN_5_DONE)
 		}},
 		{"AID_RF_TERRELL", "Patrol Mission of the Apocalypse", "Complete Admiral Terrell's mission (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(174)
+			return a.Has_flags(tables.FLAG_RF_TERRELL_DONE)
 		}},
 		{"AID_RF_WIN", "God Emperor of toasters", "Kill Mordecai Jones (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(176)
+			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE)
 		}},
 	},
 	"Random": []Achievement{
@@ -971,17 +936,17 @@ var Cheev_list_rf = map[string][]Achievement{
 		}},
 		{"AID_RF_ALL_STARTERS", "Overqualified", "Do all 3 Murphy/Tayla/Goodin mission sets (RF)", false, func(a *Arg) bool {
 			mission, flag := a.Plot_info()
-			return (a.Has_flags(154) || (mission == "s8md" && is_completed_status(flag))) &&
-				(a.Has_flags(158) || (mission == "s9md" && is_completed_status(flag))) &&
-				(a.Has_flags(162) || (mission == "s10md" && is_completed_status(flag)))
+			return (a.Has_flags(tables.FLAG_RF_TAYLA_4_DONE) || (mission == "s8md" && is_completed_status(flag))) &&
+				(a.Has_flags(tables.FLAG_RF_MURPHY_4_DONE) || (mission == "s9md" && is_completed_status(flag))) &&
+				(a.Has_flags(tables.FLAG_RF_GOODIN_4_DONE) || (mission == "s10md" && is_completed_status(flag)))
 
 		}},
 		{"AID_RF_PAID_3_TIMES", "Tagon would be proud, again", "Collect all 3 rewards for killing Menesch (RF)", false, func(a *Arg) bool {
 			// There is a problem here.
-			// 172 means: Free reset unavailable.  That could be because the reward has already been taken, or it could be because
+			// "Free reset unavailable"  could be because the reward has already been taken, or it could be because
 			// it was never offered (if the player kills Menesch before even talking to Lynch).  We sort of justify this by
 			// saying that in this case, the third reward is: nothing.
-			return a.Has_flags(52, 22, 172)
+			return a.Has_flags(tables.FLAG_RF_MURPHY_BOUNTY_PAID, tables.FLAG_RF_GOODIN_5_OFFERED, tables.FLAG_RF_ROMAN_LYNCH_FREE_RESET_UNAVAILABLE)
 		}},
 		{"AID_RF_SECRET_NAV", "Not so secret", "Accept a non-plot mission involving Nav 4 in Valhalla (RF)", false, func(a *Arg) bool {
 			// That's the jump to Gaea, which is supposed to be secret, but nobody told mission generation that.
@@ -1047,7 +1012,7 @@ var Cheev_list_rf = map[string][]Achievement{
 				}
 			}
 
-			return a.Has_flags(176)
+			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE)
 		}},
 	},
 }
