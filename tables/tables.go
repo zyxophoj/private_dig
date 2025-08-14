@@ -29,6 +29,12 @@ const (
 )
 
 
+// Equipment
+const(
+		SHIELD_BASE_0 = 89
+)
+
+
 var locations_rf = func() map[BASE_ID]Baseinfo {
 	m := map[BASE_ID]Baseinfo{}
 	for k, v := range Bases {
