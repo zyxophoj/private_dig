@@ -29,7 +29,7 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 
 func full_location(gt types.Game, id uint8) string {
 	loc := tables.Locations(gt)[tables.BASE_ID(id)]
-	return loc.Name + " ("+tables.Systems(gt)[loc.System].Name+")"
+	return loc.Name + " (" + tables.Systems(gt)[loc.System].Name + ")"
 }
 
 func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
@@ -123,7 +123,6 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				out = append(out, fmt.Sprintf("   %v - %v", status, final))
 				out = append(out, fmt.Sprintf("   Series: %v, Mission %v", safe_lookup(serieses, series), mission))
 			}
-
 
 			mstatus := map[uint8]string{
 				128: "Accepted (128)",     //128
@@ -411,10 +410,10 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 	case "NAVQ":
 		// This one's a bitfield that tracks which of the 4 quadrant maps we have.
 		maps := map[uint8]string{
-			1<<tables.QUAD_HUMBOLDT: "Humboldt",
-			1<<tables.QUAD_FARISS: "Fariss",
-			1<<tables.QUAD_POTTER: "Potter",
-			1<<tables.QUAD_CLARKE: "Clarke",
+			1 << tables.QUAD_HUMBOLDT: "Humboldt",
+			1 << tables.QUAD_FARISS:   "Fariss",
+			1 << tables.QUAD_POTTER:   "Potter",
+			1 << tables.QUAD_CLARKE:   "Clarke",
 		}
 
 		out = append(out, "Maps:")
@@ -536,7 +535,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		}
 
 		infotype, _, _ := readers.Read_string(record.Data, &cur)
-		cur-=1
+		cur -= 1
 		out = append(out, "INFO type "+infotype)
 		switch infotype {
 		case "SHIELDS":

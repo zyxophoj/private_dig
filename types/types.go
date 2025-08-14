@@ -24,19 +24,19 @@ const (
 	OFFSET_NAME
 	OFFSET_CALLSIGN
 
-	OFFSET_COUNT // This only counts the always-present offsets
+	OFFSET_COUNT                       // This only counts the always-present offsets
 	OFFSET_MISSION_BASE = OFFSET_COUNT // Used as an internal index for the first non-plot mission
 )
 
 func Offset_name(o int) string {
 	return []string{"ShipLocGuilds", "Plot", "Mission count", "Score", "WTF", "Hidden Jumps", "Equipment", "Name", "Callsign",
-	                "Mission 1 Name",  "Mission 1 Data", "Mission 2 Name",  "Mission 2 Data", "Mission 3 Name",  "Mission 3 Data"}[o]
+		"Mission 1 Name", "Mission 1 Data", "Mission 2 Name", "Mission 2 Data", "Mission 3 Name", "Mission 3 Data"}[o]
 }
 
 type Header struct {
-	File_size       int
-	Offsets         []int
-	Footer          []byte
+	File_size int
+	Offsets   []int
+	Footer    []byte
 }
 
 // Offset_end returns the index of the byte one after the end of the offset with the given offset ID.
