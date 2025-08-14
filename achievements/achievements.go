@@ -75,6 +75,7 @@ func (a *Arg) Update() {
 				if guns.Data[n] >= 8 {
 					for _, info := range infos {
 						a.Visited[info.location] = true
+						break
 					}
 				}
 			}
