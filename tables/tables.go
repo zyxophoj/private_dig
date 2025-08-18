@@ -28,23 +28,90 @@ const (
 	SHIP_GALAXY    = 3
 )
 
-
 // Equipment
-const(
-		SHIELD_BASE_0 = 89
+const (
+	SHIELD_BASE_0 = 89
 )
 
+func Guns(t types.Game) map[int]string {
+	return map[types.Game]map[int]string{
+		types.GT_PRIV: map[int]string{
+			5: "Laser",
+			3: "Mass Driver",
+			1: "Meson Blaster",
+			0: "Neutron gun",
+			4: "Particle Cannon",
+			7: "Tachyon Cannon",
+			2: "Ionic Pulse Cannon",
+			6: "Plasma Gun",
+
+			8: "Steltek Gun",
+			9: "Boosted Steltek Gun",
+		},
+		types.GT_RF: map[int]string{
+			5: "Laser",
+			3: "Mass Driver",
+			1: "Meson Blaster",
+			0: "Neutron gun",
+			4: "Particle Cannon",
+			7: "Tachyon Cannon",
+			2: "Ionic Pulse Cannon",
+			6: "Plasma Gun",
+
+			8: "Fusion Cannon",
+		},
+	}[t]
+}
+
+// rear/top is "turret 1" depending on ship
+var Gun_mounts = map[int]string{
+	1: "Left outer",
+	2: "Left",
+	3: "Right",
+	4: "Right outer",
+	5: "Rear/Top 2",
+	//6: tractor beam slot
+	7: "Rear/Top 1",
+	8: "Bottom 2",
+	//9: tractor beam slot
+	10: "Bottom 1",
+}
+
+var Launchers = map[int]string{
+	50: "Missile Launcher",
+	51: "Torpedo Launcher",
+	52: "Tractor Beam",
+}
+
+var Launcher_mounts = map[int]string{
+	0: "Centre",
+	1: "Left",
+	2: "Left(c)",
+	3: "Right(c)",
+	4: "Right",
+
+	6: "Turret 1",
+	9: "Turret 2",
+}
+
+var Missiles = map[int]string{
+	1: "Torpedo",
+	4: "Dumbfire",
+	2: "Heat Seeker",
+	5: "Image Rec",
+	3: "Friend or Foe",
+}
 
 var locations_rf = func() map[BASE_ID]Baseinfo {
 	m := map[BASE_ID]Baseinfo{}
 	for k, v := range Bases {
 		m[k] = v
 	}
-	m[59] = Baseinfo{Name: "Gaea", Type: BT_SPECIAL, System: SYS_DELTA_PRIME}  //UGH!!!!!
+	m[59] = Baseinfo{Name: "Gaea", Type: BT_SPECIAL, System: SYS_DELTA_PRIME} //UGH!!!!!
 	return m
 }()
 
-func Locations(gt types.Game)  map[BASE_ID]Baseinfo {
+func Locations(gt types.Game) map[BASE_ID]Baseinfo {
 	if gt == types.GT_RF {
 		return locations_rf
 	}
@@ -52,17 +119,16 @@ func Locations(gt types.Game)  map[BASE_ID]Baseinfo {
 	return Bases
 }
 
-
-var systems_rf = func() map[SYS_ID]Sysinfo{
+var systems_rf = func() map[SYS_ID]Sysinfo {
 	m := map[SYS_ID]Sysinfo{}
 	for k, v := range systems {
 		m[k] = v
 	}
-	m[68] = Sysinfo{Name:"Eden", Quadrant:QUAD_FARISS, Bases:[]BASE_ID{59}}  //UGH!
+	m[68] = Sysinfo{Name: "Eden", Quadrant: QUAD_FARISS, Bases: []BASE_ID{59}} //UGH!
 	return m
 }()
 
-func Systems(gt types.Game) map[SYS_ID]Sysinfo{
+func Systems(gt types.Game) map[SYS_ID]Sysinfo {
 	if gt == types.GT_RF {
 		return systems_rf
 	}

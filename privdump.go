@@ -359,25 +359,11 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 
 	case "LNCH":
 		out = append(out, "Launchers:")
-		launchers := map[int]string{
-			50: "Missile Launcher",
-			51: "Torpedo Launcher",
-			52: "Tractor Beam",
-		}
-		mounts := map[int]string{
-			0: "Centre",
-			1: "Left",
-			2: "Left",
-			3: "Right",
-			4: "Right",
 
-			6: "Turret 1",
-			9: "Turret 2",
-		}
 		for i := range len(record.Data) / 4 {
 			launcher := int(record.Data[i*4])
 			mount := int(record.Data[i*4+1])
-			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(mounts, mount), safe_lookup(launchers, launcher)))
+			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(tables.Launcher_mounts, mount), safe_lookup(tables.Launchers, launcher)))
 		}
 
 	case "MISL":
