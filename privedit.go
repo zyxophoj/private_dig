@@ -38,7 +38,6 @@ import (
 
 // Evil global variables
 var g_stash_filename = "privedit.tmp"
-var g_game = types.GT_NONE
 
 func get_dir() string {
 	// dir from command line
@@ -110,7 +109,7 @@ type ettable struct {
 	start      int
 	end        int
 
-	trans_int func() map[int]string
+	trans_int func(game types.Game) map[int]string
 	trans_str map[string]string
 	record    []string
 }
@@ -137,6 +136,7 @@ type mount_info struct {
 	equipment_offset int
 	mount_offset     int
 }
+
 var mount_infos = map[string]mount_info{
 	"guns":      mount_info{tables.Gun_mounts, 4, 0, 1},
 	"launchers": mount_info{tables.Launcher_mounts, 4, 0, 1},
@@ -151,7 +151,7 @@ func list_ettables() string {
 	return ret
 }
 
-func make_ship_map() map[int]string {
+func make_ship_map(game types.Game) map[int]string {
 	return map[int]string{
 		tables.SHIP_TARSUS:    "Tarsus",
 		tables.SHIP_ORION:     "Orion",
@@ -160,17 +160,17 @@ func make_ship_map() map[int]string {
 	}
 }
 
-func make_location_map() map[int]string {
+func make_location_map(game types.Game) map[int]string {
 	ret := map[int]string{}
 
-	for id, info := range tables.Bases {
+	for id, info := range tables.Locations(game) {
 		ret[int(id)] = info.Name
 	}
 
 	return ret
 }
 
-func make_shields_map() map[int]string {
+func make_shields_map(game types.Game) map[int]string {
 	ret := map[int]string{}
 
 	for n := 1; n < 8; n += 1 {
@@ -206,10 +206,10 @@ func make_engine_map() map[string]string {
 	return ugly
 }
 
-func make_guns_map() map[int]string {
-	return tables.Guns(g_game)
+func make_guns_map(game types.Game) map[int]string {
+	return tables.Guns(game)
 }
-func make_launchers_map() map[int]string {
+func make_launchers_map(game types.Game) map[int]string {
 	return tables.Launchers
 }
 
@@ -342,19 +342,19 @@ func main2() error {
 			return errors.New(what + " is not settable.  Settables are:\n" + list_ettables()) // UGH! (duplicated in set())
 		}
 
+		filename, savedata, err := retrieve()
+		if err != nil {
+			return err
+		}
+
 		if len(os.Args) < 4 {
 			str := "Set " + what + " to what?  Options are:"
-			for _, v := range g.trans_int() {
+			for _, v := range g.trans_int(savedata.Game()) {
 				str += ("\n" + v)
 			}
 			return errors.New(str)
 		}
 		to := os.Args[3]
-
-		filename, savedata, err := retrieve()
-		if err != nil {
-			return err
-		}
 
 		to_matched, err := set(what, to, savedata)
 		if err != nil {
@@ -393,7 +393,6 @@ func load(full_filename string) (*types.Savedata, error) {
 	if err != nil {
 		return nil, err
 	}
-	g_game = sd.Game()
 	return sd, err
 }
 
@@ -441,7 +440,6 @@ func retrieve() (string, *types.Savedata, error) {
 		return "", nil, err
 	}
 
-	g_game = savedata.Game()
 	return *filename, &savedata, nil
 }
 
@@ -526,8 +524,8 @@ func get(what string, savedata *types.Savedata) (string, error) {
 		panic("???") // impossible
 	}
 
-	if g.trans_int != nil && len(g.trans_int()) > 0 {
-		return fmt.Sprint(n, ": ", g.trans_int()[n]), nil
+	if g.trans_int != nil && len(g.trans_int(savedata.Game())) > 0 {
+		return fmt.Sprint(n, ": ", g.trans_int(savedata.Game())[n]), nil
 	} else {
 		// no translation necessary
 		return fmt.Sprint(n), nil
@@ -554,7 +552,7 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 	value_bytes := []byte{}
 	if g.trans_int != nil {
 		// map is "backwards" from the setting PoV
-		v, m, err := fuzzy_reverse_lookup(g.trans_int(), to, what)
+		v, m, err := fuzzy_reverse_lookup(g.trans_int(savedata.Game()), to, what)
 		if err != nil {
 			return "", err
 		}
@@ -642,11 +640,10 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-
 func get_mountables(what string, data []byte, savedata *types.Savedata) (string, error) {
 	var equipment map[int]string
 	if ettables[what].trans_int != nil {
-		equipment = ettables[what].trans_int()
+		equipment = ettables[what].trans_int(savedata.Game())
 	}
 	// TODO: rear/top is "turret 1"; get ship from savedata to make more sense of this?
 	mounts := mount_infos[what].mounts
@@ -667,7 +664,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	g := ettables[what]
 	var equipment map[int]string
 	if g.trans_int != nil {
-		equipment = g.trans_int()
+		equipment = g.trans_int(savedata.Game())
 	}
 	mounts := mount_infos[what].mounts
 

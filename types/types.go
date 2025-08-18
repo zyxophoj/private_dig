@@ -86,6 +86,17 @@ func (sd *Savedata) Chunk_length(n int) int {
 
 }
 
+func (sd *Savedata) Game() Game{
+	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
+	game := GT_PRIV
+	hidden := sd.Forms[OFFSET_SSSS].Get("ORIG").Data
+	if hidden[len(hidden)-1] == 68 {
+		game = GT_RF
+	}
+	
+	return game
+}
+
 type Record struct {
 	Name string
 	Data []byte
