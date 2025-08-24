@@ -141,6 +141,30 @@ func (f *Form) Get(what ...string) *Record {
 	return nil
 }
 
+func (f *Form) Add_record(what ...string) *Record {
+	// Note the contortions needed to not copy... maybe form should just store pointers.
+	for _, w := range what[:len(what)-1] {
+		found := false
+		for i, _ := range f.Subforms {
+			subform := &(f.Subforms[i])
+			if strings.HasSuffix(subform.Name, w) {
+				f = subform
+				//fmt.Println("Subform", f.Name)
+				found = true
+				break
+			}
+		}
+		if !found {
+			//fmt.Println("Failed to find Subform", w)
+			return nil
+		}
+	}
+
+	//fmt.Println("Name is",  what[len(what)-1])
+	f.Records = append(f.Records, Record{Name: what[len(what)-1], Data: []byte{}, Footer: nil})
+	return &f.Records[len(f.Records)-1]
+}
+
 func (f *Form) Get_subform(w string) *Form {
 	//TODO: allow multiple args
 	for _, subform := range f.Subforms {

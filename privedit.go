@@ -15,6 +15,10 @@ package main
 // privedit set guns right:boo
 // privedit set guns right_o:boo
 // privedit set missiles Image:32000
+// privedit set launchers left:miss
+// privedit set launchers right:miss
+// privedit set launchers turret_1:miss
+// privedit set turrets rear:present
 // privedit set name Filthy
 // privedit set callsign Cheater
 // privedit save
@@ -128,6 +132,7 @@ var ettables = map[string]*ettable{
 	"guns":      &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
 	"launchers": &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
 	"missiles":  &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
+	"turrets":   &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
 }
 
 // Extra info for mountables
@@ -143,6 +148,7 @@ var mount_infos = map[string]mount_info{
 	"guns":      mount_info{tables.Gun_mounts, 4, 0, 1, 1},
 	"launchers": mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
 	"missiles":  mount_info{tables.Missiles, 3, 1, 2, 0},
+	"turrets":   mount_info{tables.Turrets, 1, 0, 0, 0},
 }
 
 func list_ettables() string {
@@ -215,6 +221,10 @@ func make_launchers_map(game types.Game) map[int]string {
 	return tables.Launchers
 }
 
+func make_present_map(game types.Game) map[int]string {
+	return map[int]string{0: "present"}
+}
+
 func main() {
 	err := main2()
 	if err != nil {
@@ -255,6 +265,8 @@ func main2() error {
 			"Notes:",
 			"   \"empty\" is a magic word.  Where possible, equipment can be removed by",
 			"setting it to \"empty\".",
+			"   \"present\" is a magic word, used to set equipment that contains no",
+			"information beyond its existence.  e.g \"set Turret Rear:present\"",
 			"   It is usually not necessary to type the full name of something",
 			"e.g. \"new_d\" will be recognized as \"New Detroit\".",
 		}...)
@@ -592,7 +604,7 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 		target = savedata.Forms[g.offset].Get(g.record...).Data
 	}
 
-	if g.data_type == DT_STRING {
+	if g.chunk_type == CT_FORM && g.data_type == DT_STRING {
 		record := savedata.Forms[g.offset].Get(g.record...)
 		// TODO: deal with nil case?
 		end := g.end
@@ -697,7 +709,19 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	matched := matched_bits[0] + ":" + matched_bits[1]
 
 	record := savedata.Forms[g.offset].Get(g.record...)
-	// TODO: can this be nil?
+	if record == nil {
+		joined := strings.Join(g.record, "-")
+		whitelist := map[string]bool{
+			"FITE-TRRT": true,
+		}
+		if whitelist[joined] {
+			record = savedata.Forms[g.offset].Add_record(g.record...)
+		} else {
+			// TODO: construct these things
+			return "", errors.New(fmt.Sprintf("Internal privedit error: Unable to construct default(empty) %v record", joined))
+		}
+	}
+
 	data := record.Data
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
@@ -710,11 +734,11 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 
 		if mount == to_mount {
 			if to_bits[1] == "empty" {
-				fmt.Println("Destroying existing", safe_lookup(equipment, thing), "at ", safe_lookup(mounts, mount))
+				fmt.Println("Destroying existing", safe_lookup(equipment, thing), "at", safe_lookup(mounts, mount))
 				record.Data = append(record.Data[:i], record.Data[i+cl:]...)
 				return matched, nil
 			}
-			fmt.Println("Transmogrifying existing", safe_lookup(equipment, thing), "at ", safe_lookup(mounts, mount), "into a", safe_lookup(equipment, to_thing))
+			fmt.Println("Transmogrifying existing", safe_lookup(equipment, thing), "at", safe_lookup(mounts, mount), "into a", safe_lookup(equipment, to_thing))
 			err := write_int(to_thing, minfo.equipment_length, data[i+minfo.equipment_offset:])
 			if err != nil {
 				return "", err
@@ -728,7 +752,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 		return matched, nil
 	}
 
-	fmt.Println("Adding new", safe_lookup(equipment, to_thing), "at ", safe_lookup(mounts, to_mount))
+	fmt.Println("Adding new", safe_lookup(equipment, to_thing), "at", safe_lookup(mounts, to_mount))
 	new_data := make([]byte, cl)
 	write_int(to_thing, minfo.equipment_length, new_data[minfo.equipment_offset:])
 	new_data[minfo.mount_offset] = byte(to_mount)
@@ -737,24 +761,26 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 }
 
 // sanity_fix attempts to fix inconsistencies in savedata - but only the ones that would cause the game to crash
-// Crashing inconsistencies appear to be: weapons or launchers in non-turret mounts that don't exist.
+// Crashing inconsistencies appear to be: turrets, weapons or launchers in mounts that don't exist.
 func sanity_fix(savedata *types.Savedata) {
+	// Turret mounts:   1: Rear, 2:top, 3:bottom
 	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer,
 	// Only the Centurion has outer mounts.
 	// Launcher mounts: 0: Centre, 1: Left (not Centurion), 2: Left (Centurion), 3: Right (Centurion), 4: Right (not Centurion),
 	type fixers struct {
+		fix_turrets   map[byte]int
 		fix_guns      map[byte]int
 		fix_launchers map[byte]int
 	}
-	// We try to "fix" a bad weapon by moving it to a corresponding allowed slot.
+	// We try to "fix" bad equipment by moving it to a corresponding allowed slot.
 	// However, since ships don't even have the same numbers of mounts, weapons
 	// must sometimes be thrown away.
 	// TODO: try not to throw away steltek gun(s)
 	mounts := map[uint8]fixers{
-		tables.SHIP_TARSUS:    {map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 2: 1, 3: 4}},
-		tables.SHIP_ORION:     {map[byte]int{1: 2, 4: 3}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1}},
-		tables.SHIP_CENTURION: {map[byte]int{}, map[byte]int{0: -1, 1: 2, 4: 3}},
-		tables.SHIP_GALAXY:    {map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 2: 1, 3: 4}},
+		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 2: 1, 3: 4}},
+		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1}},
+		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{}, map[byte]int{0: -1, 1: 2, 4: 3}},
+		tables.SHIP_GALAXY:    {map[byte]int{1: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 1: 2, 4: 3}},
 	}
 
 	fix_record := func(weapon string, record *types.Record, fixer map[byte]int) {
@@ -763,11 +789,14 @@ func sanity_fix(savedata *types.Savedata) {
 			return
 		}
 
+		minfo := mount_infos[weapon+"s"] // UGH! GAH!! BLETCH!!!
+		cl := minfo.chunk_length
+
 		data := record.Data
 		// weapon block format: weapon, mount, damage, ???
 		oldmap := map[byte][]byte{}
-		for i := range len(data) / 4 {
-			oldmap[data[i*4+1]] = data[i*4 : (i+1)*4]
+		for i := range len(data) / cl {
+			oldmap[data[i*cl+minfo.mount_offset]] = data[i*cl : (i+1)*cl]
 		}
 		newmap := map[byte][]byte{}
 		for mount := range oldmap {
@@ -780,12 +809,13 @@ func sanity_fix(savedata *types.Savedata) {
 					fmt.Println("Sanity fix:", weapon, "from mount", mount, "thrown away")
 				} else {
 					fmt.Println("Sanity fix:", weapon, "moved from mount", mount, "to mount", new_mount)
-					oldmap[mount][1] = byte(new_mount)
+					oldmap[mount][minfo.mount_offset] = byte(new_mount)
 					newmap[byte(new_mount)] = oldmap[mount]
 				}
 			}
 		}
 		// This does randomize weapon order, but the game doesn't care so neither do I
+		// TODO: actually, I do care, for file comparison purposes.
 		record.Data = []byte{}
 		for _, gundata := range newmap {
 			record.Data = append(record.Data, gundata...)
@@ -793,13 +823,28 @@ func sanity_fix(savedata *types.Savedata) {
 	}
 
 	ship := savedata.Blobs[types.OFFSET_SHIP][0]
+	fix_record("turret", savedata.Forms[types.OFFSET_REAL].Get("FITE", "TRRT"), mounts[ship].fix_turrets)
+	// TODO: add turrets if existing equipment demands it
 	fix_record("gun", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS"), mounts[ship].fix_guns)
 	fix_record("launcher", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH"), mounts[ship].fix_launchers)
+
+	// Engine damage...
+	// It looks like engine info is a list of engine subcomponents, and engine damage info is a list of damage-per-subcomponent values.
+	// Consequently, a change in engine could result in a change of engine damage info length.  Not doing this seems to cause
+	// the game to read off the end of REAL-FITE-ENER-DAMG to find damage values, resulting in nonsensical data and ludicrous repair fees.
+	//
+	// Just to make things more interesting, REAL-FITE-ENER-DAMG length is not preserved by launch-landing.  We use the longer length here,
+	// which is the immediately-after-buying length, mostly because we understand how to calculate it.
+	// TODO: understand how to caculate the smaller value, only update if necessary, log iff update happened.
+	engine_subcomponents := (len(savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data) - len("ENERGY") - 2) / 2
+	savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "DAMG").Data = make([]byte, engine_subcomponents*14)
 }
 
 func read_int(bytes []byte) (int, error) {
 	n := 0
 	switch len(bytes) {
+	case 0:
+		n = 0
 	case 1:
 		n = int(bytes[0])
 	case 2:
@@ -816,7 +861,11 @@ func read_int(bytes []byte) (int, error) {
 }
 
 func write_int(n int, length int, target []byte) error {
-	switch len(target) {
+	switch length {
+	case 0:
+		if n != 0 {
+			return errors.New("Internal privedit error: attempt to write non-zero number to empty")
+		}
 	case 1, 2, 4: // OK
 	default:
 		return errors.New("Internal privedit error: unexpected byte length for field")
