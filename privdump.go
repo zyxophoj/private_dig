@@ -365,9 +365,13 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 			5: "Image Rec",
 			3: "Friend or Foe",
 		}
+		cur := 0
 		for i := range len(record.Data) / 3 {
 			msl_type := record.Data[i*3]
-			count := record.Data[i*3+1]
+			cur += 1
+			// Yes, really.  With a maximum of 20 missiles total, a normal game won't need the second byte of this int,
+			// but it is used.  Hex edit yourself up to 32767 missiles if you want.
+			count := readers.Read_int16(record.Data, &cur)
 			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(missiles, msl_type), count))
 		}
 

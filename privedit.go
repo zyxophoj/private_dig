@@ -11,9 +11,10 @@ package main
 // privedit set engine 5
 // privedit set shields 5
 // privedit set guns "left:Boosted Steltek gun"
-// privedit set guns "right:Boosted Steltek gun"
-// privedit set guns "left_outer:Boosted Steltek gun"
-// privedit set guns "right_outer:Boosted Steltek gun"
+// privedit set guns left_outer:boo
+// privedit set guns right:boo
+// privedit set guns right_o:boo
+// privedit set missiles Image:32000
 // privedit set name Filthy
 // privedit set callsign Cheater
 // privedit save
@@ -134,13 +135,14 @@ type mount_info struct {
 	mounts           map[int]string
 	chunk_length     int
 	equipment_offset int
+	equipment_length int
 	mount_offset     int
 }
 
 var mount_infos = map[string]mount_info{
-	"guns":      mount_info{tables.Gun_mounts, 4, 0, 1},
-	"launchers": mount_info{tables.Launcher_mounts, 4, 0, 1},
-	"missiles":  mount_info{tables.Missiles, 3, 1, 0},
+	"guns":      mount_info{tables.Gun_mounts, 4, 0, 1, 1},
+	"launchers": mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
+	"missiles":  mount_info{tables.Missiles, 3, 1, 2, 0},
 }
 
 func list_ettables() string {
@@ -513,15 +515,9 @@ func get(what string, savedata *types.Savedata) (string, error) {
 		return fmt.Sprint(bytes, ": ", g.trans_str[str]), nil
 	}
 
-	n := 0
-	switch len(bytes) {
-	case 1:
-		n = int(bytes[0])
-	case 4:
-		cur := 0
-		n = readers.Read_int_le(bytes, &cur)
-	default:
-		panic("???") // impossible
+	n, err := read_int(bytes)
+	if err != nil {
+		return "", err
 	}
 
 	if g.trans_int != nil && len(g.trans_int(savedata.Game())) > 0 {
@@ -608,22 +604,9 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 		return matched, nil
 	}
 
-	switch g.end - g.start {
-	case 0:
-		// Nothing to do here.
-
-	case 1:
-		target[g.start] = uint8(value)
-
-	case 4:
-		writebytes := []byte{uint8(value & 0xff), uint8((value >> 8) & 0xff), uint8((value >> 16) & 0xff), uint8(value >> 24)}
-		target[g.start+0] = writebytes[0]
-		target[g.start+1] = writebytes[1]
-		target[g.start+2] = writebytes[2]
-		target[g.start+3] = writebytes[3]
-
-	default:
-		panic("???") // impossible
+	err := write_int(value, g.end-g.start, target[g.start:g.end])
+	if err != nil {
+		return "", err
 	}
 
 	return matched, nil
@@ -651,7 +634,12 @@ func get_mountables(what string, data []byte, savedata *types.Savedata) (string,
 	out := ""
 	cl := mount_infos[what].chunk_length
 	for i := range len(data) / cl {
-		thing := int(data[i*cl+mount_infos[what].equipment_offset])
+		start := i*cl + mount_infos[what].equipment_offset
+		end := start + mount_infos[what].equipment_length
+		thing, err := read_int(data[start:end])
+		if err != nil {
+			return "", nil
+		}
 		mount := int(data[i*cl+mount_infos[what].mount_offset])
 
 		out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(equipment, thing))
@@ -692,6 +680,11 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			// TODO: upper limit depends on mounts.equipment_length
+			if to_thing < 1 || to_thing > 32767 {
+				return "", errors.New("Numeric argumetn must be between 1 and 32767")
+				// TODO: allow 0, treat it the same as "empty"
+			}
 			matched_bits[1] = to_bits[1]
 		} else {
 			to_thing, matched_bits[1], err = fuzzy_reverse_lookup(equipment, to_bits[1], what) // TODO un-pluralise "what"?  Ugh.
@@ -709,7 +702,10 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
 	for i := 0; i < len(data); i += cl {
-		thing := int(data[i+minfo.equipment_offset])
+		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
+		if err != nil {
+			return "", err
+		}
 		mount := int(data[i+minfo.mount_offset])
 
 		if mount == to_mount {
@@ -719,7 +715,10 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 				return matched, nil
 			}
 			fmt.Println("Transmogrifying existing", safe_lookup(equipment, thing), "at ", safe_lookup(mounts, mount), "into a", safe_lookup(equipment, to_thing))
-			data[i+minfo.equipment_offset] = uint8(to_thing)
+			err := write_int(to_thing, minfo.equipment_length, data[i+minfo.equipment_offset:])
+			if err != nil {
+				return "", err
+			}
 			return matched, nil
 		}
 	}
@@ -731,7 +730,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 
 	fmt.Println("Adding new", safe_lookup(equipment, to_thing), "at ", safe_lookup(mounts, to_mount))
 	new_data := make([]byte, cl)
-	new_data[minfo.equipment_offset] = byte(to_thing)
+	write_int(to_thing, minfo.equipment_length, new_data[minfo.equipment_offset:])
 	new_data[minfo.mount_offset] = byte(to_mount)
 	record.Data = append(record.Data, new_data...)
 	return matched, nil
@@ -796,4 +795,35 @@ func sanity_fix(savedata *types.Savedata) {
 	ship := savedata.Blobs[types.OFFSET_SHIP][0]
 	fix_record("gun", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS"), mounts[ship].fix_guns)
 	fix_record("launcher", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH"), mounts[ship].fix_launchers)
+}
+
+func read_int(bytes []byte) (int, error) {
+	n := 0
+	switch len(bytes) {
+	case 1:
+		n = int(bytes[0])
+	case 2:
+		cur := 0
+		n = readers.Read_int16(bytes, &cur)
+	case 4:
+		cur := 0
+		n = readers.Read_int_le(bytes, &cur)
+	default:
+		return 0, errors.New("Internal privedit error: unexpected byte length for field")
+	}
+
+	return n, nil
+}
+
+func write_int(n int, length int, target []byte) error {
+	switch len(target) {
+	case 1, 2, 4: // OK
+	default:
+		return errors.New("Internal privedit error: unexpected byte length for field")
+	}
+
+	for i := 0; i < length; i += 1 {
+		target[i] = uint8((n >> (8 * i)) & 0xFF)
+	}
+	return nil
 }
