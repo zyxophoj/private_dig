@@ -33,6 +33,12 @@ const (
 	SHIELD_BASE_0 = 89
 )
 
+var Turrets = map[int]string{
+	1: "Rear",
+	2: "Top",
+	3: "Bottom",
+}
+
 func Guns(t types.Game) map[int]string {
 	return map[types.Game]map[int]string{
 		types.GT_PRIV: map[int]string{

@@ -235,7 +235,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 
 	// Record format depends on record name
 	if record.Name != "FORM" {
-		out = append(out, "Record: "+prefix+record.Name+fmt.Sprintf("%v", record.Data))
+		out = append(out, "Record: "+prefix+record.Name+fmt.Sprintf("%v (%v)", record.Data, len(record.Data)))
 	}
 
 	switch record.Name {
@@ -378,13 +378,8 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 	case "TRRT":
 		out = append(out, "Turrets:")
 		// This only counts turrets, not what you have in them.
-		turrets := map[uint8]string{
-			1: "Rear",
-			2: "Top",
-			3: "Bottom",
-		}
 		for i := range len(record.Data) {
-			out = append(out, fmt.Sprintf("%v", safe_lookup(turrets, record.Data[i])))
+			out = append(out, fmt.Sprintf("%v", safe_lookup(tables.Turrets, int(record.Data[i]))))
 		}
 
 	case "NAVQ":
