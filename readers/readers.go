@@ -224,6 +224,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 	for *cur <= form_end-8 { // Minimum record size is 8
 
 		// This is here to pass over an observed 0 between records in a form in priv.tre.
+		// TODO: check that this is still needed, now that footers are well-understood.
 		for bytes[*cur] == 0 {
 			*cur += 1
 		}
@@ -244,7 +245,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 		record_start := *cur
 		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
 
-		record := types.Record{record_name, bytes[*cur : *cur+length]}
+		record := types.Record{record_name, bytes[*cur : *cur+length], nil}
 
 		if strings.HasSuffix(record_name, "FORM") {
 			*cur -= 8 // EVIL HACK!! go back and re-parse this record as a form.
@@ -265,12 +266,20 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 			*cur += length
 		}
 
+		if length%2 == 1 {
+			record.Footer = []byte{Read_uint8(bytes, cur)}
+		}
+
 		//fmt.Println("Adding", record_name, "to", out.name)
 		out.Records = append(out.Records, record)
 	}
 
-	out.Footer = bytes[*cur:form_end]
-	*cur = form_end
+	if *cur != form_end {
+		// form-footer?
+		// I don't think this can happen, but would like ot know if it does.
+		fmt.Println("EXTRA BYTES AT END Of FORM:", bytes[*cur:form_end])
+		*cur = form_end
+	}
 
 	return out, nil
 }

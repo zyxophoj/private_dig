@@ -86,27 +86,31 @@ func (sd *Savedata) Chunk_length(n int) int {
 
 }
 
-func (sd *Savedata) Game() Game{
+func (sd *Savedata) Game() Game {
 	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
 	game := GT_PRIV
 	hidden := sd.Forms[OFFSET_SSSS].Get("ORIG").Data
 	if hidden[len(hidden)-1] == 68 {
 		game = GT_RF
 	}
-	
+
 	return game
 }
 
 type Record struct {
-	Name string
-	Data []byte
+	Name   string
+	Data   []byte
+	Footer []byte
+}
+
+func (r *Record) Needs_footer() bool {
+	return len(r.Data)%2 == 1
 }
 
 type Form struct {
 	Name     string
 	Length   int
 	Records  []Record
-	Footer   []byte
 	Subforms []Form
 }
 
@@ -153,27 +157,11 @@ func (f *Form) Real_size() int {
 		if rec.Name == "FORM" {
 			continue
 		}
-		total += (4 + len(rec.Name) + len(rec.Data)) //(name(4), length(4) +data(whatever))
+		total += (4 + len(rec.Name) + len(rec.Data) + (len(rec.Data) % 2)) //(name(4), length(4) +data(whatever) + footer)
 	}
 	for _, sf := range f.Subforms {
 		total += sf.Real_size()
 	}
 
-	if total%2 != 0 {
-		total += 1
-	}
-
 	return total
-}
-
-func (f *Form) Needs_footer() bool {
-	t := 0
-	for _, rec := range f.Records {
-		if rec.Name == "FORM" {
-			continue
-		}
-		t += (4 + len(rec.Name) + len(rec.Data)) //(name(4), length(4) +data(whatever))
-	}
-
-	return t%2 == 1
 }

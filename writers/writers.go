@@ -49,7 +49,7 @@ func write_form(out io.Writer, form *types.Form) {
 	write_string_padded(out, form.Name, 4)
 
 	sub := 0
-	for _, record := range form.Records {
+	for r, record := range form.Records {
 		if record.Name == "FORM" {
 			write_form(out, &(form.Subforms[sub]))
 			sub += 1
@@ -58,15 +58,20 @@ func write_form(out io.Writer, form *types.Form) {
 		write_string_padded(out, record.Name, len(record.Name))
 		write_uint32_be(out, len(record.Data))
 		out.Write(record.Data)
-	}
 
-	// Omitting the footer will break things.
-	// I believe footers exist to pad the form size out to an even number,
-	// (Just in case that seems to make sense, note that it causes every form to be misaligned (not on a 2-byte barrier) in the file data)
-	// so the content of the byte doesn't actually matter here.
-	// Just in case it does, we'll copy the 'F' observed in save files.
-	if form.Needs_footer() {
-		out.Write([]byte{'F'}) // F is for footer?  1993 is a bit too early to pay respects.
+		// Omitting the footer will break things.
+		// I believe footers exist to pad the record size out to an even number,
+		// (Just in case that seems to make sense, note that it causes every form ad record to be misaligned (not on a 2-byte barrier) in the file data)
+		if record.Needs_footer() {
+			// Footer content should be the same as the next byte; this is ridiculous but it's what Priovateer does.
+			if r != len(form.Records)-1 {
+				out.Write([]byte{form.Records[r+1].Name[0]})
+			} else {
+				// Next byte is not available, so re-write the last byte.
+				//fmt.Println("Doubling last byte in", record.Name, form.Name)
+				out.Write(record.Data[len(record.Data)-1 : len(record.Data)])
+			}
+		}
 	}
 }
 

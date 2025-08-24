@@ -226,9 +226,6 @@ func parse_form(prefix string, form types.Form, gt types.Game) []string {
 		out = append(out, subform...)
 	}
 
-	if len(form.Footer) > 0 {
-		out = append(out, fmt.Sprintf("Ignored footer in form %v, %v", form.Name, form.Footer))
-	}
 	out = append(out, "End of Form "+form.Name)
 	return out
 }
@@ -237,18 +234,11 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 	out := []string{}
 
 	// Record format depends on record name
-	// record name itself is rather odd, as there seems to be alternate names for the same thing, varying only by doubled first letter
-	// (I suspect this is some kind of off-by-one error in writing)
-	record_name2 := record.Name
-	if len(record_name2) == 5 && record_name2[0] == record_name2[1] {
-		record_name2 = record_name2[1:]
-	}
-
-	if record_name2 != "FORM" {
+	if record.Name != "FORM" {
 		out = append(out, "Record: "+prefix+record.Name+fmt.Sprintf("%v", record.Data))
 	}
 
-	switch record_name2 {
+	switch record.Name {
 	case "SCOR":
 		// Reputation depends only on ship classes killed, which results in strange effects for special enemies
 		// e.g. killing Black Rhombus will make pirates like you more, since it is treated like any other Galaxy.
@@ -614,6 +604,10 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 
 	default:
 		out = append(out, fmt.Sprintf("(don't know how to parse %v)", record.Name))
+	}
+
+	if len(record.Footer) > 0 {
+		out = append(out, fmt.Sprintf("Record has footer: %v", record.Footer))
 	}
 
 	return out
