@@ -19,6 +19,7 @@ package main
 // privedit set launchers right:miss
 // privedit set launchers turret_1:miss
 // privedit set turrets rear:present
+// privedit set reputation retros:100
 // privedit set name Filthy
 // privedit set callsign Cheater
 // privedit save
@@ -105,6 +106,7 @@ const (
 	DT_INT DataType = iota
 	DT_STRING
 	DT_ARRAY
+	DT_ADDMOUNT
 )
 
 type ettable struct {
@@ -129,10 +131,11 @@ var ettables = map[string]*ettable{
 	"callsign": &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil},
 
 	// Mountables
-	"guns":      &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
-	"launchers": &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
-	"missiles":  &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
-	"turrets":   &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
+	"guns":       &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
+	"launchers":  &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
+	"missiles":   &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
+	"turrets":    &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
+	"reputation": &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}},
 }
 
 // Extra info for mountables
@@ -144,11 +147,20 @@ type mount_info struct {
 	mount_offset     int
 }
 
+func map_from_array[K comparable](in []K) map[int]K {
+	out := map[int]K{}
+	for i, v := range in {
+		out[i] = v
+	}
+	return out
+}
+
 var mount_infos = map[string]mount_info{
-	"guns":      mount_info{tables.Gun_mounts, 4, 0, 1, 1},
-	"launchers": mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
-	"missiles":  mount_info{tables.Missiles, 3, 1, 2, 0},
-	"turrets":   mount_info{tables.Turrets, 1, 0, 0, 0},
+	"guns":       mount_info{tables.Gun_mounts, 4, 0, 1, 1},
+	"launchers":  mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
+	"missiles":   mount_info{tables.Missiles, 3, 1, 2, 0},
+	"turrets":    mount_info{tables.Turrets, 1, 0, 0, 0},
+	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 }
 
 func list_ettables() string {
@@ -518,7 +530,7 @@ func get(what string, savedata *types.Savedata) (string, error) {
 		bytes = savedata.Blobs[g.offset][g.start:g.end]
 	}
 
-	if g.data_type == DT_ARRAY {
+	if g.data_type == DT_ARRAY || g.data_type == DT_ADDMOUNT {
 		return get_mountables(what, bytes, savedata)
 	}
 
@@ -551,7 +563,7 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 		return "", errors.New(what + " is not settable.  Settables are:\n" + list_ettables())
 	}
 
-	if g.data_type == DT_ARRAY {
+	if g.data_type == DT_ARRAY || g.data_type == DT_ADDMOUNT {
 		return set_mountables(what, to, savedata)
 	}
 
@@ -652,8 +664,13 @@ func get_mountables(what string, data []byte, savedata *types.Savedata) (string,
 		if err != nil {
 			return "", nil
 		}
-		mount := int(data[i*cl+mount_infos[what].mount_offset])
-
+		mount := 0
+		if ettables[what].data_type == DT_ARRAY {
+			mount = int(data[i*cl+mount_infos[what].mount_offset])
+		}
+		if ettables[what].data_type == DT_ADDMOUNT {
+			mount = i
+		}
 		out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(equipment, thing))
 	}
 
@@ -693,8 +710,8 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 				return "", err
 			}
 			// TODO: upper limit depends on mounts.equipment_length
-			if to_thing < 1 || to_thing > 32767 {
-				return "", errors.New("Numeric argumetn must be between 1 and 32767")
+			if to_thing < -32767 || to_thing > 32767 {
+				return "", errors.New("Numeric argument must be between -32767 and 32767")
 				// TODO: allow 0, treat it the same as "empty"
 			}
 			matched_bits[1] = to_bits[1]
@@ -725,6 +742,15 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	data := record.Data
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
+
+	if ettables[what].data_type == DT_ADDMOUNT {
+		err := write_int(to_thing, cl, data[to_mount*cl:to_mount*cl+cl])
+		if err != nil {
+			return "", err
+		}
+		return matched, nil
+	}
+
 	for i := 0; i < len(data); i += cl {
 		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
 		if err != nil {
