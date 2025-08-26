@@ -105,8 +105,8 @@ type DataType int
 const (
 	DT_INT DataType = iota
 	DT_STRING
-	DT_ARRAY
-	DT_ADDMOUNT
+	DT_HASMOUNT    // Block of data, including a mount field
+	DT_ADDMOUNT    // Block of data, no explicit mount field because position is the mount
 )
 
 type ettable struct {
@@ -131,10 +131,10 @@ var ettables = map[string]*ettable{
 	"callsign": &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil},
 
 	// Mountables
-	"guns":       &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
-	"launchers":  &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
-	"missiles":   &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
-	"turrets":    &ettable{CT_FORM, DT_ARRAY, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
+	"guns":       &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
+	"launchers":  &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
+	"missiles":   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
+	"turrets":    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
 	"reputation": &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}},
 }
 
@@ -532,7 +532,7 @@ func get(what string, savedata *types.Savedata) (string, error) {
 		bytes = savedata.Blobs[g.offset][g.start:g.end]
 	}
 
-	if g.data_type == DT_ARRAY || g.data_type == DT_ADDMOUNT {
+	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
 		return get_mountables(what, bytes, savedata)
 	}
 
@@ -565,7 +565,7 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 		return "", errors.New(what + " is not settable.  Settables are:\n" + list_ettables())
 	}
 
-	if g.data_type == DT_ARRAY || g.data_type == DT_ADDMOUNT {
+	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
 		return set_mountables(what, to, savedata)
 	}
 
@@ -667,7 +667,7 @@ func get_mountables(what string, data []byte, savedata *types.Savedata) (string,
 			return "", nil
 		}
 		mount := 0
-		if ettables[what].data_type == DT_ARRAY {
+		if ettables[what].data_type == DT_HASMOUNT {
 			mount = int(data[i*cl+mount_infos[what].mount_offset])
 		}
 		if ettables[what].data_type == DT_ADDMOUNT {
