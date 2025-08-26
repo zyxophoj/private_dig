@@ -404,6 +404,8 @@ func main2() error {
 			fmt.Println(what + ":")
 			fmt.Println(str)
 		}
+	default:
+		return errors.New(arg+" is not a command")
 	}
 
 	return nil
@@ -688,7 +690,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	// decipher "to"
 	to_bits := strings.Split(to, ":")
 	if len(to_bits) != 2 {
-		return "", errors.New("Expected argument to \"set guns\" is \"mount:gun_type\"")
+		return "", errors.New("Expected argument to \"set "+what+"\" is \""+what+"_type:value\"")
 	}
 
 	matched_bits := []string{to_bits[0], to_bits[1]}
