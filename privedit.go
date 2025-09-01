@@ -105,8 +105,8 @@ type DataType int
 const (
 	DT_INT DataType = iota
 	DT_STRING
-	DT_HASMOUNT    // Block of data, including a mount field
-	DT_ADDMOUNT    // Block of data, no explicit mount field because position is the mount
+	DT_HASMOUNT // Block of data, including a mount field
+	DT_ADDMOUNT // Block of data, no explicit mount field because position is the mount
 )
 
 type ettable struct {
@@ -658,6 +658,14 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
+// sniff in an inexacronym for "Safe Nil Function call"
+/*func sniff[K comparable](fn func()K)K{
+	if fn==nil{
+		return K()
+	}
+	return fn()
+}*/
+
 func get_mountables(what string, data []byte, savedata *types.Savedata) (string, error) {
 	var equipment map[int]string
 	if ettables[what].trans_int != nil {
@@ -869,7 +877,7 @@ func sanity_fix(savedata *types.Savedata) {
 	// TODO: understand how to caculate the smaller value, only update if necessary, log iff update happened.
 	engine_subcomponents := (len(savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data) - len("ENERGY") - 2) / 2
 	savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "DAMG").Data = make([]byte, engine_subcomponents*14)
-	
+
 	// Shield damage.
 	// this always has fixed length, but if we added a shield, we must add this
 	has_shield := savedata.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO") != nil

@@ -61,7 +61,7 @@ func write_form(out io.Writer, form *types.Form) {
 
 		// Omitting the footer will break things.
 		// I believe footers exist to pad the record size out to an even number,
-		// (Just in case that seems to make sense, note that it causes every form ad record to be misaligned (not on a 2-byte barrier) in the file data)
+		// (Just in case that seems to make sense, note that it causes every form and record to be misaligned (not on a 2-byte barrier) in the file data)
 		if record.Needs_footer() {
 			// Footer content should be the same as the next byte; this is ridiculous but it's what Priovateer does.
 			if r != len(form.Records)-1 {
