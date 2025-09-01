@@ -125,7 +125,7 @@ var ettables = map[string]*ettable{
 	"ship":     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, make_ship_map, map[string]string{}, nil},
 	"location": &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, make_location_map, map[string]string{}, nil},
 	"credits":  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}},
-	"shield":   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}}, // TODO: handle the no-shields case
+	"shield":   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}},
 	"engine":   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}},
 	"name":     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, nil, map[string]string{}, nil},
 	"callsign": &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil},
@@ -136,6 +136,7 @@ var ettables = map[string]*ettable{
 	"missiles":   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
 	"turrets":    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
 	"reputation": &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}},
+	"kills":      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}},
 }
 
 // Extra info for mountables
@@ -161,6 +162,7 @@ var mount_infos = map[string]mount_info{
 	"missiles":   mount_info{tables.Missiles, 3, 1, 2, 0},
 	"turrets":    mount_info{tables.Turrets, 1, 0, 0, 0},
 	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
+	"kills":      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 }
 
 func list_ettables() string {
@@ -403,9 +405,10 @@ func main2() error {
 			}
 			fmt.Println(what + ":")
 			fmt.Println(str)
+			fmt.Println()
 		}
 	default:
-		return errors.New(arg+" is not a command")
+		return errors.New(arg + " is not a command")
 	}
 
 	return nil
@@ -615,19 +618,25 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 		target = savedata.Blobs[g.offset]
 
 	case CT_FORM:
-		target = savedata.Forms[g.offset].Get(g.record...).Data
-	}
-
-	if g.chunk_type == CT_FORM && g.data_type == DT_STRING {
 		record := savedata.Forms[g.offset].Get(g.record...)
-		// TODO: deal with nil case?
-		end := g.end
-		if end < 0 {
-			end += (len(record.Data) + 1) // +1 because negative indices have to start at -1, not 0
+		var err error
+		if record == nil {
+			record, err = add_new_record(savedata, g.offset, g.record)
+			if err != nil {
+				return "", err
+			}
 		}
 
-		record.Data = append(record.Data[:g.start], append(value_bytes, record.Data[end:]...)...)
-		return matched, nil
+		if g.data_type == DT_STRING {
+			end := g.end
+			if end < 0 {
+				end += (len(record.Data) + 1) // +1 because negative indices have to start at -1, not 0
+			}
+			record.Data = append(record.Data[:g.start], append(value_bytes, record.Data[end:]...)...)
+			return matched, nil
+		}
+
+		target = record.Data
 	}
 
 	err := write_int(value, g.end-g.start, target[g.start:g.end])
@@ -690,7 +699,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	// decipher "to"
 	to_bits := strings.Split(to, ":")
 	if len(to_bits) != 2 {
-		return "", errors.New("Expected argument to \"set "+what+"\" is \""+what+"_type:value\"")
+		return "", errors.New("Expected argument to \"set " + what + "\" is \"" + what + "_type:value\"")
 	}
 
 	matched_bits := []string{to_bits[0], to_bits[1]}
@@ -729,15 +738,9 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 
 	record := savedata.Forms[g.offset].Get(g.record...)
 	if record == nil {
-		joined := strings.Join(g.record, "-")
-		whitelist := map[string]bool{
-			"FITE-TRRT": true,
-		}
-		if whitelist[joined] {
-			record = savedata.Forms[g.offset].Add_record(g.record...)
-		} else {
-			// TODO: construct these things
-			return "", errors.New(fmt.Sprintf("Internal privedit error: Unable to construct default(empty) %v record", joined))
+		record, err = add_new_record(savedata, g.offset, g.record)
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -852,7 +855,7 @@ func sanity_fix(savedata *types.Savedata) {
 
 	ship := savedata.Blobs[types.OFFSET_SHIP][0]
 	fix_record("turret", savedata.Forms[types.OFFSET_REAL].Get("FITE", "TRRT"), mounts[ship].fix_turrets)
-	// TODO: add turrets if existing equipment demands it
+	// We do not add turrets merely because existing equipment demands it, because the game doesn't seem to care.
 	fix_record("gun", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS"), mounts[ship].fix_guns)
 	fix_record("launcher", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH"), mounts[ship].fix_launchers)
 
@@ -866,6 +869,15 @@ func sanity_fix(savedata *types.Savedata) {
 	// TODO: understand how to caculate the smaller value, only update if necessary, log iff update happened.
 	engine_subcomponents := (len(savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data) - len("ENERGY") - 2) / 2
 	savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "DAMG").Data = make([]byte, engine_subcomponents*14)
+	
+	// Shield damage.
+	// this always has fixed length, but if we added a shield, we must add this
+	has_shield := savedata.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO") != nil
+	has_shield_damg := savedata.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "DAMG") != nil
+	if has_shield && !has_shield_damg {
+		fmt.Println("Adding 0-damage shield damage record")
+		add_new_record(savedata, types.OFFSET_REAL, []string{"FITE", "SHLD", "DAMG"})
+	}
 }
 
 func read_int(bytes []byte) (int, error) {
@@ -903,4 +915,29 @@ func write_int(n int, length int, target []byte) error {
 		target[i] = uint8((n >> (8 * i)) & 0xFF)
 	}
 	return nil
+}
+
+// add_new_record adds a new record to a savadata
+// Ideally, this should be a member functino of types.Savedata, but that would make a promise of
+// completeness that really isn't delivered here.  This is the "good enough for privedit" version.
+//
+// offset is the data offset- which had better be a form offset - where teh target form is located
+// name is a list of record names - including the name of the record to be created in the last position
+// Since records can be nested, this is needed to specify a record location)
+func add_new_record(savedata *types.Savedata, offset int, name []string) (*types.Record, error) {
+	joined := strings.Join(name, "-")
+	whitelist := map[string][]byte{
+		"FITE-TRRT":      nil,
+		"FITE-WEAP-GUNS": nil,
+		"FITE-WEAP-LNCH": nil,
+		"FITE-WEAP-MISL": nil,
+		"FITE-SHLD-INFO": []byte{'S', 'H', 'I', 'E', 'L', 'D', 'S', 0, 0},
+		"FITE-SHLD-DAMG": []byte{0, 0},
+	}
+	if data, ok := whitelist[joined]; ok {
+		record := savedata.Forms[offset].Add_record(name...)
+		record.Data = data
+		return record, nil
+	}
+	return nil, errors.New(fmt.Sprintf("Internal privedit error: Unable to construct default(empty) %v record", joined))
 }
