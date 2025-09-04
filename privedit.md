@@ -38,7 +38,7 @@ privedit set callsign Cheater
 privedit save
 ```
 
-Alternatively, to take advantage of teh Galkaxy'sd ability to fit 4 launchers - and therefore fire 4 missiles at once:
+Alternatively, to take advantage of the Galkaxy's ability to fit 4 launchers - and therefore fire 4 missiles at once:
 
 ```
 privedit load savefile.sav
@@ -69,3 +69,10 @@ With that said, the game is completely fine with other seemingly-invalid setups,
 
 - Change plot status and flags (coming soon)
 - Change a lot of equipment.  The priority is making "illegal" equipment setups possible.  For other equipment needs, just give yourself millions of credits and buy the equipment normally.
+
+
+### Known Privateer limitations ###
+
+- Privateer will crash if you try to exchange a ship with more than one Steltek gun. (Presumably, the code that preserves a single steltek gun doens't quite know what to do here)
+- Privateer really does not like it if you change your location to the derelict before advancing the plot to the point where this is possible.
+- Although the game engine is perfectly happy with 2 bytes of missile count, the ship dealer gets very confused and displays phantom missiles.  If you are feeling restrained, you could limit yourself to a mere 255 missiles of each type. 
