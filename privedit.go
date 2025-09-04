@@ -120,6 +120,24 @@ type ettable struct {
 	trans_str map[string]string
 	record    []string
 }
+// Extra info for mountables
+type mount_info struct {
+	mounts           map[int]string
+	chunk_length     int
+	equipment_offset int
+	equipment_length int
+	mount_offset     int
+}
+
+func map_from_array[K comparable](in []K) map[int]K {
+	out := map[int]K{}
+	for i, v := range in {
+		out[i] = v
+	}
+	return out
+}
+
+// Savefile format data starts
 
 var ettables = map[string]*ettable{
 	"ship":     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, make_ship_map, map[string]string{}, nil},
@@ -139,23 +157,6 @@ var ettables = map[string]*ettable{
 	"kills":      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}},
 }
 
-// Extra info for mountables
-type mount_info struct {
-	mounts           map[int]string
-	chunk_length     int
-	equipment_offset int
-	equipment_length int
-	mount_offset     int
-}
-
-func map_from_array[K comparable](in []K) map[int]K {
-	out := map[int]K{}
-	for i, v := range in {
-		out[i] = v
-	}
-	return out
-}
-
 var mount_infos = map[string]mount_info{
 	"guns":       mount_info{tables.Gun_mounts, 4, 0, 1, 1},
 	"launchers":  mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
@@ -164,6 +165,39 @@ var mount_infos = map[string]mount_info{
 	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 	"kills":      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 }
+
+// add_new_record adds a new record to a savadata
+// Ideally, this should be a member functino of types.Savedata, but that would make a promise of
+// completeness that really isn't delivered here.  This is the "good enough for privedit" version.
+//
+// offset is the data offset- which had better be a form offset - where the target form is located
+// name is a list of record names - including the name of the record to be created in the last position
+// Since records can be nested, this is needed to specify a record location)
+func add_new_record(savedata *types.Savedata, offset int, name []string) (*types.Record, error) {
+	joined := strings.Join(name, "-")
+	
+	// Theoretical record data indicating "no equipment" or containing a blank space for equipoment data to go in
+	// this is often actually empty, but sometimes the game uses several bytes to say "nothing"
+	// These are arguably invalid until equipment data has been added, because if the game actually used an empty record
+	// rathern than "no record", they woudln't be here.
+	empties := map[string][]byte{
+		"FITE-TRRT":      nil,
+		"FITE-WEAP-GUNS": nil,
+		"FITE-WEAP-LNCH": nil,
+		"FITE-WEAP-MISL": nil,
+		"FITE-SHLD-INFO": []byte{'S', 'H', 'I', 'E', 'L', 'D', 'S', 0, 0},
+		"FITE-SHLD-DAMG": []byte{0, 0},
+	}
+	if data, ok := empties[joined]; ok {
+		record := savedata.Forms[offset].Add_record(name...)
+		record.Data = data
+		return record, nil
+	}
+	return nil, errors.New(fmt.Sprintf("Internal privedit error: Unable to construct default(empty) %v record", joined))
+}
+
+// Savefile format data end
+
 
 func list_ettables() string {
 	ret := ""
@@ -886,6 +920,24 @@ func sanity_fix(savedata *types.Savedata) {
 		fmt.Println("Adding 0-damage shield damage record")
 		add_new_record(savedata, types.OFFSET_REAL, []string{"FITE", "SHLD", "DAMG"})
 	}
+
+	// Launcher order
+	// front-mounted launchers must appear before turret-mounted launchers (or the game crashes when user pressses 'W')
+	launchers := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
+	if launchers != nil {
+		d := launchers.Data
+		l := len(d) / 4
+		// Fix the problem by sorting
+		// TODO: something else.
+		for i1 := 0; i1 < l-1; i1 += 1 {
+			for i2 := i1 + 1; i2 < l; i2 += 1 {
+				if d[4*i1+1] > d[4*i2+1] {
+					fmt.Println("Sanity fix: reordering launchers")
+					d[4*i1+1], d[4*i2+1] = d[4*i2+1], d[4*i1+1]
+				}
+			}
+		}
+	}
 }
 
 func read_int(bytes []byte) (int, error) {
@@ -925,27 +977,4 @@ func write_int(n int, length int, target []byte) error {
 	return nil
 }
 
-// add_new_record adds a new record to a savadata
-// Ideally, this should be a member functino of types.Savedata, but that would make a promise of
-// completeness that really isn't delivered here.  This is the "good enough for privedit" version.
-//
-// offset is the data offset- which had better be a form offset - where teh target form is located
-// name is a list of record names - including the name of the record to be created in the last position
-// Since records can be nested, this is needed to specify a record location)
-func add_new_record(savedata *types.Savedata, offset int, name []string) (*types.Record, error) {
-	joined := strings.Join(name, "-")
-	whitelist := map[string][]byte{
-		"FITE-TRRT":      nil,
-		"FITE-WEAP-GUNS": nil,
-		"FITE-WEAP-LNCH": nil,
-		"FITE-WEAP-MISL": nil,
-		"FITE-SHLD-INFO": []byte{'S', 'H', 'I', 'E', 'L', 'D', 'S', 0, 0},
-		"FITE-SHLD-DAMG": []byte{0, 0},
-	}
-	if data, ok := whitelist[joined]; ok {
-		record := savedata.Forms[offset].Add_record(name...)
-		record.Data = data
-		return record, nil
-	}
-	return nil, errors.New(fmt.Sprintf("Internal privedit error: Unable to construct default(empty) %v record", joined))
-}
+
