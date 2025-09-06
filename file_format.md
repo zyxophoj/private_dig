@@ -50,7 +50,7 @@ This is something of a non-definition; a blob is an array of bytes.
 
 
 
-## File structure ##
+## File structure ## 
 
 A savefile consists of a header followed by a number of chunks.  The header describes where to find the chunks.
 
