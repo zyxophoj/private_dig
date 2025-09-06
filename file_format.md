@@ -25,10 +25,10 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 
  - Bytes 0-3: Record name (4 upper-case characters) 
  - Bytes 4-7: Data Length (32-bit int, *big-endian*) 
- - This "length" does not include the length of the name, the length of itself or the length of any padding
+This "length" does not include the length of the name, the length of itself or the length of any padding
  - Bytes 8-7+length:  Record data.  Format here depends on the record.
  - Padding: Any extra trailing data not claimed by the "length" field.
- - When the padding does exist, it is a single byte long.  Its value is the value of the next byte (does this matter?).  It appears if and only if the true record length would otherwise be odd.
+When the padding does exist, it is a single byte long.  Its value is the value of the next byte (does this matter?).  It appears if and only if the true record length would otherwise be odd.
 
 ### Form ###
 
