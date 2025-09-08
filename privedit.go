@@ -120,6 +120,7 @@ type ettable struct {
 	trans_str map[string]string
 	record    []string
 }
+
 // Extra info for mountables
 type mount_info struct {
 	mounts           map[int]string
@@ -172,14 +173,14 @@ var mount_infos = map[string]mount_info{
 //
 // offset is the data offset- which had better be a form offset - where the target form is located
 // name is a list of record names - including the name of the record to be created in the last position
-// Since records can be nested, this is needed to specify a record location)
+// Since forms can be nested, this is needed to specify a record location)
 func add_new_record(savedata *types.Savedata, offset int, name []string) (*types.Record, error) {
 	joined := strings.Join(name, "-")
-	
-	// Theoretical record data indicating "no equipment" or containing a blank space for equipoment data to go in
+
+	// Theoretical record data indicating "no equipment" or containing a blank space for equipment data to go in
 	// this is often actually empty, but sometimes the game uses several bytes to say "nothing"
 	// These are arguably invalid until equipment data has been added, because if the game actually used an empty record
-	// rathern than "no record", they woudln't be here.
+	// rather than "no record", they woudln't be here.
 	empties := map[string][]byte{
 		"FITE-TRRT":      nil,
 		"FITE-WEAP-GUNS": nil,
@@ -197,7 +198,6 @@ func add_new_record(savedata *types.Savedata, offset int, name []string) (*types
 }
 
 // Savefile format data end
-
 
 func list_ettables() string {
 	ret := ""
@@ -908,7 +908,7 @@ func sanity_fix(savedata *types.Savedata) {
 	//
 	// Just to make things more interesting, REAL-FITE-ENER-DAMG length is not preserved by launch-landing.  We use the longer length here,
 	// which is the immediately-after-buying length, mostly because we understand how to calculate it.
-	// TODO: understand how to caculate the smaller value, only update if necessary, log iff update happened.
+	// TODO: understand how to calculate the smaller value, only update if necessary, log iff update happened.
 	engine_subcomponents := (len(savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "INFO").Data) - len("ENERGY") - 2) / 2
 	savedata.Forms[types.OFFSET_REAL].Get("FITE", "ENER", "DAMG").Data = make([]byte, engine_subcomponents*14)
 
@@ -1007,5 +1007,3 @@ func write_int(n int, length int, target []byte) error {
 	}
 	return nil
 }
-
-
