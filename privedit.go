@@ -926,11 +926,11 @@ func sanity_fix(savedata *types.Savedata) {
 	launchers := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
 		d := launchers.Data
-		l := len(d) / 4
+		L := len(d) / 4
 		// Fix the problem by sorting
-		// TODO: something else.
-		for i1 := 0; i1 < l-1; i1 += 1 {
-			for i2 := i1 + 1; i2 < l; i2 += 1 {
+		// TODO: something smarter than bubblesort.  Ugh.
+		for i1 := 0; i1 < L-1; i1 += 1 {
+			for i2 := i1 + 1; i2 < L; i2 += 1 {
 				if d[4*i1+1] > d[4*i2+1] {
 					fmt.Println("Sanity fix: reordering launchers")
 					d[4*i1+1], d[4*i2+1] = d[4*i2+1], d[4*i1+1]
