@@ -127,7 +127,7 @@ func Read_header(in []byte) types.Header {
 	cur2 := out.Offsets[types.OFFSET_MISSIONS]
 	missions := Read_int16(in, &cur2)
 
-	// Expect 2 more offsets for each missions
+	// Expect 2 more offsets for each mission
 	mission_offsets := []int{}
 	for i := 0; i < 2*missions; i += 1 {
 		mission_offsets = append(mission_offsets, Read_int16(in, &cur))
@@ -194,8 +194,6 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 	// Data:
 	//    3 Form name: 4-byte capital-letter string
 	//    4 0 or more records.
-	//   (5) A possible "footer", which is any leftover bytes claimed by the length but not actually containing a record
-	//        This is usually part of something else and may indicate that length is a "Read at least this much" type of suggestion
 	//
 	// Note that the length does not include the length of the identifier "FORM" or of the length itself.
 
@@ -204,8 +202,9 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 	// 1 Name: 4-byte capital-letter string
 	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
 	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then this record is a form, and so the data is a form name plus a list of records.
+	// (4) A possible "footer", - this is one byte which pads the record out to an even length, and therefore only appear if the "length field is odd.
 	//
-	// Again, length does not include the first 8 bytes
+	// Again, length does not include the first 8 bytes or any footer.
 
 	out := types.Form{}
 
@@ -276,7 +275,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 
 	if *cur != form_end {
 		// form-footer?
-		// I don't think this can happen, but would like ot know if it does.
+		// I don't think this can happen, but would like to know if it does.
 		fmt.Println("EXTRA BYTES AT END Of FORM:", bytes[*cur:form_end])
 		*cur = form_end
 	}
