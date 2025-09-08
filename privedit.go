@@ -938,6 +938,37 @@ func sanity_fix(savedata *types.Savedata) {
 			}
 		}
 	}
+
+	// Torpedo check
+	// The game doesn't like it if you have torpedos but no torpedo launcher
+	// (having missiles but no missile launcher is of course completely fine)
+	// This is probably because torpedos are split evenly between each launcher, which results in division by 0.
+	has_torp_launcher := false
+	launchers = savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
+	if launchers != nil {
+		d := launchers.Data
+		L := len(d) / 4
+		for i := 0; i < L; i += 1 {
+			if d[4*i] == 51 {
+				has_torp_launcher = true
+				break
+			}
+		}
+	}
+	if !has_torp_launcher {
+		missiles := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "MISL")
+		if missiles != nil {
+			d := missiles.Data
+			L := int(len(d) / 3)
+			// Iterating backwards ensures that deletion doesn't screw things up
+			for i := L - 1; i >= 0; i -= 1 {
+				if d[3*i] == 1 {
+					fmt.Println("Sanity fix: destroying torpedo stack at position", i, "due to lack of launchers")
+					missiles.Data = append(d[:3*i], d[3*(i+1):]...)
+				}
+			}
+		}
+	}
 }
 
 func read_int(bytes []byte) (int, error) {
