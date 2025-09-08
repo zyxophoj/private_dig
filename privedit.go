@@ -850,9 +850,9 @@ func sanity_fix(savedata *types.Savedata) {
 	// must sometimes be thrown away.
 	// TODO: try not to throw away steltek gun(s)
 	mounts := map[uint8]fixers{
-		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 2: 1, 3: 4}},
-		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1}},
-		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{}, map[byte]int{0: -1, 1: 2, 4: 3}},
+		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 5: -1, 7: -1, 8: -1, 10: -1}, map[byte]int{0: -1, 2: 1, 3: 4, 6: -1, 9: -1}},
+		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 8: -1, 10: -1}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1, 9: -1}},
+		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{}, map[byte]int{0: -1, 1: 2, 4: 3, 9: -1, 8: -1, 10: -1}},
 		tables.SHIP_GALAXY:    {map[byte]int{1: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 1: 2, 4: 3}},
 	}
 
