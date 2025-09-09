@@ -64,41 +64,60 @@ A savefile consists of a header followed by a number of chunks.  The header desc
 
 ### File Header ###
 
- - Bytes 0-4: File size (long int)
- - Bytes 4-?: Offsets
+| Bytes | Content| Format |
+|-------|--------|--------|
+|  0-3  | File size | long int |
+|  4-?  | Offsets |    |
 
-Each offset is a 4-byte "pointer" to a place within the file where a data chunk can be found.  The first 2 bytes are the actual location (int, presumably unsigned)
-
-The last 2 bytes are always "00 E0" (maybe this is a thunk?)
+Each offset is a 4-byte "pointer" to a place within the file where a data chunk can be found.  The first 2 bytes are the actual location (int, presumably unsigned).  The last 2 bytes are always "00 E0" (maybe this is a thunk?)
 
 The number of offsets varies because there are 2 for each non-plot mission.  (There are also 9 for the data that is always present)
 
 
 ### Chunk 1: Ship etc (Blob) ###
 
- - Byte 0: Ship (0=Tarsus, 1=Orion, 2=Centurion, 3=Galaxy)
- - Byte 1: Always 0; unused?
- - Byte 2: Location (See the BASE_ID enumeration in generated.go)
- - Bytes 3-4: Total missions accepted (int)
- - Byte 5: Mercenaries guild member (boolean)
- - Byte 6: Merchants guild member (boolean) 
- - Bytes 7-9: Always 0; unused?
+| Bytes | Content| Format |
+|-------|--------|--------|
+|  0    | Ship   | 0=Tarsus, 1=Orion, 2=Centurion, 3=Galaxy |
+|  1    | Unused? | Always 0 |
+|  2    | Location | See the BASE_ID enumeration in generated.go |
+|  3-4  | Total missions accepted | int |
+|  5    | Mercenaries guild member | boolean |
+|  6    | Merchants guild member | boolean |
+|  7-9  | Unused? | Always 0 |
 
 Note: The length of this chunk is odd, and the length of the header (adn every other chunk) is even.  This means that every form and record in the following data starts on an odd byte, which is the exact opposite of what the IFF spec demands.
 
 
 ### Chunk 2: Plot status (10 bytes) ###
 
- - Bytes 0-9: Fixed string
-This is usualy "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb"
-However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "unwinnable state"
+| Bytes | Content| Format |
+|-------|--------|--------|
+|  0-9  | Plot status | Fixed string |
+| 10    | Flags  | Bitfield |
+
+Notes:
+
+- The string  is usualy "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb".  However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "unwinnable state"
 
  - Byte 10: Flags
 A poorly-understood bitfield that contains mission status (accepted/succeeded/failed) 
 
+| Bit | Meaning |
+|-----|---------|
+|  1  | Complete |
+|  2  | Failed   |
+| 64  | Very failed |
+| 128 | Accepted  |
+
+Additionally, 255 is a magicla value meaning "complete".
+
 
 ### Chunk 3: Active non-plot mission count (blob) ###
- - Bytes 0-2 Mission count. (int)
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | Mission count | int |
 
 ### Chunk 4-?? ###
 The next 0-6 offsets are for the non-plot missions.  Each mission gets a header chunk and a main chunk.
@@ -138,15 +157,15 @@ In the SCOR form, a reputation between -25 and 25 (inclusive) is Neutral.  Anyth
 
 The first 11 bytes are not understood, and also not preserved by save-loading.  The rest is a load of boolean values, which store any plot or fixer state that can't be represented in the Plot status chunk.
 
- - In Privateer, that's details like temporarily rejecting a mission.
+ - In Privateer, that's a few details like temporarily rejecting a mission, or whether the Steltek drone has been angered.
  - In RF, it's pretty much the entire plot mission state, since multiple mission chains can be active at once and a simple plot string is completely incapable of dealing with that.
 
 There are a lot of these, but they are listed in generated.go.
 
 ### Chunk 6: Hidden jump points (Form) ### 
-A form, helpfully called SSSS, with records called ORIG and SECT
+A form, helpfully called SSSS, with records called ORIG and SECT.
 
-ORIG contains originally hidden jump points, which is baffling (shouldn't a save file store current data, not starting data?).  (It is, however one way to tell the diffrence between an original RF file and an imported-from-Prigateer file)
+ORIG contains originally hidden jump points, which is baffling - shouldn't a save file store current data, not starting data?.  (It is, however one way to tell the diffrence between an original RF file and an imported-from-Privateer file)
 
 SECT contains currently hidden jump points.
 
@@ -187,10 +206,12 @@ ECM.  Data is just 1 byte, which appears to be ECM effectiveness (25, 50 or 75)
 #### FITE-NAVQ ####
 Quadrant maps.  Data is just 1 byte, although it is a bitfield with the following values:
 
- - 1: Humboldt
- - 2: Fariss
- - 4: Potter
- - 8: Clarke
+| Bit | Meaning |
+|-----|---------|
+| 1   | Humboldt |
+| 2   | Fariss |
+| 4   | Potter |
+| 8   | Clarke |
 
 
 #### FITE-WEAP-GUNS ####
@@ -198,27 +219,37 @@ Quadrant maps.  Data is just 1 byte, although it is a bitfield with the followin
 Data is a list of 4-byte gun entries.
 Each gun entry is built as follows:
 
- - Byte 0: Gun type
- - Byte 1: Gun mount
- - Bytes 2-3 damage? (dmage taken by the gun object, not damage done by firing it)
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0     | Gun type  |    |
+| 1     | Gun mount |    |
+| 2-3   | damage    |  ? |
+
+(Damage is damage taken by the gun object, not damage done by firing it.
 
 #### FITE-WEAP-LNCH ####
 
 Data is a list of 4-byte launcher entries.
 Each gun entry is built as follows:
 
- - Byte 0: Launcher type
- - Byte 1: Launcher mount
- - Bytes 2-3 damage?
 
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0     | Launcher type  |    |
+| 1     | Launcher mount |    |
+| 2-3   | damage    |  ? |
+
+Types and mounts are in tables.go
 
 #### FITE-WEAP-MISL ####
 
 Data is a list of 3-byte missile stack entries.
 Each missile stack entry is built as follows:
 
- - Byte 0: missile type
- - Bytes 1-2: number of missiles (int)
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0     | missile type |     |
+| 1-2   | stqack size  | int |
 
 It is possible to have up to 32767 of each missile!  The game doesn't seem to mind, although the ship dealer displays the missile count incorrectly.
 
@@ -231,9 +262,32 @@ It is possible to have up to 32767 of each missile!  The game doesn't seem to mi
 
 #### FITE-SHLD-ARMR ####
 
-#### FITE_TRGT_INFO ####
+#### FITE-TRGT-INFO ####
 
-#### FITE_TRGT_DAMG ####
+#### FITE-TRGT-DAMG ####
+
+#### FITE-CRGO-INFO ####
+
+#### FITE-CRGO-CRGI ####
+
+Miscellaneous, vaguely cargo-related information.
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-3   | credits  | long int |
+| 4-5   | capacity | int |
+|  6    | secret compartment | boolean |
+|  7    | expansion | boolean |
+
+#### FITE-CRGO-DATA ####
+
+A list of 4-0 byte cargo entries.  Each entry is built as follows:
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0     | cargo type  | see tables.go |
+| 1-2   | amount (T) | int |
+| 3     | hidden     | boolean |
 
 
 ### Chunk 8: Name (string) ###
