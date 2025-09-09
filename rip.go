@@ -66,9 +66,50 @@ func main() {
 		return
 	}
 
-	// TODO: this is really dirty...
-	// We just hard-code the locations of the forms in priv.tre
-	// Looking for the forms by name is a surprisingly bad idea since there are duplicates.
+	// PRIV.TRE file format:
+	// A TRE file is essentially a library of smaller files
+	//
+	// Bytes 0-3: number of smaller files
+	// Bytes 4-7: where the non-header data starts
+	// Then we have a list of file entries.  Each file entry is:
+	//   Byte 0:  Unused?  Padding?
+	//   Bytes 1-65:   path+filename as a null-terminated string, padded out to 65 bytes with unintelligible crap.
+	//   Bytes 66-69:  Location of file data in the .TRE file
+	//   Bytes 70-73:  Size of file data
+	//
+	// All ints described here are little-endian
+	// All paths begin with "..\\..\\"; this is probably an artifact of how the file was constructed
+	//
+	// A big "thank you" goes out to "Darkmage", who wrote the wiki page on this:
+	// https://www.wcnews.com/wcpedia/Privateer_File_Formats
+
+	type subfile struct {
+		start  int64
+		length int64
+	}
+	subfiles := map[string]subfile{}
+	{
+		cur := 0
+		buf := make([]byte, 8)
+		f.Seek(0, 0)
+		f.Read(buf)
+		nfiles := readers.Read_int_le(buf, &cur)
+		readers.Read_int_le(buf, &cur)
+		entry := make([]byte, 1+65+4+4)
+		for range nfiles {
+			f.Read(entry)
+			cur = 1
+			filename, _, _ := readers.Read_string(entry, &cur)
+			cur = 66
+			location := readers.Read_int_le(entry, &cur)
+			size := readers.Read_int_le(entry, &cur)
+			//fmt.Println("    ",filename)
+			//fmt.Println("    ","Location:", location, "Size:",size)
+			//fmt.Println()
+
+			subfiles[filename] = subfile{start: int64(location), length: int64(size)}
+		}
+	}
 
 	read_form_from := func(f *os.File, where int64, expected_name string) (types.Form, error) {
 		_, err = f.Seek(where, 0)
@@ -110,7 +151,7 @@ func main() {
 	// Trailing "Special" covers any "nonstandard" base - e.g. New Detroit, Oxford, Derelict.
 	// The game uses a single type ID for all of these - and therefore so will we, even though the string table
 	// does have specific strings for these bases.
-	base_types_form, err := read_form_from(f, 0x685BB3, "STRG")
+	base_types_form, err := read_form_from(f, subfiles["..\\..\\DATA\\OPTIONS\\PCSTRING.IFF"].start, "STRG")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -130,7 +171,7 @@ func main() {
 	base_type = append(base_type, "Special")
 
 	//Quadrants and systems
-	universe, err := read_form_from(f, 0x6C5644, "UNIV")
+	universe, err := read_form_from(f, subfiles["..\\..\\DATA\\SECTORS\\QUADRANT.IFF"].start, "UNIV")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -138,7 +179,7 @@ func main() {
 	quads := universe.Get_subform("QUAD")
 
 	// Bases
-	bases, err := read_form_from(f, 0x6C61CE, "BASE")
+	bases, err := read_form_from(f, subfiles["..\\..\\DATA\\SECTORS\\BASES.IFF"].start, "BASE")
 	if err != nil {
 		fmt.Println(err)
 		return
