@@ -197,10 +197,6 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 		out = append(out, parse_form("", form, gt)...)
 	}
 
-	if len(header.Footer) > 0 {
-		out = append(out, fmt.Sprintf("FOOTER DETECTED: $v", header.Footer))
-	}
-
 	return out
 }
 

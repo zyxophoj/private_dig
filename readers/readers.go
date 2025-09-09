@@ -109,10 +109,7 @@ func Read_header(in []byte) types.Header {
 	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
 	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
 	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
-	//   This number can be determined by peeking where the MISSIONS offset points.  (Or by caculating based on the first offset?  Are we sure there's never a footer??)
-	//   We currently peek, which means we can't properly read the header without reading one byte from the body.
-	// bytes ??-?? : footer
-	//   That which lies between the offset block and the first offset.
+	//   This number can be determined by peeking where the MISSIONS offset points, or by caculating based on the first offset.
 	out := types.Header{}
 
 	cur := 0
@@ -123,9 +120,9 @@ func Read_header(in []byte) types.Header {
 		cur += 2
 	}
 
-	// Peek at the data  (TODO: or use offset[0])
-	cur2 := out.Offsets[types.OFFSET_MISSIONS]
-	missions := Read_int16(in, &cur2)
+	// Data starts where offsets end, so offset[0] indirectly tells us how many offsets there are.
+	// The -1 is for the file size.
+	missions := (out.Offsets[0]/4-types.OFFSET_COUNT-1)/2
 
 	// Expect 2 more offsets for each mission
 	mission_offsets := []int{}
@@ -141,7 +138,6 @@ func Read_header(in []byte) types.Header {
 
 	out.Offsets = append(out.Offsets, mission_offsets...)
 
-	out.Footer = in[cur:out.Offsets[0]]
 	cur = out.Offsets[0]
 
 	return out

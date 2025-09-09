@@ -36,7 +36,6 @@ func Offset_name(o int) string {
 type Header struct {
 	File_size int
 	Offsets   []int
-	Footer    []byte
 }
 
 // Offset_end returns the index of the byte one after the end of the offset with the given offset ID.
