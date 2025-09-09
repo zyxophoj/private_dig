@@ -109,8 +109,8 @@ func (r *Record) Needs_footer() bool {
 type Form struct {
 	Name     string
 	Length   int
-	Records  []Record
-	Subforms []Form
+	Records  []*Record
+	Subforms []*Form
 }
 
 func (f *Form) Get(what ...string) *Record {
@@ -118,7 +118,7 @@ func (f *Form) Get(what ...string) *Record {
 		found := false
 		for _, subform := range f.Subforms {
 			if strings.HasSuffix(subform.Name, w) {
-				f = &subform
+				f = subform
 				//fmt.Println("Subform", f.Name)
 				found = true
 				break
@@ -133,7 +133,7 @@ func (f *Form) Get(what ...string) *Record {
 	for i, rec := range f.Records {
 		if strings.HasSuffix(rec.Name, what[len(what)-1]) {
 			// Do not return a copy, caller may be getting to edit
-			return &f.Records[i]
+			return f.Records[i]
 		}
 	}
 
@@ -141,14 +141,10 @@ func (f *Form) Get(what ...string) *Record {
 }
 
 func (f *Form) Add_record(what ...string) *Record {
-	// Note the contortions needed to not copy... maybe form should just store pointers.
 	for _, w := range what[:len(what)-1] {
 		found := false
-		for i, _ := range f.Subforms {
-			subform := &(f.Subforms[i])
+		for _, subform := range f.Subforms {
 			if strings.HasSuffix(subform.Name, w) {
-				f = subform
-				//fmt.Println("Subform", f.Name)
 				found = true
 				break
 			}
@@ -160,8 +156,8 @@ func (f *Form) Add_record(what ...string) *Record {
 	}
 
 	//fmt.Println("Name is",  what[len(what)-1])
-	f.Records = append(f.Records, Record{Name: what[len(what)-1], Data: []byte{}, Footer: nil})
-	return &f.Records[len(f.Records)-1]
+	f.Records = append(f.Records, &Record{Name: what[len(what)-1], Data: []byte{}, Footer: nil})
+	return f.Records[len(f.Records)-1]
 }
 
 func (f *Form) Get_subform(w string) *Form {

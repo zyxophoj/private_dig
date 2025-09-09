@@ -247,7 +247,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 				}
 
 				//fmt.Println("Adding", form.Name, "to", out.Name)
-				out.Subforms = append(out.Subforms, form)
+				out.Subforms = append(out.Subforms, &form)
 			}
 
 		} else {
@@ -259,7 +259,7 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 		}
 
 		//fmt.Println("Adding", record_name, "to", out.name)
-		out.Records = append(out.Records, record)
+		out.Records = append(out.Records, &record)
 	}
 
 	if *cur != form_end {

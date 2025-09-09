@@ -51,7 +51,7 @@ func write_form(out io.Writer, form *types.Form) {
 	sub := 0
 	for r, record := range form.Records {
 		if record.Name == "FORM" {
-			write_form(out, &(form.Subforms[sub]))
+			write_form(out, form.Subforms[sub])
 			sub += 1
 			continue
 		}
