@@ -217,13 +217,6 @@ func Read_form(bytes []byte, cur *int) (types.Form, error) {
 	*cur += 4
 
 	for *cur <= form_end-8 { // Minimum record size is 8
-
-		// This is here to pass over an observed 0 between records in a form in priv.tre.
-		// TODO: check that this is still needed, now that footers are well-understood.
-		for bytes[*cur] == 0 {
-			*cur += 1
-		}
-
 		record_name, _, err := Read_string(bytes[:form_end], cur)
 		if err != nil {
 			fmt.Println("Unable to read record")
