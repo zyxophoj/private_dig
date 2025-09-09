@@ -86,7 +86,7 @@ The number of offsets varies because there are 2 for each non-plot mission.  (Th
 |  6    | Merchants guild member | boolean |
 |  7-9  | Unused? | Always 0 |
 
-Note: The length of this chunk is odd, and the length of the header (adn every other chunk) is even.  This means that every form and record in the following data starts on an odd byte, which is the exact opposite of what the IFF spec demands.
+Note: The length of this chunk is odd, and the length of the header (ann every other chunk) is even.  This means that every form and record in the following data starts on an odd byte, which is the exact opposite of what the IFF spec demands.
 
 
 ### Chunk 2: Plot status (10 bytes) ###
@@ -98,10 +98,28 @@ Note: The length of this chunk is odd, and the length of the header (adn every o
 
 Notes:
 
-- The string  is usualy "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb".  However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "unwinnable state"
+ - The string  is usually "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb".  However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "generic unwinnable state".  In the very specific case of Monte's missions in RF, "Go to Drake and meet the informant" is represented by "s12mb1" and "Return to Monte" by "s12mb2"
 
- - Byte 10: Flags
-A poorly-understood bitfield that contains mission status (accepted/succeeded/failed) 
+| Series number | Fixer |
+|---------------|-------|
+| s0 | Sandoval |
+| s1 | Tayla |
+| s2 | Roman Lynch |
+| s3 | Masterson |
+| s4 | Lynn Murphy |
+| s5 | Taryn Cross |
+| s6 | Sandra Goodin |
+| s7 | Admiral Terrell |
+| s8 | Tayla (RF) |
+| s9 | Murphy (RF) |
+| s10 | Goodin (RF) |
+| s11 | Masterson (RF) |
+| s12 | Monte |
+| s13 | Goodin 5 (RF) |
+| s14 | Final |
+
+
+ - Flags is a poorly-understood bitfield that contains mission status (accepted/succeeded/failed) 
 
 | Bit | Meaning |
 |-----|---------|
@@ -110,7 +128,7 @@ A poorly-understood bitfield that contains mission status (accepted/succeeded/fa
 | 64  | Very failed |
 | 128 | Accepted  |
 
-Additionally, 255 is a magicla value meaning "complete".
+Additionally, 255 is a magical value meaning "complete".
 
 
 ### Chunk 3: Active non-plot mission count (blob) ###
@@ -133,7 +151,8 @@ This is not well understood right now.
 Note: the remaining chunks are numbered as if there were 0 missions.
 
 ### Chunk 4: Kills and reputation (form) ###
-A form called PLAY, containing 2 records called SCOR and KILL
+A form called PLAY, containing 2 records called SCOR and KILL.
+
 Each of these records contains 18 bytes of data, which is 9 int values storing reputation or kills for each faction.  The faction positions are:
 
  - 0-1: Merchants
@@ -147,6 +166,7 @@ Each of these records contains 18 bytes of data, which is 9 int values storing r
  - 16-17: Retros
 
 12-13 representing the "drone" faction has been confirmed by killing the drone; the kill count does go up to 1 (unless the confeds steal the kill)
+
 14-15 is speculative - nobody has managed to kill the steltek scout to confirm, and this is unlikely to change.
 
 In the SCOR form, a reputation between -25 and 25 (inclusive) is Neutral.  Anything above 25 is Friendly; anything below -25 is Hostile.
@@ -155,7 +175,7 @@ In the SCOR form, a reputation between -25 and 25 (inclusive) is Neutral.  Anyth
 
 ### Chunk 5: Flags (blob) ### 
 
-The first 11 bytes are not understood, and also not preserved by save-loading.  The rest is a load of boolean values, which store any plot or fixer state that can't be represented in the Plot status chunk.
+The first 11 bytes are not understood, and also not preserved by save-loading.  The rest is a list of boolean values, which store any plot or fixer state that can't be represented in the Plot status chunk.
 
  - In Privateer, that's a few details like temporarily rejecting a mission, or whether the Steltek drone has been angered.
  - In RF, it's pretty much the entire plot mission state, since multiple mission chains can be active at once and a simple plot string is completely incapable of dealing with that.
@@ -165,7 +185,7 @@ There are a lot of these, but they are listed in generated.go.
 ### Chunk 6: Hidden jump points (Form) ### 
 A form, helpfully called SSSS, with records called ORIG and SECT.
 
-ORIG contains originally hidden jump points, which is baffling - shouldn't a save file store current data, not starting data?.  (It is, however one way to tell the diffrence between an original RF file and an imported-from-Privateer file)
+ORIG contains originally hidden jump points, which is baffling - shouldn't a save file store current data, not starting data?  (It is, however one way to tell the diffrence between an original RF file and an imported-from-Privateer file)
 
 SECT contains currently hidden jump points.
 
@@ -249,7 +269,7 @@ Each missile stack entry is built as follows:
 | Bytes | Content| Format |
 |-------|--------|--------|
 | 0     | missile type |     |
-| 1-2   | stqack size  | int |
+| 1-2   | stack size  | int |
 
 It is possible to have up to 32767 of each missile!  The game doesn't seem to mind, although the ship dealer displays the missile count incorrectly.
 
