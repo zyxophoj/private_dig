@@ -170,7 +170,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
 				break
 			}
-			out = append(out, parse_form("", form, gt)...)
+			out = append(out, parse_form("", &form, gt)...)
 
 		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
 			// name and callsign are null-terminated strings.
@@ -194,13 +194,13 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			break
 		}
 
-		out = append(out, parse_form("", form, gt)...)
+		out = append(out, parse_form("", &form, gt)...)
 	}
 
 	return out
 }
 
-func parse_form(prefix string, form types.Form, gt types.Game) []string {
+func parse_form(prefix string, form *types.Form, gt types.Game) []string {
 	out := []string{}
 	out = append(out, "Form "+form.Name)
 	for _, r := range form.Records {
@@ -226,7 +226,7 @@ func parse_form(prefix string, form types.Form, gt types.Game) []string {
 	return out
 }
 
-func parse_record(prefix string, record types.Record, gt types.Game) []string {
+func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 	out := []string{}
 
 	// Record format depends on record name
