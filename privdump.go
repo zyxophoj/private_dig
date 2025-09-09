@@ -469,7 +469,7 @@ func parse_record(prefix string, record types.Record, gt types.Game) []string {
 		// looks exactly the same as Orion armour despite the manual (and practical experience
 		// of just how long it takes to die in a crippled Orion) telling us Orion armour is
 		// about 5 times as thick.
-		for _, f := range []string{"Front", "Left", "Right", "Back"} {
+		for _, f := range []string{"Left", "Right", "Front", "Back"} {
 			out = append(out, fmt.Sprintf("%v: %v%%", f, readers.Read_int16(record.Data, &cur)*100/armor_type))
 		}
 
