@@ -23,22 +23,32 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 
 ### Record ###
 
- - Bytes 0-3: Record name (4 upper-case characters) 
- - Bytes 4-7: Data Length (32-bit int, *big-endian*) 
-This "length" does not include the length of the name, the length of itself or the length of any padding
- - Bytes 8-7+length:  Record data.  Format here depends on the record.
- - Padding: Any extra trailing data not claimed by the "length" field.
-When the padding does exist, it is a single byte long.  Its value is the value of the next byte (does this matter?).  It appears if and only if the true record length would otherwise be odd.
+| Bytes | Content| Format |
+|-------|--------|--------|
+|  0-3  | Record name | 4 upper-case characters | 
+|  4-7  | Data Length | 32-bit int, *big-endian* |
+| 8-(7+length)|  Record data |  Depends on the record type |
+| last? | Padding | Any extra trailing data not claimed by the "length" field. |
+ 
+ Notes:
+ 
+ - "length" does not include the length of the name, the length of itself or the length of any padding
+ - When the padding does exist, it is a single byte long.  Its value is the value of the next byte (does this matter?).  It appears if and only if the true record length would otherwise be odd.
 
 ### Form ###
 
- - Bytes 0-3: Record name.  Always "FORM"
- - Bytes 4-7: Form length (32-bit int, *big-endian*)
+| Bytes | Content| Format |
+|-------|--------|--------|
+|  0-3  | Record name |  Always "FORM" |
+|  4-7  | Form length | 32-bit int, *big-endian* |
+|  8-11 | Form name | 4 upper-case characters |
+|  12-(7+length) | Records | records, one after the other |
+ 
+ Notes:
+ 
  - As with records, this "length" does not include the length of the record name or the length of itself.  It does include the Form anme and the true length of each record. 
- - Bytes 8-11: Form name (4 upper-case characters)
- - Bytes 12-(7+length) Records:  Just a bunch of records, one after the other.
-
-Note that a form meets the definition of a record, and so a form may contain subforms, sub-sub-forms, etc.  A form will not ever have its own padding, because the pad bytes of the records inside it will force the whole form to have an even length. 
+ - A form meets the definition of a record, and so a form may contain subforms, sub-sub-forms, etc.
+ - A form will not ever have its own padding, because the pad bytes of the records inside it will force the whole form to have an even length. 
  
 The FORM type and even the padding rules are very similar to IFF file format - https://en.wikipedia.org/wiki/Interchange_File_Format , which might explain the unnatural choice of big endian for the lengths.
  
@@ -46,8 +56,6 @@ The FORM type and even the padding rules are very similar to IFF file format - h
 ### Blob ###
 
 This is something of a non-definition; a blob is an array of bytes.
-
-
 
 
 ## File structure ## 
