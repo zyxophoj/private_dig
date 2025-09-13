@@ -28,7 +28,7 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 |  0-3  | Record name | 4 upper-case characters | 
 |  4-7  | Data Length | 32-bit int, *big-endian* |
 | 8-(7+length)|  Record data |  Depends on the record type |
-| last? | Padding | Any extra trailing data not claimed by the "length" field. |
+| last? | Padding | trash |
  
  Notes:
  
@@ -43,12 +43,13 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 |  4-7  | Form length | 32-bit int, *big-endian* |
 |  8-11 | Form name | 4 upper-case characters |
 |  12-(7+length) | Records | records, one after the other |
- 
+|  (8+length)-??   | Footer | trash | 
  Notes:
  
  - As with records, this "length" does not include the length of the record name or the length of itself.  It does include the Form anme and the true length of each record. 
  - A form meets the definition of a record, and so a form may contain subforms, sub-sub-forms, etc.
  - A form will not ever have its own padding, because the pad bytes of the records inside it will force the whole form to have an even length. 
+ - The footer is anything claimed by the form's length but not used by its records.  In practice, this only appears in Mission form chunks, is one or 2 bytes long, and overlaps the start of the next chunk.  This is probably just a case of the game calculating the form length incorrectly.
  
 The FORM type and even the padding rules are very similar to IFF file format - https://en.wikipedia.org/wiki/Interchange_File_Format , which might explain the unnatural choice of big endian for the lengths.
  

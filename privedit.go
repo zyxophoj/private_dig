@@ -157,6 +157,7 @@ var ettables = map[string]*ettable{
 	"turrets":    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
 	"reputation": &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}},
 	"kills":      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}},
+	"cargo":      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}},
 }
 
 var mount_infos = map[string]mount_info{
@@ -166,6 +167,7 @@ var mount_infos = map[string]mount_info{
 	"turrets":    mount_info{tables.Turrets, 1, 0, 0, 0},
 	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 	"kills":      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
+	"cargo":      mount_info{tables.Cargo, 4, 1,2,0},
 }
 
 // add_new_record adds a new record to a savadata
