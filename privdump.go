@@ -6,8 +6,8 @@ package main
 // save flie location is read from the ini file
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -32,15 +32,31 @@ func full_location(gt types.Game, id uint8) string {
 	return loc.Name + " (" + tables.Systems(gt)[loc.System].Name + ")"
 }
 
-func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
+func int_le_from_bytes(data []byte) int {
+	i, _ := readers.Read_int_le(bytes.NewReader(data))
+	return i
+}
+
+func int16_from_bytes(data []byte) int {
+	i, _ := readers.Read_int16(bytes.NewReader(data))
+	return i
+}
+
+func string_from_bytes(data []byte) string {
+	i, _, _ := readers.Read_string(bytes.NewReader(data))
+	return i
+}
+
+func parse_savedata(data types.Savedata, gt types.Game) []string {
 	out := []string{}
 
-	out = append(out, fmt.Sprintf("1-4: File size (%v)", header.File_size))
-	cur := 0
+	//out = append(out, fmt.Sprintf("1-4: File size (%v)", header.File_size))
+	//cur := 0
 
-	for o := 0; o < len(header.Offsets); o += 1 {
-		cur = header.Offsets[o]
-		out = append(out, "")
+	L := len(data.Forms) + len(data.Strings) + len(data.Blobs)
+
+	for o := 0; o < L; o += 1 {
+		cur := 0
 		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, types.Offset_name(o), cur))
 		switch o {
 		case types.OFFSET_SHIP:
@@ -56,6 +72,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 				tables.SHIP_CENTURION: "Centurion",
 				tables.SHIP_GALAXY:    "Galaxy",
 			}
+			bytes := data.Blobs[types.OFFSET_SHIP]
 			ship := readers.Read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur-1, safe_lookup(ships, ship)))
 
@@ -67,7 +84,8 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			loc := readers.Read_uint8(bytes, &cur)
 			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, full_location(gt, loc)))
 
-			missions := readers.Read_int16(bytes, &cur)
+			missions := int16_from_bytes(bytes[cur:])
+			cur += 2
 			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur-1, missions))
 
 			guild_status := map[uint8]string{
@@ -86,11 +104,13 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			// Note: alphabetical string comparision is CONSIDERED EXTREMELY HARMFUL now that we handle
 			// RF missions, which can have a double-digit series number.
 
+			bytes := data.Blobs[types.OFFSET_PLOT]
+
 			// flag byte is mission status (accepted/done/failed) althoguh this is not well understood.
-			status, _, _ := readers.Read_string(bytes, &cur)
+			status := string_from_bytes(bytes)
 			// add 8+1 because this thing is long enough to accommodate the failing "FFFFFFFF" string.
 			// There remains one poorly understood byte.
-			final := bytes[header.Offsets[o]+8+1 : header.Offsets[o+1]] // This looks like a bitfield
+			final := bytes[8+1:] // This looks like a bitfield
 			if status == "" {
 				out = append(out, fmt.Sprintf("   (Plot has not been started?)"))
 			} else if status == "FFFFFFFF" {
@@ -145,10 +165,10 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 
 		case types.OFFSET_MISSIONS:
 			// 2-bytes, looks like just the mission count
-			missions := readers.Read_int16(bytes, &cur)
-			out = append(out, fmt.Sprintf("   Non-plot missions: %v", missions))
+			out = append(out, fmt.Sprintf("   Non-plot missions: %v", int16_from_bytes(data.Blobs[types.OFFSET_MISSIONS])))
 		case types.OFFSET_WTF:
-			out = append(out, fmt.Sprintf("  %v", bytes[cur:header.Offsets[o+1]]))
+			bytes := data.Blobs[types.OFFSET_WTF]
+			out = append(out, fmt.Sprintf("  %v", bytes))
 
 			// The first 11 bytes appear to be total nonsense - 0% understood right now.
 			// They are not even preserved by loadsaving.
@@ -157,7 +177,7 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 			// Next we have a bunch of flags.  Meanings are not preserved between priv and RF
 			flags := utils.Make_flags()
 
-			for i := 0; i < header.Offsets[o+1]-cur; i += 1 {
+			for i := 0; i < len(bytes)-cur; i += 1 {
 				if bytes[cur+i] != 0 {
 					out = append(out, fmt.Sprintf("  flag %v (%v): %v", i, safe_lookup(flags[gt], i), bytes[cur+i]))
 				}
@@ -165,36 +185,21 @@ func parse_savedata(header types.Header, bytes []byte, gt types.Game) []string {
 
 		case types.OFFSET_PLAY, types.OFFSET_SSSS, types.OFFSET_REAL:
 			// It's just a form...
-			form, err := readers.Read_form(bytes, &cur)
-			if err != nil {
-				out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
-				break
-			}
-			out = append(out, parse_form("", &form, gt)...)
+			out = append(out, parse_form("", data.Forms[o], gt)...)
 
 		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
-			// name and callsign are null-terminated strings.
-			s, _, _ := readers.Read_string(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: %v", types.Offset_name(o), s))
+			// name and callsign are strings.
+			out = append(out, fmt.Sprintf("   %v: %v", types.Offset_name(o), data.Strings[o]))
 		}
 	}
 
 	// OK, now do missions
-	for m := 0; m < (len(header.Offsets)-types.OFFSET_COUNT)/2; m += 1 {
-		cur = header.Offsets[types.OFFSET_COUNT+2*m]
-		name, _, _ := readers.Read_string(bytes, &cur)
-		out = append(out, fmt.Sprintf("[%v] Mission %v name: %v", header.Offsets[types.OFFSET_COUNT+2*m], m+1, name))
-
-		out = append(out, fmt.Sprintf("[%v] Mission %v data... ", header.Offsets[types.OFFSET_COUNT+2*m+1], m+1))
-		cur = header.Offsets[types.OFFSET_COUNT+2*m+1]
+	for m := 0; m < (L-types.OFFSET_COUNT)/2; m += 1 {
+		cur := types.OFFSET_COUNT + 2*m
+		out = append(out, fmt.Sprintf("Mission %v name: %v", m, data.Strings[types.OFFSET_COUNT+2*m]))
+		out = append(out, fmt.Sprintf("Mission %v data... ", m))
 		// Another form!
-		form, err := readers.Read_form(bytes, &cur)
-		if err != nil {
-			out = append(out, fmt.Sprintf("Bad form!  error:%v", err))
-			break
-		}
-
-		out = append(out, parse_form("", &form, gt)...)
+		out = append(out, parse_form("", data.Forms[cur+1], gt)...)
 	}
 
 	return out
@@ -220,6 +225,10 @@ func parse_form(prefix string, form *types.Form, gt types.Game) []string {
 			subform[k] = "   " + subform[k]
 		}
 		out = append(out, subform...)
+	}
+
+	if len(form.Footer) > 0 {
+		out = append(out, fmt.Sprintf("Extra crap at end of form: %v", form.Footer))
 	}
 
 	out = append(out, "End of Form "+form.Name)
@@ -252,8 +261,7 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 
 		out = append(out, "Reputation:")
 		for i := range tables.Factions {
-			cur := 2 * i
-			v := readers.Read_int16(record.Data, &cur)
+			v := int16_from_bytes(record.Data[2*i:])
 			if tables.Factions[i] != "" {
 				out = append(out, fmt.Sprintf("%-10s: %5v (%s)", tables.Factions[i], v, status(v)))
 			}
@@ -264,8 +272,7 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		// (e.g. Black Rhombus is a pirate not a merchant, Mordecai Jones is a retro not a hunter)
 		out = append(out, "Kills:")
 		for i := range tables.Factions {
-			cur := 2 * i
-			v := readers.Read_int16(record.Data, &cur)
+			v := int16_from_bytes(record.Data[2*i:])
 			if tables.Factions[i] != "" || v > 0 {
 				out = append(out, fmt.Sprintf("%-10s: %3v", tables.Factions[i], v))
 			}
@@ -367,7 +374,8 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 			cur += 1
 			// Yes, really.  With a maximum of 20 missiles total, a normal game won't need the second byte of this int,
 			// but it is used.  Hex edit yourself up to 32767 missiles if you want.
-			count := readers.Read_int16(record.Data, &cur)
+			count := int16_from_bytes(record.Data[cur:])
+			cur += 2
 			out = append(out, fmt.Sprintf("%v: %v", safe_lookup(missiles, msl_type), count))
 		}
 
@@ -414,8 +422,7 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 	case "CRGI":
 		out = append(out, "Cargo-info?:")
 		// What do credits and cargo expansions have in common?  I'd like to know what they were thinking on this one.
-		cur := 0
-		out = append(out, fmt.Sprintf("Credits: %v", readers.Read_int_le(record.Data, &cur)))
+		out = append(out, fmt.Sprintf("Credits: %v", int_le_from_bytes(record.Data)))
 		boolmap := map[bool]string{true: "Yes", false: "No"}
 		out = append(out, fmt.Sprintf("Capacity: %vT, Secret compartment: %v; expanded: %v", record.Data[4], boolmap[record.Data[6] != 0], boolmap[record.Data[7] != 0]))
 
@@ -425,16 +432,15 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 			400: "Repair Droid",
 			200: "Advanced Droid",
 		}
-		cur := 0
-		out = append(out, fmt.Sprintf("%v", safe_lookup(droids, readers.Read_int16(record.Data, &cur))))
+		out = append(out, fmt.Sprintf("%v", safe_lookup(droids, int16_from_bytes(record.Data))))
 
 		// 2 0 bytes?
-		for cur < 4 {
+		/*for cur < 4 {
 			e := readers.Read_fixed_uint8(record.Data, &cur, 0)
 			if e != nil {
 				out = append(out, fmt.Sprintf("   %v: UNEXPECTED BYTE! ", cur-1)+e.Error())
 			}
-		}
+		}*/
 
 	case "ARMR":
 		// 16 bytes, which looks like 8 16-bit ints.
@@ -452,9 +458,9 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 			500:  "Tungsten",
 			3000: "Isometal", // Yes, really.  RF is bonkers.
 		}
-		armor_type := readers.Read_int16(record.Data, &cur)
+		armor_type := int16_from_bytes(record.Data[:2])
 		out = append(out, fmt.Sprintf("Armour type:%v", safe_lookup(names, armor_type)))
-		cur += 6
+		cur += 8
 
 		// Avoid calculating percentages when they are 0/0 !!
 		if armor_type == 0 {
@@ -469,8 +475,8 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		// looks exactly the same as Orion armour despite the manual (and practical experience
 		// of just how long it takes to die in a crippled Orion) telling us Orion armour is
 		// about 5 times as thick.
-		for _, f := range []string{"Left", "Right", "Front", "Back"} {
-			out = append(out, fmt.Sprintf("%v: %v%%", f, readers.Read_int16(record.Data, &cur)*100/armor_type))
+		for i, f := range []string{"Left", "Right", "Front", "Back"} {
+			out = append(out, fmt.Sprintf("%v: %v%%", f, int16_from_bytes(record.Data[cur+i*2:])*100/armor_type))
 		}
 
 	case "INFO":
@@ -478,14 +484,14 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 
 		if strings.HasSuffix(prefix, "JDRV-") {
 			out = append(out, "Jump drive info")
-			out = append(out, fmt.Sprintf("Jumps: %v", readers.Read_int16(record.Data, &cur)))
-			out = append(out, fmt.Sprintf("Capacity?: %v", readers.Read_int16(record.Data, &cur)))
+			out = append(out, fmt.Sprintf("Jumps: %v", int16_from_bytes(record.Data)))
+			out = append(out, fmt.Sprintf("Capacity?: %v", int16_from_bytes(record.Data[2:])))
 			break
 		}
 
 		if strings.HasSuffix(prefix, "TRGT-") {
-			readers.Read_fixed_string("TARGETNG", record.Data, &cur)
-
+			//readers.Read_fixed_string("TARGETNG", record.Data, &cur)
+			cur := len("TARGETNG")
 			scanner := readers.Read_uint8(record.Data, &cur) - 60 //Why 60???
 
 			names := []string{"Iris Mk I", "Iris Mk II", "Iris Mk III",
@@ -505,7 +511,8 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 			break
 		}
 
-		infotype, _, _ := readers.Read_string(record.Data, &cur)
+		inforead := bytes.NewReader(record.Data)
+		infotype, _, _ := readers.Read_string(inforead)
 		cur -= 1
 		out = append(out, "INFO type "+infotype)
 		switch infotype {
@@ -553,8 +560,9 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		// we need 16 bits here (maybe there were ships with larger capacity in development?)
 		out = append(out, "Cargo data:")
 		for cur := 0; cur < len(record.Data); {
-			cargo := readers.Read_uint8(record.Data, &cur)
-			quantity := readers.Read_int16(record.Data, &cur)
+			cargo := int(readers.Read_uint8(record.Data, &cur))
+			quantity := int16_from_bytes(record.Data[cur:])
+			cur += 2
 			hidden := readers.Read_uint8(record.Data, &cur)
 
 			hiddenness := map[uint8]string{
@@ -574,13 +582,11 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		// Byte 0: destination
 		// Byte 1: always 49 - this could be cargo type, since missions are always "mission cargo", even when the descriptions say they are not.
 		// Byte 2: How many tons
-		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, record.Data[1]), tables.Locations(gt)[tables.BASE_ID(record.Data[0])]))
+		out = append(out, fmt.Sprintf("Deliver %vT of %v to %v", record.Data[2], safe_lookup(tables.Cargo, int(record.Data[1])), tables.Locations(gt)[tables.BASE_ID(record.Data[0])]))
 
 	case "PAYS":
 		//Mission payment (4 bytes, although I've never seen a mission that needed all that)
-		cur := 0
-		pays := readers.Read_int_le(record.Data, &cur)
-		out = append(out, fmt.Sprintf("%v credits", pays))
+		out = append(out, fmt.Sprintf("%v credits", int_le_from_bytes(record.Data)))
 
 	case "COOL":
 		out = append(out, "Gun Cooler")
@@ -631,10 +637,10 @@ func get_dir() string {
 func main() {
 
 	basedir := get_dir()
-
 	filename := os.Args[1]
 	full_filename := basedir + "/" + filename
 
+	// Guess game type from extension
 	dot := strings.LastIndex(full_filename, ".")
 	if dot < 0 {
 		fmt.Println("Failed to load file", full_filename, ": file has no extension")
@@ -644,21 +650,21 @@ func main() {
 		".SAV": types.GT_PRIV,
 		".PRS": types.GT_RF,
 	}[strings.ToUpper(full_filename[dot:])]
-
 	if gt == types.GT_NONE {
 		fmt.Println("Failed to load file", full_filename, ": file extension not recognised")
 		os.Exit(1)
 	}
 
-	bytes, err := ioutil.ReadFile(full_filename)
+	file, err := os.Open(full_filename)
 	if err != nil {
 		fmt.Println("Failed to load file", full_filename, "-", err)
 		os.Exit(1)
 	}
+	defer file.Close()
 
-	header := readers.Read_header(bytes)
+	savedata, err := readers.Read_savedata(file)
 	fmt.Println()
-	for _, line := range parse_savedata(header, bytes, gt) {
+	for _, line := range parse_savedata(*savedata, gt) {
 		fmt.Println(line)
 	}
 	fmt.Println()

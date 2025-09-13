@@ -1,5 +1,6 @@
 package achievements
 
+import "bytes"
 import "fmt"
 import "slices"
 import "strconv"
@@ -138,8 +139,7 @@ func (a *Arg) Location() tables.BASE_ID {
 
 func (a *Arg) Plot_info() (string, byte) {
 	plot := a.Blobs[types.OFFSET_PLOT]
-	cur := 0
-	str, _, err := readers.Read_string(plot, &cur)
+	str, _, err := readers.Read_string(bytes.NewReader(plot))
 	if err != nil {
 		// *very* corrupt savefile
 		panic(err)
@@ -150,8 +150,7 @@ func (a *Arg) Plot_info() (string, byte) {
 }
 
 func (a *Arg) Missions() int {
-	cur := 0
-	return readers.Read_int16(a.Blobs[types.OFFSET_MISSIONS], &cur)
+	return int16_from_bytes(a.Blobs[types.OFFSET_MISSIONS])
 }
 
 func (a *Arg) Has_flags(flags ...int) bool {
@@ -164,6 +163,10 @@ func (a *Arg) Has_flags(flags ...int) bool {
 	return true
 }
 
+func (a *Arg) kills(faction int) int {
+	return int16_from_bytes(a.Forms[types.OFFSET_PLAY].Get("KILL").Data[2*faction:])
+}
+
 type Achievement struct {
 	Id    string
 	Name  string
@@ -173,6 +176,16 @@ type Achievement struct {
 }
 
 // achievement helper functions
+
+func int_le_from_bytes(data []byte) int {
+	i, _ := readers.Read_int_le(bytes.NewReader(data))
+	return i
+}
+
+func int16_from_bytes(data []byte) int {
+	i, _ := readers.Read_int16(bytes.NewReader(data))
+	return i
+}
 
 func is_completed_status(flag uint8) bool {
 	return flag&1 != 0
@@ -189,15 +202,14 @@ func find_all_places(bt tables.BASE_TYPE) []tables.BASE_ID {
 }
 
 // mcs_kill makes a "kill a bunch of people" achievement
-func mcs_kill(id string, name string, number int, who int) Achievement {
+func mcs_kill(id string, name string, number int, faction int) Achievement {
 	return Achievement{
 		id,
 		name,
-		fmt.Sprintf("Kill %v %v", number, tables.Factions[who]),
+		fmt.Sprintf("Kill %v %v", number, tables.Factions[faction]),
 		false,
 		func(a *Arg) bool {
-			cur := 2 * who
-			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) >= number
+			return a.kills(faction) >= number
 		},
 	}
 }
@@ -470,8 +482,7 @@ var Cheev_list = []struct {
 			total := 0
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
-				cur := n + 1
-				total += readers.Read_int16(cargo.Data, &cur)
+				total += int16_from_bytes(cargo.Data[n+1 : n+3])
 			}
 
 			return total > 200
@@ -505,9 +516,8 @@ var Cheev_list = []struct {
 			}
 
 			var armours [8]int
-			cur := 0
 			for i := range armours {
-				armours[i] = readers.Read_int16(armour.Data, &cur)
+				armours[i] = int16_from_bytes(armour.Data[2*i : 2*i+2])
 			}
 			for i := 0; i < 4; i += 1 {
 				// Empty armour slot can show up as 0 or 1
@@ -549,8 +559,7 @@ var Cheev_list = []struct {
 		{"AID_BAD_FRIENDLY", "Questionable morality", "Become friendly with Pirates and Kilrathi", false, func(a *Arg) bool {
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_PIRATES, tables.FACTION_KILRATHI} {
-				cur := 2 * f
-				if readers.Read_int16(rep.Data, &cur) <= 25 {
+				if int16_from_bytes(rep.Data[2*f:2*f+2]) <= 25 {
 					return false
 				}
 
@@ -561,8 +570,7 @@ var Cheev_list = []struct {
 		{"AID_SUPERFRIENDLY", "Insane morality", "Become friendly with everyone except retros", false, func(a *Arg) bool {
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_MERCHANTS, tables.FACTION_HUNTERS, tables.FACTION_CONFEDS, tables.FACTION_KILRATHI, tables.FACTION_MILITIA, tables.FACTION_PIRATES} {
-				cur := 2 * f
-				if readers.Read_int16(rep.Data, &cur) <= 25 {
+				if int16_from_bytes(rep.Data[2*f:2*f+2]) <= 25 {
 					return false
 				}
 			}
@@ -571,8 +579,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_RICH", "Dr. Evil Pinky Finger", "Possess One Million Credits", false, func(a *Arg) bool {
-			cur := 0
-			return readers.Read_int_le(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 1000000
+			return int_le_from_bytes(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data[0:4]) >= 1000000
 		}},
 
 		{"AID_CARGO_IS_NIGGER", "Just glue it to the outside", "Carry more cargo than will fit in your ship", false, func(a *Arg) bool {
@@ -588,8 +595,7 @@ var Cheev_list = []struct {
 			stored := 0
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
-				cur := n + 1
-				stored += readers.Read_int16(cargo.Data, &cur)
+				stored += int16_from_bytes(cargo.Data[n+1 : n+3])
 			}
 
 			//fmt.Println("Stored:", stored, "Capacity:", capacity)
@@ -599,13 +605,11 @@ var Cheev_list = []struct {
 		{"AID_KILL_DRONE", "No kill stealing", "Personally kill the Steltek Drone", false, func(a *Arg) bool {
 			// Although only the improved Steltek gun can knock down the drone's shields,
 			// anything can damage the soft and squishy egg inside.
-			cur := 2 * tables.FACTION_DRONE
-			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
+			return a.kills(tables.FACTION_DRONE) > 0
 		}},
 
 		{"AID_WIN_KILL_NO_KILRATHI", "Cat Lover", "Win the game without killing any Kilrathi", false, func(a *Arg) bool {
-			cur := 2 * tables.FACTION_KILRATHI
-			if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+			if a.kills(tables.FACTION_KILRATHI) > 0 {
 				return false
 			}
 
@@ -615,8 +619,7 @@ var Cheev_list = []struct {
 
 		{"AID_WIN_KILL_NO_GOOD", "Good Guy", "Win the game without killing any Militia, Merchants or Confeds", false, func(a *Arg) bool {
 			for _, faction := range []int{tables.FACTION_MILITIA, tables.FACTION_MERCHANTS, tables.FACTION_CONFEDS} {
-				cur := 2 * faction
-				if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+				if a.kills(faction) > 0 {
 					return false
 				}
 			}
@@ -682,8 +685,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", false, func(a *Arg) bool {
-			cur := 3
-			return readers.Read_int16(a.Blobs[types.OFFSET_SHIP], &cur) >= 100
+			return int16_from_bytes(a.Blobs[types.OFFSET_SHIP][3:5]) >= 100
 		}},
 
 		mcs_go_places("AID_PIRATE_BASES", "Press C to spill secrets", "Visit all pirate bases", find_all_places(tables.BT_PIRATE)),
@@ -706,10 +708,9 @@ var Cheev_list = []struct {
 			// No armour is represented as 0 when you first buy a new ship or sell existing armour, but after
 			// launch-landing, it changes to 1.
 			armour := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
-			cur := 0
-			return readers.Read_int16(armour.Data, &cur) == 1
+			return int16_from_bytes(armour.Data) == 1
 		}},
-		// TODO: would be fun but needs multi-file checking
+		// TODO: would be fun but needs multi-file checkingjj
 		// "The Militia would be proud", "Kill the Black Rhombus without killing any of its escorts"
 	}},
 
@@ -764,8 +765,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_VERY_RICH", "Almost ready to start Righteous Fire", "Possess twenty million credits", false, func(a *Arg) bool {
-			cur := 0
-			return readers.Read_int_le(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data, &cur) >= 20000000
+			return int_le_from_bytes(a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "CRGI").Data) >= 20000000
 		}},
 
 		{"AID_FIX_HUNTER_REP", "Grinder", "Recover hunter reputation to non-hostile before winning", false, func(a *Arg) bool {
@@ -817,8 +817,7 @@ var Cheev_list = []struct {
 				return false
 			}
 
-			cur := 2 * tables.FACTION_HUNTERS
-			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("SCOR").Data, &cur) >= -25
+			return int16_from_bytes(a.Forms[types.OFFSET_PLAY].Get("SCOR").Data[2*tables.FACTION_HUNTERS:]) >= -25
 		}},
 
 		{"AID_CARGO_IS_TWICE_BIGGER", "How much glue do you have?", "Carry more than twice as much cargo as will fit in your ship", false, func(a *Arg) bool {
@@ -833,8 +832,7 @@ var Cheev_list = []struct {
 			stored := 0
 			cargo := a.Forms[types.OFFSET_REAL].Get("FITE", "CRGO", "DATA")
 			for n := 0; n < len(cargo.Data); n += 4 {
-				cur := n + 1
-				stored += readers.Read_int16(cargo.Data, &cur)
+				stored += int16_from_bytes(cargo.Data[n+1:])
 			}
 
 			//fmt.Println("Stored:", stored, "Capacity:", capacity)
@@ -848,8 +846,7 @@ var Cheev_list = []struct {
 			rep := a.Forms[types.OFFSET_PLAY].Get("SCOR")
 			for _, f := range []int{tables.FACTION_MERCHANTS, tables.FACTION_HUNTERS, tables.FACTION_CONFEDS, tables.FACTION_KILRATHI,
 				tables.FACTION_MILITIA, tables.FACTION_PIRATES, tables.FACTION_RETROS} {
-				cur := 2 * f
-				if readers.Read_int16(rep.Data, &cur) <= 25 {
+				if int16_from_bytes(rep.Data[2*f:]) <= 25 {
 					return false
 				}
 			}
@@ -932,8 +929,7 @@ var Cheev_list_rf = map[string][]Achievement{
 	},
 	"Random": []Achievement{
 		{"AID_RF_IMPORT_WINNER", "The adventure continues", "Import a privateer savefile that killed the drone (RF)", false, func(a *Arg) bool {
-			cur := 2 * tables.FACTION_DRONE
-			return readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0
+			return a.kills(tables.FACTION_DRONE) > 0
 		}},
 		{"AID_RF_ALL_STARTERS", "Overqualified", "Do all 3 Murphy/Tayla/Goodin mission sets (RF)", false, func(a *Arg) bool {
 			mission, flag := a.Plot_info()
@@ -985,8 +981,7 @@ var Cheev_list_rf = map[string][]Achievement{
 
 			// Isometal armour
 			armour := a.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "ARMR")
-			cur := 0
-			if readers.Read_int16(armour.Data, &cur) != 3000 {
+			if int16_from_bytes(armour.Data) != 3000 {
 				return false
 			}
 
@@ -1007,8 +1002,7 @@ var Cheev_list_rf = map[string][]Achievement{
 			// Backdooring Murphy 1 and Monte 4 is definitely recommended, as is a speed enhancer
 			// This is only possible because the kill count considers Menesch to be a pirate (LOL), and Jones a retro (reasonable).
 			for _, faction := range []int{tables.FACTION_MILITIA, tables.FACTION_MERCHANTS, tables.FACTION_CONFEDS, tables.FACTION_HUNTERS} {
-				cur := 2 * faction
-				if readers.Read_int16(a.Forms[types.OFFSET_PLAY].Get("KILL").Data, &cur) > 0 {
+				if a.kills(faction) > 0 {
 					return false
 				}
 			}

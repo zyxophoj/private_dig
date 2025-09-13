@@ -1,7 +1,6 @@
 package main
 
 import "fmt"
-import "io/ioutil"
 import "os"
 import "strings"
 
@@ -15,14 +14,14 @@ import "privdump/tables"
 var test_dir = "ach_test"
 
 func read_file(filename string) (*types.Savedata, error) {
-	bytes, err := ioutil.ReadFile(filename)
+	reader, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Failed to load file", filename, "-", err)
 		return nil, err
 	}
+	defer reader.Close()
 
-	header := readers.Read_header(bytes)
-	savedata, err := readers.Read_savedata(header, bytes)
+	savedata, err := readers.Read_savedata(reader)
 	if err != nil {
 		fmt.Println("Failed to parse file", filename, "-", err)
 		return nil, err
@@ -96,10 +95,8 @@ func main() {
 			if !cheev.Multi {
 				for _, expected := range []bool{true, false} {
 					for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
-
 						game, filename := real_filename(file, is_rf)
 						savedata, err := read_file(filename)
-
 						if err != nil {
 							fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
 							error_count += 1

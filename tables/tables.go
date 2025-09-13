@@ -142,7 +142,7 @@ func Systems(gt types.Game) map[SYS_ID]Sysinfo {
 	return systems
 }
 
-var Cargo = map[uint8]string{
+var Cargo = map[int]string{
 	0:  "Grain",
 	1:  "Generic Foods",
 	2:  "Luxury Foods",

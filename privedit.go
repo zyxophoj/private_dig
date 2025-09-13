@@ -26,6 +26,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -449,16 +450,13 @@ func main2() error {
 }
 
 func load(full_filename string) (*types.Savedata, error) {
-	bytes, err := os.ReadFile(full_filename)
+	reader, err := os.Open(full_filename)
 	if err != nil {
 		return nil, err
 	}
-	header := readers.Read_header(bytes)
-	sd, err := readers.Read_savedata(header, bytes)
-	if err != nil {
-		return nil, err
-	}
-	return sd, err
+	defer reader.Close()
+
+	return readers.Read_savedata(reader)
 }
 
 func stash(filename string, savedata *types.Savedata) error {
@@ -971,19 +969,17 @@ func sanity_fix(savedata *types.Savedata) {
 	}
 }
 
-func read_int(bytes []byte) (int, error) {
+func read_int(data []byte) (int, error) {
 	n := 0
-	switch len(bytes) {
+	switch len(data) {
 	case 0:
 		n = 0
 	case 1:
-		n = int(bytes[0])
+		n = int(data[0])
 	case 2:
-		cur := 0
-		n = readers.Read_int16(bytes, &cur)
+		n, _ = readers.Read_int16(bytes.NewReader(data))
 	case 4:
-		cur := 0
-		n = readers.Read_int_le(bytes, &cur)
+		n, _ = readers.Read_int_le(bytes.NewReader(data))
 	default:
 		return 0, errors.New("Internal privedit error: unexpected byte length for field")
 	}
