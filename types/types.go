@@ -13,6 +13,12 @@ const (
 	GT_RF
 )
 
+// This is not the true chunk order.
+// The game stores mission info between OFFSET_MISSIONS and OFFSET_PLAY,
+// which means the true index of anything after OFFSET_MISSIONS is variable.
+//
+// We want names to mean things, so mission info is moved to the end
+
 const (
 	OFFSET_SHIP = iota // Ship type, location, guild membership
 	OFFSET_PLOT        //Plot status
@@ -46,12 +52,17 @@ type Header struct {
 	Offsets   []int
 }
 
-func (h *Header) Modify_index(i int) int {
-	// TODO: unduplicate?
-	missions := (h.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
+func (h *Header) Missions() int {
+	// h.Offsets[0] is where non-offsets start
+	// we subtract 1 because offsets start after the file size, and subtrace OFFSET_COUNT to count just the mission chunks.
+	return (h.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
+}
 
+// Modify_index converts a true index into an OFFSET_* enum value
+func Modify_index(i int, missions int) int {
 	if i > OFFSET_MISSIONS && i <= OFFSET_MISSIONS+2*missions {
-		i = i - OFFSET_MISSIONS + OFFSET_COUNT - 1
+		// First mission starts at OFFSET_MISSIONS+1;
+		i = i - (OFFSET_MISSIONS + 1) + OFFSET_MISSION_BASE
 	} else {
 		if i > OFFSET_MISSIONS+2*missions {
 			i -= 2 * missions
@@ -61,21 +72,15 @@ func (h *Header) Modify_index(i int) int {
 	return i
 }
 
-// i: true chunk index.
 func (h *Header) Chunk_type(i int) ChunkType {
-	// TODO: unduplicate?
-	missions := (h.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
-
-	if i > OFFSET_MISSIONS && i <= OFFSET_MISSIONS+2*missions {
+	if i >= OFFSET_MISSION_BASE {
 		// This is mission-related
-		if i%2 == 0 {
-			return CT_FORM
+		if (i-OFFSET_MISSION_BASE)%2 == 0 {
+			return CT_STRING
 		}
-		return CT_STRING
+		return CT_FORM
 	}
-	if i > OFFSET_MISSIONS+2*missions {
-		i -= 2 * missions
-	}
+
 	switch i {
 	case OFFSET_PLAY, OFFSET_SSSS, OFFSET_REAL:
 		return CT_FORM
@@ -128,6 +133,11 @@ func (sd *Savedata) Chunk_length(n int) int {
 	if sd.Forms[n] != nil {
 		return sd.Forms[n].Real_size()
 	}
+	if sd.Blobs[n] != nil {
+		return len(sd.Blobs[n])
+	}
+
+	// String chunk lengths are just magic numbers
 	if n == OFFSET_NAME {
 		return 18
 	}
@@ -137,12 +147,8 @@ func (sd *Savedata) Chunk_length(n int) int {
 	if n >= OFFSET_MISSION_BASE && (n-OFFSET_MISSION_BASE)%2 == 0 {
 		return 8
 	}
-	if sd.Blobs[n] != nil {
-		return len(sd.Blobs[n])
-	}
 
 	panic(fmt.Sprintf("what offset? (%v)", n))
-
 }
 
 func (sd *Savedata) Game() Game {

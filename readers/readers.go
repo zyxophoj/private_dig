@@ -195,7 +195,7 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 	}
 
 	for true_index, _ := range header.Offsets {
-		i := header.Modify_index(true_index)
+		i := types.Modify_index(true_index, header.Missions())
 		chunk_length := header.Offset_end(i) - header.Offsets[i]
 
 		// An attempt was made to use only io.Reader for file reading.
@@ -203,7 +203,7 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 		// first byte of the next chunk.  This means we can not rely on being at the start of chunk n+1 after reading chunk n.
 		// This bullshit could in principle be caught and worked around, but it would massively complicate form reading.
 		r.Seek(int64(header.Offsets[i]), io.SeekStart)
-		switch header.Chunk_type(true_index) {
+		switch header.Chunk_type(i) {
 		case types.CT_FORM:
 			f, err := Read_form(r)
 			if err != nil {

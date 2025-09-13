@@ -6,19 +6,6 @@ import (
 	"privdump/types"
 )
 
-func modify_index(i int, missions int) int {
-	// TODO: unduplicate?
-	if i > types.OFFSET_MISSIONS && i <= types.OFFSET_MISSIONS+2*missions {
-		i = i - types.OFFSET_MISSIONS + types.OFFSET_COUNT - 1
-	} else {
-		if i > types.OFFSET_MISSIONS+2*missions {
-			i -= 2 * missions
-		}
-	}
-
-	return i
-}
-
 func Write_file(in *types.Savedata, out io.Writer) {
 
 	chunk_count := len(in.Forms) + len(in.Strings) + len(in.Blobs)
@@ -29,14 +16,16 @@ func Write_file(in *types.Savedata, out io.Writer) {
 		length += in.Chunk_length(c)
 	}
 
+	// Header
 	write_uint32_le(out, length)
 	chunk_location := 4 * (1 + chunk_count)
 	for c := range chunk_count {
 		write_uint16_le(out, chunk_location)
 		out.Write([]byte{0x00, 0xE0})
-		chunk_location += in.Chunk_length(modify_index(c, missions))
+		chunk_location += in.Chunk_length(types.Modify_index(c, missions))
 	}
 
+	//Body
 	out.Write(in.Blobs[types.OFFSET_SHIP])
 	out.Write(in.Blobs[types.OFFSET_PLOT])
 	out.Write(in.Blobs[types.OFFSET_MISSIONS])
