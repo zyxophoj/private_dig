@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -121,6 +122,7 @@ type Savedata struct {
 	Blobs   map[int][]byte
 }
 
+// n is a modified index
 func (sd *Savedata) Chunk_length(n int) int {
 	// Ugh... some kind of polymprphism might help here
 	if sd.Forms[n] != nil {
@@ -132,14 +134,14 @@ func (sd *Savedata) Chunk_length(n int) int {
 	if n == OFFSET_CALLSIGN {
 		return 15
 	}
-	if n > OFFSET_MISSION_BASE && (n-OFFSET_MISSION_BASE)%2 == 0 {
+	if n >= OFFSET_MISSION_BASE && (n-OFFSET_MISSION_BASE)%2 == 0 {
 		return 8
 	}
 	if sd.Blobs[n] != nil {
 		return len(sd.Blobs[n])
 	}
 
-	panic("what offset?")
+	panic(fmt.Sprintf("what offset? (%v)", n))
 
 }
 
