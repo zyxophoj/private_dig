@@ -278,14 +278,12 @@ func handle_file(filename string) {
 	// Wait for Privateer itself to finish with the file
 	time.Sleep(5 * time.Second)
 
-	bytes, err := ioutil.ReadFile(filename)
+	reader, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Failed to load file", filename, "-", err)
 		return
 	}
-
-	header := readers.Read_header(bytes)
-	savedata, err := readers.Read_savedata(header, bytes)
+	savedata, err := readers.Read_savedata(reader)
 	if err != nil {
 		fmt.Println("Failed to parse file", filename, "-", err)
 		return

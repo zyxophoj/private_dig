@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -89,20 +90,15 @@ func main() {
 	}
 	subfiles := map[string]subfile{}
 	{
-		cur := 0
-		buf := make([]byte, 8)
 		f.Seek(0, 0)
-		f.Read(buf)
-		nfiles := readers.Read_int_le(buf, &cur)
-		readers.Read_int_le(buf, &cur)
-		entry := make([]byte, 1+65+4+4)
+		nfiles, _ := readers.Read_int_le(f)
+		readers.Advance(f, 4)
 		for range nfiles {
-			f.Read(entry)
-			cur = 1
-			filename, _, _ := readers.Read_string(entry, &cur)
-			cur = 66
-			location := readers.Read_int_le(entry, &cur)
-			size := readers.Read_int_le(entry, &cur)
+			readers.Advance(f, 1)
+			filename, n, _ := readers.Read_string(f)
+			readers.Advance(f, 65-n)
+			location, _ := readers.Read_int_le(f)
+			size, _ := readers.Read_int_le(f)
 			//fmt.Println("    ",filename)
 			//fmt.Println("    ","Location:", location, "Size:",size)
 			//fmt.Println()
@@ -113,29 +109,7 @@ func main() {
 
 	read_form_from := func(f *os.File, where int64, expected_name string) (types.Form, error) {
 		_, err = f.Seek(where, 0)
-		if err != nil {
-			return types.Form{}, err
-		}
-
-		header := make([]byte, 8)
-		f.Read(header)
-
-		cur := 0
-		_, err := readers.Read_fixed_string("FORM", header, &cur)
-		if err != nil {
-			return types.Form{}, err
-		}
-
-		length := readers.Read_int(header, &cur)
-		if length < 0 || length > 9000 {
-			return types.Form{}, errors.New("Unreasonable form length")
-		}
-
-		data := make([]byte, length)
-		f.Read(data)
-
-		cur = 0
-		form, err := readers.Read_form(append(header, data...), &cur)
+		form, err := readers.Read_form(f)
 		if err != nil {
 			return form, err
 		}
@@ -156,10 +130,11 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	data := base_types_form.Get("DATA").Data
+	data := bytes.NewReader(base_types_form.Get("DATA").Data)
+
 	strings_ := []string{}
-	for cur := 0; cur < len(data) && len(strings_) < 27; {
-		str, _, err := readers.Read_string(data, &cur)
+	for len(strings_) < 27 {
+		str, _, err := readers.Read_string(data)
 		if err != nil {
 			fmt.Println(err)
 			break
@@ -205,11 +180,11 @@ func main() {
 		fmt.Println(h)
 	}
 
-	make_enum(quads.Subforms, "QUAD", "QUAD_ID", func(i int, f types.Form) (string, int) {
+	make_enum(quads.Subforms, "QUAD", "QUAD_ID", func(i int, f *types.Form) (string, int) {
 		for _, r2 := range f.Records {
 			if r2.Name == "INFO" {
-				cur := 4 // skip 2 16-bit ints, which seem to be coords of centre of quadrant
-				name, _, _ := readers.Read_string(r2.Data, &cur)
+				// skip 2 16-bit ints, which seem to be coords of centre of quadrant
+				name, _, _ := readers.Read_string(bytes.NewReader(r2.Data[4:]))
 				return name, i
 			}
 		}
@@ -221,11 +196,11 @@ func main() {
 
 	fmt.Println("//The strange order here is quadrant first, then ASCIIbetical")
 	// Single array for make_enum
-	systems := []types.Form{}
+	systems := []*types.Form{}
 	for _, sf := range quads.Subforms {
 		systems = append(systems, sf.Subforms...)
 	}
-	make_enum(systems, "SYS", "SYS_ID", func(_ int, syst types.Form) (string, int) {
+	make_enum(systems, "SYS", "SYS_ID", func(_ int, syst *types.Form) (string, int) {
 		for _, rec := range syst.Records {
 			if rec.Name != "INFO" {
 				return "", -1
@@ -234,7 +209,7 @@ func main() {
 			cur := 0
 			id := readers.Read_uint8(rec.Data, &cur)
 			cur += 4
-			name, _, _ := readers.Read_string(rec.Data, &cur)
+			name, _, _ := readers.Read_string(bytes.NewReader(rec.Data[cur:]))
 			return name, int(id)
 		}
 		return "", -1
@@ -261,10 +236,11 @@ func main() {
 					indent := "\t"
 					cur := 0
 					id := readers.Read_uint8(r3.Data, &cur)
-					x := readers.Read_int16(r3.Data, &cur)
-					y := readers.Read_int16(r3.Data, &cur)
+					// x,y=Coords of the system
+					//x := readers.Read_int16(r3.Data, &cur)
+					//y := readers.Read_int16(r3.Data, &cur)
 					name := string(r3.Data[5 : len(r3.Data)-1])
-					_, _, _, name = id, x, y, name // x,y=Coords of the system
+					_, name = id, name
 
 					string_id = id_from_string("SYS", name)
 					fmt.Print(fmt.Sprintf(indent+string_id+": Sysinfo{ Name: %v, Quadrant: %v", code_string(name), quadrant))
@@ -288,7 +264,7 @@ func main() {
 	fmt.Println("}")
 	fmt.Println()
 
-	make_enum(bases.Records, "BASE", "BASE_ID", func(_ int, info types.Record) (string, int) {
+	make_enum(bases.Records, "BASE", "BASE_ID", func(_ int, info *types.Record) (string, int) {
 		if info.Name == "INFO" {
 			// Byte 0: unique Id for this base
 			// Byte 1: base type.  Note that type 6(special) covers every unique type (New Detroit, Perry, Derelict etc)
@@ -297,7 +273,7 @@ func main() {
 			cur := 0
 			id := readers.Read_uint8(info.Data, &cur)
 			_ = readers.Read_uint8(info.Data, &cur)
-			name, _, _ := readers.Read_string(info.Data, &cur)
+			name, _, _ := readers.Read_string(bytes.NewReader(info.Data[cur:]))
 			return name, int(id)
 		}
 		// The first record is not "INFO" type and just contains "BASEINFO"
@@ -322,7 +298,7 @@ func main() {
 		if info.Name == "INFO" {
 			sep := "\t"
 			cur := 2
-			name, _, _ := readers.Read_string(info.Data, &cur)
+			name, _, _ := readers.Read_string(bytes.NewReader(info.Data[cur:]))
 			fmt.Println(sep+id_from_string("BASE", name)+": "+"Baseinfo{ Name: "+code_string(name), ", Type: "+id_from_string("BT", base_type[info.Data[1]]), ", System:", parents[info.Data[0]], "},")
 
 		} else {
