@@ -326,7 +326,7 @@ Armour status.  This is always 16 bytes.
 | 12-13 | Current Front | int |
 | 14-15 | Current Back  | int |
 
-The first 4 ints will always be the same, and will be one of the armour ID values.  Teh second set of 4 ints represent how much armour is left, and so could be anything from 0 to the corresponding max value.
+The first 4 ints will always be the same, and will be one of the armour ID values.  The second set of 4 ints represent how much armour is left, and so could be anything from 0 to the corresponding max value.
 
 This means that the savefile is only storing armour type and armour damage as a fraction... so Tarsus armour looks exactly the same as Orion armour, even though it is about a quarter of the thickness!  (The missing thickness data is in the PRIV.TRE file)
 
@@ -339,7 +339,7 @@ This means that the savefile is only storing armour type and armour damage as a 
 | Isometal  | 3000 |
 
 Notes:
- - Armour ID appears to be doing double duty as armour strength.  This is certainly true in RF, where a crippled Orion in Isometal armour takes more time to die than a Saturday-morning cartoon villain.  In the base game, experimentation suggests that Tungsten armour may be a scam.
+ - Armour ID appears to be doing double duty as armour strength.  This is certainly true in RF, where a crippled Orion in Isometal armour takes more time to die than the Twelfth Doctor.  In the base game, experimentation suggests that Tungsten armour may be a scam.
  - "No armour" starts with ID 0 but, after launch-landing, has ID 1.  The current values remain 0.  This is probably because armour is displayed on screen with a thickness proportional to (current amrour)/(maximum armour), so bumping the maximum up to 1 prevents division by zero.
  
 #### FITE-SHLD-DAMG ####
