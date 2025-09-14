@@ -68,7 +68,7 @@ A savefile consists of a header followed by a number of chunks.  The header desc
 | Bytes | Content| Format |
 |-------|--------|--------|
 |  0-3  | File size | long int |
-|  4-?  | Offsets |    |
+|  4-?  | Offsets | list of pointers? |
 
 Each offset is a 4-byte "pointer" to a place within the file where a data chunk can be found.  The first 2 bytes are the actual location (int, presumably unsigned).  The last 2 bytes are always "00 E0" (maybe this is a thunk?)
 
@@ -218,6 +218,8 @@ The traditional options for the int are:
  - 400: Repair Droid
  - 200: Advanced Droid (RF only)
 
+Other positive values work.  Repair speed is inversely proportional to the value.
+
 #### FITE-AFTB ####
 Afterburner.  Data length is 0
 
@@ -277,17 +279,97 @@ It is possible to have up to 32767 of each missile!  The game doesn't seem to mi
 
 #### FITE-ENER-INFO ####
 
+"ENER" means engines, which are essentially the ship's power plant.
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-7   | Info name   | Always "ENERGY\0\0" |
+| 8-??  | Engine info | Unknown |
+
+Engine info is a list of bytes with small values - no larger than 6.  It is possible that each 2-byte chunk is a unit; for ecample "124151" may represent "2 components of type, 1 component of type 4, 1 component of type 5", although this is just guesswork. 
+
+| Engine info | Engine |
+|-------------|--------|
+| 1261         | (None)  |
+| 124151       | Level 1 |
+| 12314151     | Level 2 |
+| 123141516    | Level 3 |
+| 122131415161 | Level 4 |
+| 122131415162 | Level 4 |
+| 122231415162 | Level 5 |
+| 122331415162 | Level 6 |
+| 122431415162 | Level 7 |
+
 #### FITE-ENER-DAMG ####
 
 #### FITE-SHLD-INFO ####
 
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-7   | Info name  | Always "SHIELDS\0" |
+| 8     | Shield ID | uint8 |
+
+Shield ID is a 89-based integer, meaning level 1 shields are represented by 90, level 2 by 91... up to 96 for level 7.  If no shields are installed, this record is simply not present.
+
 #### FITE-SHLD-ARMR ####
+
+Armour status.  This is always 16 bytes.
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | Max Left  | int |
+| 2-3   | Max Right | int |
+| 4-5   | Max Front | int |
+| 6-7   | Max Back  | int |
+| 8-9   | Current Left  | int |
+| 10-11 | Current Right | int |
+| 12-13 | Current Front | int |
+| 14-15 | Current Back  | int |
+
+The first 4 ints will always be the same, and will be one of the armour ID values.  Teh second set of 4 ints represent how much armour is left, and so could be anything from 0 to the corresponding max value.
+
+This means that the savefile is only storing armour type and armour damage as a fraction... so Tarsus armour looks exactly the same as Orion armour, even though it is about a quarter of the thickness!  (The missing thickness data is in the PRIV.TRE file)
+
+| Armour | Armour ID |
+|--------|-----------|
+| None      | 0    |
+| Also None | 1    |
+| Plasteel  | 250  |
+| Tungsten  | 500  |
+| Isometal  | 3000 |
+
+Notes:
+ - Armour ID appears to be doing double duty as armour strength.  This is certainly true in RF, where a crippled Orion in Isometal armour takes more time to die than a Saturday-morning cartoon villain.  In the base game, experimentation suggests that Tungsten armour may be a scam.
+ - "No armour" starts with ID 0 but, after launch-landing, has ID 1.  The current values remain 0.  This is probably because armour is displayed on screen with a thickness proportional to (current amrour)/(maximum armour), so bumping the maximum up to 1 prevents division by zero.
+ 
+#### FITE-SHLD-DAMG ####
+ 2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
 
 #### FITE-TRGT-INFO ####
 
+The ship's scanner.
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-7   | Info name  | Always "TARGETNG" |
+| 8     | Scanner ID | uint8 |
+
+Scanner ID is a number from 60 to 68.  
+
+Scanner locking ability is (Scanner ID-60)%3, and scanner colourfulness is (Scanner ID-60)/3 (rounded down)
+
 #### FITE-TRGT-DAMG ####
 
+2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
+ 
 #### FITE-CRGO-INFO ####
+
+It is far from clear what, if anything, this does.
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-7   | Info name  | Always "CARGO\0\0\0" |
+| 8     | Always 0? | Always 0? |
 
 #### FITE-CRGO-CRGI ####
 
@@ -310,6 +392,28 @@ A list of 4-0 byte cargo entries.  Each entry is built as follows:
 | 1-2   | amount (T) | int |
 | 3     | hidden     | boolean |
 
+#### FITE-JDRV-INFO ####
+
+Jump drive info.
+
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | current fuel  | int |
+| 2-3   | max fuel | int |
+
+Notes:
+ - Max fuel is always 6.  This may be a remnant from pre-relase versions where there was more than one class of jump drive.
+ - Since ships are automatically refuleled when they are docked, current fuel is always 6.
+ - The game will crash if the front view is shown with more than 6 units of fuel (probably because it doesn't know how to draw the fuel-o-meter).  However, if you switch to any other view immediately after launch, the game is playable (to the extent that it can be without a front view) and the extra jump capacity can be used!
+ 
+ #### FITE-JDRV-DAMG ####
+ 
+ 2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
+ 
+ #### FITE-JDRV-DAMG-DAMG ####
+
+Sup Dawg I heard you like jump drive damage?  This really does not make sense.
 
 ### Chunk 8: Name (string) ###
 Fixed string, length 17
