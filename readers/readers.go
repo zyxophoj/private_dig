@@ -65,21 +65,6 @@ func Read_fixed_string(target string, r io.Reader) (int, error) {
 	return len(read_buf), nil
 }
 
-func Read_uint8(bytes []byte, cur *int) uint8 {
-	out := bytes[*cur]
-	*cur += 1
-	return out
-}
-
-func Read_fixed_uint8(bytes []byte, cur *int, expected uint8) error {
-	out := bytes[*cur]
-	*cur += 1
-	if out != expected {
-		return errors.New(fmt.Sprintf("Expected %v; read %v", expected, out))
-	}
-	return nil
-}
-
 func Read_int_be(r io.Reader) (int, error) {
 	bytes, err := read_fixed(r, 4)
 	if err != nil {
@@ -266,7 +251,6 @@ func Read_form(r io.Reader) (*types.Form, error) {
 	return read_form_inner(r, length)
 }
 
-// TODO: don't copy the form?
 func read_form_inner(r io.Reader, length int) (*types.Form, error) {
 	name_buf, err := read_fixed(r, 4)
 	if err != nil {
@@ -296,6 +280,7 @@ func read_form_inner(r io.Reader, length int) (*types.Form, error) {
 		record := types.Record{string(record_name_buf), record_bytes, nil}
 		if length%2 == 1 {
 			record.Footer, _ = read_fixed(r, 1)
+			bytes_read += 1
 		}
 		//fmt.Println("Adding", record_name, "to", out.name)
 		out.Records = append(out.Records, &record)

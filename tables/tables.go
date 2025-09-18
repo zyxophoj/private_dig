@@ -30,6 +30,7 @@ const (
 
 // Equipment
 const (
+    //Why do we start counting at 90?  I have no clue.
 	SHIELD_BASE_0 = 89
 )
 
