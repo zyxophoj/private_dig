@@ -316,7 +316,7 @@ var Cheev_list = []struct {
 			if shields == nil {
 				return false
 			}
-			return shields.Data[8] == 89+2 //Why do we start counting at 90?  I have no clue
+			return shields.Data[8] == tables.SHIELD_BASE_0+2
 		}},
 
 		{"AID_KILL1", "It gets easier", "Kill another person, forever destroying everything they are or could be", false, func(a *Arg) bool {
@@ -502,7 +502,7 @@ var Cheev_list = []struct {
 			if shields == nil {
 				return false
 			}
-			return shields.Data[8] == 89+5 //Why do we start counting at 90?  I have no clue
+			return shields.Data[8] == tables.SHIELD_BASE_0+5
 		}},
 
 		{"AID_TARSUS", "Tarsus gonna Tarsus", "Take damage to all four armour facings on a Tarsus", false, func(a *Arg) bool {
@@ -685,6 +685,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_DO_MISSIONS", "Space-Hobo", "Do 100 non-plot missions", false, func(a *Arg) bool {
+			// There is only 1 mission counter, which does not seem to include plot missions
 			return int16_from_bytes(a.Blobs[types.OFFSET_SHIP][3:5]) >= 100
 		}},
 
