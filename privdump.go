@@ -47,6 +47,10 @@ func string_from_bytes(data []byte) string {
 	return i
 }
 
+func fixed_string_from_bytes(str string, data []byte) (int, error) {
+	return readers.Read_fixed_string(str, bytes.NewReader(data))
+}
+
 func parse_savedata(data types.Savedata, gt types.Game) []string {
 	out := []string{}
 
@@ -56,8 +60,7 @@ func parse_savedata(data types.Savedata, gt types.Game) []string {
 	L := len(data.Forms) + len(data.Strings) + len(data.Blobs)
 
 	for o := 0; o < L; o += 1 {
-		cur := 0
-		out = append(out, fmt.Sprintf("%v-%v: %v offset (x%x)", 5+4*o, 8+4*o, types.Offset_name(o), cur))
+		out = append(out, fmt.Sprintf("%v offset", types.Offset_name(o)))
 		switch o {
 		case types.OFFSET_SHIP:
 			// 0 : ship (0-3), see SHIP constants in tables.go)
@@ -73,29 +76,27 @@ func parse_savedata(data types.Savedata, gt types.Game) []string {
 				tables.SHIP_GALAXY:    "Galaxy",
 			}
 			bytes := data.Blobs[types.OFFSET_SHIP]
-			ship := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Ship: %v", cur-1, safe_lookup(ships, ship)))
+			ship := bytes[0]
+			out = append(out, fmt.Sprintf("   %v: Ship: %v", 0, safe_lookup(ships, ship)))
 
-			e := readers.Read_fixed_uint8(bytes, &cur, 0)
-			if e != nil {
-				out = append(out, fmt.Sprintf("   %v: UNEXPECTED BYTE! ", cur-1)+e.Error())
+			if bytes[1] != 0 {
+				out = append(out, fmt.Sprintf("   ERROR?: expected 0 at byte 1, got %v", bytes[1]))
 			}
 
-			loc := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Location: %v", cur-1, full_location(gt, loc)))
+			loc := bytes[2]
+			out = append(out, fmt.Sprintf("   %v: Location: %v", 2, full_location(gt, loc)))
 
-			missions := int16_from_bytes(bytes[cur:])
-			cur += 2
-			out = append(out, fmt.Sprintf("   %v-%v: Missions so far: %v", cur-2, cur-1, missions))
+			missions := int16_from_bytes(bytes[3:5])
+			out = append(out, fmt.Sprintf("   3-4: Missions so far: %v", missions))
 
 			guild_status := map[uint8]string{
 				0: "Nonmember",
 				1: "Member",
 			}
-			member := readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", cur-1, safe_lookup(guild_status, member)))
-			member = readers.Read_uint8(bytes, &cur)
-			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", cur-1, safe_lookup(guild_status, member)))
+			member := bytes[5]
+			out = append(out, fmt.Sprintf("   %v: Mercenaries' Guild: %s", member, safe_lookup(guild_status, member)))
+			member = bytes[6]
+			out = append(out, fmt.Sprintf("   %v: Merchants' Guild: %s", member, safe_lookup(guild_status, member)))
 
 		case types.OFFSET_PLOT:
 			// This is a null-terminated string of max length 8 (9 including the null) with a "flag" byte in the 10th position
@@ -172,7 +173,7 @@ func parse_savedata(data types.Savedata, gt types.Game) []string {
 
 			// The first 11 bytes appear to be total nonsense - 0% understood right now.
 			// They are not even preserved by loadsaving.
-			cur += 11
+			cur := 11
 
 			// Next we have a bunch of flags.  Meanings are not preserved between priv and RF
 			flags := utils.Make_flags()
@@ -282,19 +283,17 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		out = append(out, "Originally Hidden Jump Points:")
 		// This is baffling.  Why is starting world state in the save file?  Surely it's only current world state thtat matters.
 		// (Maybe record-saving wasn't supported so they had to throw in the whole form?)
-		cur := 0
-		for cur < len(record.Data) {
-			from := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
-			to := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+		for cur := 0; cur < len(record.Data); cur += 2 {
+			from := tables.SYS_ID(record.Data[cur])
+			to := tables.SYS_ID(record.Data[cur+1])
 			out = append(out, fmt.Sprintf("%v <-> %v", tables.Systems(gt)[from].Name, tables.Systems(gt)[to].Name))
 		}
 
 	case "SECT":
 		out = append(out, "Hidden Jump Points:")
-		cur := 0
-		for cur < len(record.Data) {
-			from := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
-			to := tables.SYS_ID(readers.Read_uint8(record.Data, &cur))
+		for cur := 0; cur < len(record.Data); cur += 2 {
+			from := tables.SYS_ID(record.Data[cur])
+			to := tables.SYS_ID(record.Data[cur+1])
 			out = append(out, fmt.Sprintf("%v <-> %v", tables.Systems(gt)[from].Name, tables.Systems(gt)[to].Name))
 		}
 		// There is some strangeness here.  This record is often one jump point behind reality.
@@ -480,8 +479,6 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		}
 
 	case "INFO":
-		cur := 0
-
 		if strings.HasSuffix(prefix, "JDRV-") {
 			out = append(out, "Jump drive info")
 			out = append(out, fmt.Sprintf("Jumps: %v", int16_from_bytes(record.Data)))
@@ -489,11 +486,13 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 			break
 		}
 
-		if strings.HasSuffix(prefix, "TRGT-") {
-			//readers.Read_fixed_string("TARGETNG", record.Data, &cur)
-			cur := len("TARGETNG")
-			scanner := readers.Read_uint8(record.Data, &cur) - 60 //Why 60???
-
+		// "Info" records (except JDRV-INFO) start with an 8-byte name, which is a string of up to 8 chars, padded with 0s if necessary.
+		inforead := bytes.NewReader(append(append([]byte{}, record.Data[0:8]...), 0)) // Contortion is to avoid destructive append
+		infotype, _, _ := readers.Read_string(inforead)
+		out = append(out, "INFO type "+infotype)
+		switch infotype {
+		case "TARGETNG":
+			scanner := record.Data[8] - 60 //Why 60???
 			names := []string{"Iris Mk I", "Iris Mk II", "Iris Mk III",
 				"Hunter AW 6", "Hunter Aw 6i", "Hunter Aw Inf",
 				"BS Tripwire", "B.S.  E.Y.E", "B.S. Omni"}
@@ -506,22 +505,13 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 				out = append(out, fmt.Sprintf("UNEXPECTED SCANNER!! (%v)", scanner))
 				break
 			}
-
 			out = append(out, fmt.Sprintf("Scanner: %v (%v, %v)", names[scanner], colorosity[scanner/3], lockiness[scanner%3]))
-			break
-		}
 
-		inforead := bytes.NewReader(record.Data)
-		infotype, _, _ := readers.Read_string(inforead)
-		cur -= 1
-		out = append(out, "INFO type "+infotype)
-		switch infotype {
 		case "SHIELDS":
-			out = append(out, fmt.Sprintf("Shields level %v", int(record.Data[cur+1])-89)) //WHY???
+			out = append(out, fmt.Sprintf("Shields level %v", int(record.Data[8])-89)) //WHY???
 		case "ENERGY":
-			d := record.Data[len("ENERGY")+2 : len(record.Data)]
 			strd := ""
-			for _, n := range d {
+			for _, n := range record.Data[8:] {
 				strd += fmt.Sprintf("%v", n)
 			}
 			// Yes, really.  There is clearly some structure in here, but I can't make any sense out of it.
@@ -559,11 +549,10 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 		// Maximum cargo chunk size would appear to be 255T (Galaxy with cargo upgrade), so it's not clear why
 		// we need 16 bits here (maybe there were ships with larger capacity in development?)
 		out = append(out, "Cargo data:")
-		for cur := 0; cur < len(record.Data); {
-			cargo := int(readers.Read_uint8(record.Data, &cur))
-			quantity := int16_from_bytes(record.Data[cur:])
-			cur += 2
-			hidden := readers.Read_uint8(record.Data, &cur)
+		for cur := 0; cur < len(record.Data); cur += 4 {
+			cargo := int(record.Data[cur])
+			quantity := int16_from_bytes(record.Data[cur+1 : cur+3])
+			hidden := record.Data[cur+3]
 
 			hiddenness := map[uint8]string{
 				0: "",
