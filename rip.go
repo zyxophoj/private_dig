@@ -32,6 +32,10 @@ func code_string(in string) string {
 	// TODO: deal with funny characters? (there don't seem to be any)
 	return "\"" + in + "\""
 }
+func int16_from_bytes(data []byte) int {
+	i, _ := readers.Read_int16(bytes.NewReader(data))
+	return i
+}
 
 func make_enum[K any](from []K, prefix string, name string, extractor func(int, K) (string, int)) {
 	fmt.Println("const(")
@@ -66,7 +70,8 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-
+	defer f.Close()
+	
 	// PRIV.TRE file format:
 	// A TRE file is essentially a library of smaller files
 	//
@@ -107,7 +112,7 @@ func main() {
 		}
 	}
 
-	read_form_from := func(f *os.File, where int64, expected_name string) (types.Form, error) {
+	read_form_from := func(f *os.File, where int64, expected_name string) (*types.Form, error) {
 		_, err = f.Seek(where, 0)
 		form, err := readers.Read_form(f)
 		if err != nil {
@@ -180,6 +185,8 @@ func main() {
 		fmt.Println(h)
 	}
 
+
+    // quadrants...
 	make_enum(quads.Subforms, "QUAD", "QUAD_ID", func(i int, f *types.Form) (string, int) {
 		for _, r2 := range f.Records {
 			if r2.Name == "INFO" {
@@ -191,9 +198,10 @@ func main() {
 		//error...
 		return "", -1
 	})
-
 	fmt.Println()
 
+
+	// systems...
 	fmt.Println("//The strange order here is quadrant first, then ASCIIbetical")
 	// Single array for make_enum
 	systems := []*types.Form{}
@@ -206,10 +214,9 @@ func main() {
 				return "", -1
 			}
 
-			cur := 0
-			id := readers.Read_uint8(rec.Data, &cur)
-			cur += 4
-			name, _, _ := readers.Read_string(bytes.NewReader(rec.Data[cur:]))
+			id := rec.Data[0]
+
+			name, _, _ := readers.Read_string(bytes.NewReader(rec.Data[5:]))
 			return name, int(id)
 		}
 		return "", -1
@@ -234,13 +241,12 @@ func main() {
 			for _, r3 := range syst.Records {
 				if r3.Name == "INFO" {
 					indent := "\t"
-					cur := 0
-					id := readers.Read_uint8(r3.Data, &cur)
+					id := r3.Data[0]
 					// x,y=Coords of the system
-					//x := readers.Read_int16(r3.Data, &cur)
-					//y := readers.Read_int16(r3.Data, &cur)
+					x := int16_from_bytes(r3.Data[1:3])
+					y := int16_from_bytes(r3.Data[3:5])
 					name := string(r3.Data[5 : len(r3.Data)-1])
-					_, name = id, name
+					_, _, _ = id, x, y
 
 					string_id = id_from_string("SYS", name)
 					fmt.Print(fmt.Sprintf(indent+string_id+": Sysinfo{ Name: %v, Quadrant: %v", code_string(name), quadrant))
@@ -264,16 +270,17 @@ func main() {
 	fmt.Println("}")
 	fmt.Println()
 
+
+    // bases...
 	make_enum(bases.Records, "BASE", "BASE_ID", func(_ int, info *types.Record) (string, int) {
 		if info.Name == "INFO" {
 			// Byte 0: unique Id for this base
 			// Byte 1: base type.  Note that type 6(special) covers every unique type (New Detroit, Perry, Derelict etc)
 			// Bytes 2-end: Base name (null-terminated string)
 
-			cur := 0
-			id := readers.Read_uint8(info.Data, &cur)
-			_ = readers.Read_uint8(info.Data, &cur)
-			name, _, _ := readers.Read_string(bytes.NewReader(info.Data[cur:]))
+			id := info.Data[0]
+			//base_type  := info.Data[1]
+			name, _, _ := readers.Read_string(bytes.NewReader(info.Data[2:]))
 			return name, int(id)
 		}
 		// The first record is not "INFO" type and just contains "BASEINFO"
@@ -302,11 +309,14 @@ func main() {
 			fmt.Println(sep+id_from_string("BASE", name)+": "+"Baseinfo{ Name: "+code_string(name), ", Type: "+id_from_string("BT", base_type[info.Data[1]]), ", System:", parents[info.Data[0]], "},")
 
 		} else {
+			fmt.Println("// Total number of bases of each type:") // But why?  This is redundant information.
 			fmt.Println("//", info.Name, info.Data)
 		}
 	}
 	fmt.Println("}")
 
+
+    // Flags...
 	flags := utils.Make_flags()
 	// Although it would be funny, we don't really want flags in random order
 	type flag struct {
@@ -333,11 +343,8 @@ func main() {
 		return f.str, f.value
 	})
 	fmt.Println()
-	// Generate Righteous Fire flag enums
-
 	make_enum(sorted_flags[types.GT_RF], "FLAG_RF", "", func(_ int, f flag) (string, int) {
 		return f.str, f.value
 	})
-
 	fmt.Println()
 }
