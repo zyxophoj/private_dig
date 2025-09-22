@@ -126,10 +126,6 @@ func main() {
 
 	// Base types
 	// This is dirty.  We are relying on the fact that the strings in the string table are in the correct order.
-	// Leading "" is there because the game starts counting these at 1
-	// Trailing "Special" covers any "nonstandard" base - e.g. New Detroit, Oxford, Derelict.
-	// The game uses a single type ID for all of these - and therefore so will we, even though the string table
-	// does have specific strings for these bases.
 	base_types_form, err := read_form_from(f, subfiles["..\\..\\DATA\\OPTIONS\\PCSTRING.IFF"].start, "STRG")
 	if err != nil {
 		fmt.Println(err)
@@ -146,8 +142,12 @@ func main() {
 		}
 		strings_ = append(strings_, strings.Split(str, " ")[0])
 	}
+	 // Leading "" is here because the game starts counting these at 1
 	base_type := []string{""}
 	base_type = append(base_type, strings_[22:27]...)
+	// Trailing "Special" covers any "nonstandard" base - e.g. New Detroit, Oxford, Derelict.
+	// The game uses a single type ID for all of these - and therefore so will we, even though the string table
+	// does have specific strings for these bases.
 	base_type = append(base_type, "Special")
 
 	//Quadrants and systems

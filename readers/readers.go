@@ -23,6 +23,8 @@ func read_fixed(r io.Reader, size int) ([]byte, error) {
 	return into, nil
 }
 
+// Advance advances a reader forwards
+// It's a forward-only seek for something that doesn't seek. 
 func Advance(r io.Reader, size int) error {
 	_, err := read_fixed(r, size)
 	return err
@@ -168,6 +170,7 @@ func read_header(r io.Reader) (types.Header, error) {
 	return out, nil
 }
 
+// Read_savedata reads savedata (presumably, from a Privateer/RF savefile)
 func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 	header, err := read_header(r)
 	if err != nil {
@@ -181,7 +184,6 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 
 	for true_index, _ := range header.Offsets {
 		i := types.Modify_index(true_index, header.Missions())
-		chunk_length := header.Offset_end(i) - header.Offsets[i]
 
 		// An attempt was made to use only io.Reader for file reading.
 		// It failed because mission forms sometimes lie about their lengths in a manner which claims the
@@ -203,6 +205,7 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 			}
 			out.Strings[i] = str
 			// Variable-length string in fixed-length chunk
+			chunk_length := header.Offset_end(i) - header.Offsets[i]
 			Advance(r, chunk_length-n)
 
 		case types.CT_BLOB:
@@ -225,7 +228,7 @@ func Read_form(r io.Reader) (*types.Form, error) {
 	// Data:
 	//    3 Form name: 4-byte capital-letter string
 	//    4 0 or more records.
-	//    5  A posible Footer - anthting within the form length that is not claimed by any records
+	//    5  A possible footer - anything within the form length that is not claimed by any records
 	//       (This only seems to happen for mission data forms and is probably just caused by the game calculating the length incorrectly)
 	// Note that the length does not include the length of the identifier "FORM" or of the length itself.
 
@@ -234,7 +237,7 @@ func Read_form(r io.Reader) (*types.Form, error) {
 	// 1 Name: 4-byte capital-letter string
 	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
 	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then this record is a form, and so the data is a form name plus a list of records.
-	// (4) A possible "footer", - this is one byte which pads the record out to an even length, and therefore only appear if the "length field is odd.
+	// (4) A possible "footer" - this is one byte which pads the record out to an even length, and therefore only appears if the "length" field is odd.
 	//
 	// Again, length does not include the first 8 bytes or any footer.
 
