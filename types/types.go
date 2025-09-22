@@ -97,20 +97,17 @@ func (h *Header) Chunk_type(i int) ChunkType {
 // Offset_end returns the index of the byte one after the end of the offset with the given offset ID.
 // This will normally be h.Offsets[o+1], but enum order not matching file order (due to moving missions to the end of the list) complicates things.
 func (h *Header) Offset_end(o int) int {
-	missions := (h.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
-
 	if o == OFFSET_MISSIONS && len(h.Offsets) > OFFSET_COUNT {
 		// Jump to mission offsets
 		return h.Offsets[OFFSET_MISSION_BASE]
 	}
-	if missions > 0 && o == len(h.Offsets)-1 {
+	if h.Missions() > 0 && o == len(h.Offsets)-1 {
 		// At the end of mission offsets, jump back
 		return h.Offsets[OFFSET_PLAY]
 	}
 	if o == OFFSET_CALLSIGN {
-		// Annoying special case: since this is the last offset, we can't look at the next one to see where it ends.
-		// So we just hard-code its known length.  Ugh!!!
-		return h.Offsets[o] + 15
+		// Since this is the last offset, we can't look at the next one to see where it ends.
+		return h.File_size
 	}
 
 	return h.Offsets[o+1]

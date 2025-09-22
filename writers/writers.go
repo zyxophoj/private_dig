@@ -7,7 +7,6 @@ import (
 )
 
 func Write_file(in *types.Savedata, out io.Writer) {
-
 	chunk_count := len(in.Forms) + len(in.Strings) + len(in.Blobs)
 	missions := (chunk_count - types.OFFSET_COUNT) / 2
 
