@@ -191,16 +191,18 @@ func parse_savedata(data types.Savedata, gt types.Game) []string {
 		case types.OFFSET_NAME, types.OFFSET_CALLSIGN:
 			// name and callsign are strings.
 			out = append(out, fmt.Sprintf("   %v: %v", types.Offset_name(o), data.Strings[o]))
-		}
-	}
 
-	// OK, now do missions
-	for m := 0; m < (L-types.OFFSET_COUNT)/2; m += 1 {
-		cur := types.OFFSET_COUNT + 2*m
-		out = append(out, fmt.Sprintf("Mission %v name: %v", m, data.Strings[types.OFFSET_COUNT+2*m]))
-		out = append(out, fmt.Sprintf("Mission %v data... ", m))
-		// Another form!
-		out = append(out, parse_form("", data.Forms[cur+1], gt)...)
+		default: // missions
+			//mission := (o-types.OFFSET_COUNT)/2 +1
+			if (o-types.OFFSET_COUNT)%2==0{
+				out = append(out, fmt.Sprintf("name: %v", data.Strings[o]))
+			} else {
+				// Another form!
+				out = append(out, parse_form("", data.Forms[o], gt)...)
+			}
+		}
+
+		out = append(out, "")
 	}
 
 	return out
