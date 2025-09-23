@@ -550,7 +550,7 @@ func get(what string, savedata *types.Savedata) (string, error) {
 	bytes := []uint8{}
 	switch g.chunk_type {
 	case CT_STRING:
-		return savedata.Strings[g.offset].Get(), nil
+		return savedata.Strings[g.offset].Value, nil
 
 	case CT_FORM:
 		record := savedata.Forms[g.offset].Get(g.record...)
@@ -645,7 +645,7 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 			// TODO: in "I know what I'm doing" mode, this should just be a warning
 			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), savedata.Chunk(g.offset).Chunk_length()))
 		}
-		savedata.Strings[g.offset].Set(to)
+		savedata.Strings[g.offset].Value = to
 
 	case CT_BLOB:
 		target = savedata.Blobs[g.offset]
