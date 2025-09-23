@@ -2,6 +2,8 @@ package types
 
 import (
 	"fmt"
+	"io"
+	"privdump/writers"
 	"strings"
 )
 
@@ -42,9 +44,9 @@ func Offset_name(o int) string {
 type ChunkType int
 
 const (
-	CT_BLOB ChunkType = iota
-	CT_FORM
-	CT_STRING
+	CT_BLOB   ChunkType = iota // A non-definition: a blob is just a sequence of bytes
+	CT_FORM                    // See the form class
+	CT_STRING                  // null-terminated string, padded out with 0 or more nulls to some fixed length
 )
 
 type Header struct {
@@ -115,34 +117,26 @@ func (h *Header) Offset_end(o int) int {
 
 // Savedata stores mostly-parsed data from a savefile
 // Data at each offset fits into one of 3 categories:
-// Form: see the form class
-// String: null-terminated string, usually inside a fixed-length space with extra nulls at the end
-// Blob:  anything else, referred to here as a slice of bytes.
+// Form: see the Form class
+// String: null-terminated string, inside a fixed-length space with 0 or more extra nulls at the end
+// Blob:  anything else, implemented here as a slice of bytes.
 type Savedata struct {
 	Forms   map[int]*Form
-	Strings map[int]string
-	Blobs   map[int][]byte
+	Strings map[int]*String_chunk
+	Blobs   map[int]Blob
 }
 
 // n is a modified index
-func (sd *Savedata) Chunk_length(n int) int {
+func (sd *Savedata) Chunk(n int) Chunk {
 	// Ugh... some kind of polymprphism might help here
 	if sd.Forms[n] != nil {
-		return sd.Forms[n].Real_size()
+		return sd.Forms[n]
 	}
 	if sd.Blobs[n] != nil {
-		return len(sd.Blobs[n])
+		return sd.Blobs[n]
 	}
-
-	// String chunk lengths are just magic numbers
-	if n == OFFSET_NAME {
-		return 18
-	}
-	if n == OFFSET_CALLSIGN {
-		return 15
-	}
-	if n >= OFFSET_MISSION_BASE && (n-OFFSET_MISSION_BASE)%2 == 0 {
-		return 8
+	if sd.Strings[n] != nil {
+		return sd.Strings[n]
 	}
 
 	panic(fmt.Sprintf("what offset? (%v)", n))
@@ -159,6 +153,29 @@ func (sd *Savedata) Game() Game {
 	return game
 }
 
+func (sd *Savedata) Write(out io.Writer) {
+	chunk_count := len(sd.Forms) + len(sd.Strings) + len(sd.Blobs)
+	missions := (chunk_count - OFFSET_COUNT) / 2
+	file_length := 4 * (1 + chunk_count) //header length
+	for c := range chunk_count {
+		file_length += sd.Chunk(c).Chunk_length()
+	}
+
+	// Header
+	writers.Write_uint32_le(out, file_length)
+	chunk_location := 4 * (1 + chunk_count)
+	for c := range chunk_count {
+		writers.Write_uint16_le(out, chunk_location)
+		out.Write([]byte{0x00, 0xE0})
+		chunk_location += sd.Chunk(Modify_index(c, missions)).Chunk_length()
+	}
+
+	//Body
+	for c := range chunk_count {
+		sd.Chunk(Modify_index(c, missions)).Write(out)
+	}
+}
+
 type Record struct {
 	Name   string
 	Data   []byte
@@ -167,6 +184,13 @@ type Record struct {
 
 func (r *Record) Needs_footer() bool {
 	return len(r.Data)%2 == 1
+}
+
+type Chunk interface {
+	// Chunk length is the expected number of bytes needed to store the chunk in a file
+	Chunk_length() int
+	// Write writes the chunk, and returns bytes written (and a possible error)
+	Write(io.Writer) (int, error)
 }
 
 type Form struct {
@@ -196,7 +220,6 @@ func (f *Form) Get(what ...string) *Record {
 
 	for i, rec := range f.Records {
 		if strings.HasSuffix(rec.Name, what[len(what)-1]) {
-			// Do not return a copy, caller may be getting to edit
 			return f.Records[i]
 		}
 	}
@@ -234,7 +257,7 @@ func (f *Form) Get_subform(w string) *Form {
 	return nil
 }
 
-func (f *Form) Real_size() int {
+func (f *Form) Chunk_length() int {
 	total := 12 //("FORM"(4), length(4), name(4))
 	for _, rec := range f.Records {
 		if rec.Name == "FORM" {
@@ -243,8 +266,101 @@ func (f *Form) Real_size() int {
 		total += (4 + len(rec.Name) + len(rec.Data) + (len(rec.Data) % 2)) //(name(4), length(4) +data(whatever) + footer)
 	}
 	for _, sf := range f.Subforms {
-		total += sf.Real_size()
+		total += sf.Chunk_length()
 	}
 
 	return total
 }
+
+func (form *Form) Write(out io.Writer) (int, error) {
+	writers.Write_string_padded(out, "FORM", 4)
+	writers.Write_uint32_be(out, form.Chunk_length()-8)
+	writers.Write_string_padded(out, form.Name, 4)
+
+	sub := 0
+	for r, record := range form.Records {
+		if record.Name == "FORM" {
+			form.Subforms[sub].Write(out)
+			sub += 1
+			continue
+		}
+		writers.Write_string_padded(out, record.Name, len(record.Name))
+		writers.Write_uint32_be(out, len(record.Data))
+		out.Write(record.Data)
+
+		// Omitting the footer will break things.
+		// I believe footers exist to pad the record size out to an even number,
+		// (Just in case that seems to make sense, note that it causes every form and record to be misaligned (not on a 2-byte barrier) in the file data)
+		if record.Needs_footer() {
+			// Footer content should be the same as the next byte; this is ridiculous but it's what Privateer does.
+			if r != len(form.Records)-1 {
+				out.Write([]byte{form.Records[r+1].Name[0]})
+			} else {
+				// Next byte is not available, so re-write the last byte.
+				//fmt.Println("Doubling last byte in", record.Name, form.Name)
+				out.Write(record.Data[len(record.Data)-1 : len(record.Data)])
+			}
+		}
+	}
+
+	// TODO: catch errors (and size)
+	return form.Chunk_length(), nil
+}
+
+func (f *Form) String() string {
+	out := f.Name + "\n"
+	for _, record := range f.Records {
+		if record.Name != "FORM" {
+			out += fmt.Sprintf("%v\n", record)
+		}
+
+	}
+	for _, subform := range f.Subforms {
+		out += subform.String()
+	}
+	return out
+}
+
+// Blob ([B]inary, possibly [L]arge, [OB]ject) is a []byte with just enough stuff added to implement the Chunk interface
+type Blob []byte
+
+func (b Blob) Chunk_length() int {
+	return len(b)
+}
+
+func (b Blob) Write(w io.Writer) (int, error) {
+	return w.Write(b)
+}
+
+// String_chunk holds a string and a chunk length
+// (since the string is always stored with a null terminator, max string length is 1 less than chunk length)
+type String_chunk struct {
+	string
+	length int // chunk length not string length
+}
+
+func Make_String_chunk(str string, l int) String_chunk {
+	return String_chunk{str, l}
+}
+
+func (sc String_chunk) Chunk_length() int {
+	return sc.length
+}
+
+func (sc String_chunk) Write(w io.Writer) (int, error) {
+	return writers.Write_string_padded(w, sc.string, sc.length)
+}
+
+func (sc String_chunk) Get() string {
+	return sc.string
+}
+
+func (sc String_chunk) Set(to string) error {
+	if len(to)+1 > sc.length{
+		return fmt.Errorf("String [%v] is too long for a chunk of length %v", to, sc.length)
+	}
+	sc.string = to
+	return nil
+}
+
+
