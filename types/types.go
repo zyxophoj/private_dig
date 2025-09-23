@@ -336,32 +336,23 @@ func (b Blob) Write(w io.Writer) (int, error) {
 // String_chunk holds a string and a chunk length
 // (since the string is always stored with a null terminator, max string length is 1 less than chunk length)
 type String_chunk struct {
-	string
-	length int // chunk length not string length
+	Value string 
+	Length int // chunk length not string length
 }
 
 func Make_String_chunk(str string, l int) String_chunk {
 	return String_chunk{str, l}
 }
 
-func (sc String_chunk) Chunk_length() int {
-	return sc.length
+func (sc *String_chunk) Chunk_length() int {
+	return sc.Length
 }
 
-func (sc String_chunk) Write(w io.Writer) (int, error) {
-	return writers.Write_string_padded(w, sc.string, sc.length)
+func (sc *String_chunk) Write(w io.Writer) (int, error) {
+	return writers.Write_string_padded(w, sc.Value, sc.Length)
 }
 
-func (sc String_chunk) Get() string {
-	return sc.string
+func (sc *String_chunk) String() string {
+	return fmt.Sprintf("%v (max length %v)", sc.Value, sc.Length-1)
 }
-
-func (sc String_chunk) Set(to string) error {
-	if len(to)+1 > sc.length{
-		return fmt.Errorf("String [%v] is too long for a chunk of length %v", to, sc.length)
-	}
-	sc.string = to
-	return nil
-}
-
 

@@ -288,7 +288,7 @@ func handle_file(filename string) {
 		fmt.Println("Failed to parse file", filename, "-", err)
 		return
 	}
-	identity := savedata.Strings[types.OFFSET_NAME] + ":" + savedata.Strings[types.OFFSET_CALLSIGN]
+	identity := savedata.Strings[types.OFFSET_NAME].Value + ":" + savedata.Strings[types.OFFSET_CALLSIGN].Value
 
 	// Set up proper "uninitialised" values
 	_, ok := global_state.Visited[identity]
