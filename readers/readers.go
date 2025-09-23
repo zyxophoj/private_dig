@@ -24,7 +24,7 @@ func read_fixed(r io.Reader, size int) ([]byte, error) {
 }
 
 // Advance advances a reader forwards
-// It's a forward-only seek for something that doesn't seek. 
+// It's a forward-only seek for something that doesn't seek.
 func Advance(r io.Reader, size int) error {
 	_, err := read_fixed(r, size)
 	return err
@@ -178,12 +178,13 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 	}
 	out := types.Savedata{
 		Forms:   map[int]*types.Form{},
-		Strings: map[int]string{},
-		Blobs:   map[int][]byte{},
+		Strings: map[int]*types.String_chunk{},
+		Blobs:   map[int]types.Blob{},
 	}
 
 	for true_index, _ := range header.Offsets {
 		i := types.Modify_index(true_index, header.Missions())
+		chunk_length := header.Offset_end(i) - header.Offsets[i]
 
 		// An attempt was made to use only io.Reader for file reading.
 		// It failed because mission forms sometimes lie about their lengths in a manner which claims the
@@ -203,9 +204,10 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 			if err != nil {
 				return nil, errors.New("Failed to read string")
 			}
-			out.Strings[i] = str
+
+			st := types.Make_String_chunk(str, chunk_length)
+			out.Strings[i] = &st
 			// Variable-length string in fixed-length chunk
-			chunk_length := header.Offset_end(i) - header.Offsets[i]
 			Advance(r, chunk_length-n)
 
 		case types.CT_BLOB:
@@ -220,6 +222,7 @@ func Read_savedata(r io.ReadSeeker) (*types.Savedata, error) {
 	return &out, nil
 }
 
+// Read_form reads a (almost IFF format) form
 func Read_form(r io.Reader) (*types.Form, error) {
 	// Form format:
 	//

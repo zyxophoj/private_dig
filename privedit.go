@@ -40,7 +40,6 @@ import (
 	"privdump/readers"
 	"privdump/tables"
 	"privdump/types"
-	"privdump/writers"
 )
 
 // Evil global variables
@@ -366,8 +365,8 @@ func main2() error {
 		}
 		defer f.Close()
 		writer := bufio.NewWriter(f)
-		// TODO : catch errors from write_file once it actually emits them
-		writers.Write_file(savedata, writer)
+		// TODO : catch errors from Write once it actually emits them
+		savedata.Write(writer)
 		writer.Flush()
 		f.Sync()
 		fmt.Println("New file written to", filename)
@@ -551,7 +550,7 @@ func get(what string, savedata *types.Savedata) (string, error) {
 	bytes := []uint8{}
 	switch g.chunk_type {
 	case CT_STRING:
-		return savedata.Strings[g.offset], nil
+		return savedata.Strings[g.offset].Get(), nil
 
 	case CT_FORM:
 		record := savedata.Forms[g.offset].Get(g.record...)
@@ -642,11 +641,11 @@ func set(what string, to string, savedata *types.Savedata) (string, error) {
 	switch g.chunk_type {
 	case CT_STRING:
 		// At least this one is easy?
-		if len(to) > savedata.Chunk_length(g.offset) {
+		if len(to)+1 > savedata.Chunk(g.offset).Chunk_length() { //+1 for the null terminator
 			// TODO: in "I know what I'm doing" mode, this should just be a warning
-			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), savedata.Chunk_length(g.offset)))
+			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), savedata.Chunk(g.offset).Chunk_length()))
 		}
-		savedata.Strings[g.offset] = to
+		savedata.Strings[g.offset].Set(to)
 
 	case CT_BLOB:
 		target = savedata.Blobs[g.offset]
