@@ -39,18 +39,16 @@ func boolmap[K any](t K, f K) map[bool]K {
 // RF-ness.
 // However, if the string does have an extension, use it, and that can force
 // the achievement test to run in RF mode.
-func real_filename(file string, RF bool) (types.Game, string) {
+func real_filename(file string, RF bool) string {
 	game := types.GT_PRIV
 	ext := ".SAV"
 	if RF {
-		game = types.GT_RF
 		ext = ".PRS"
 	}
 	filename := test_dir + "/" + strings.ToUpper(strings.TrimSpace(file))
 	if !strings.Contains(file, ".") {
 		filename += ext
 	} else {
-		game = types.GT_RF
 		if RF && !strings.HasSuffix(filename, ".PRS") {
 			// This would be a bug in the ini file
 			fmt.Println("Error: Non-RF file read in RF mode")
@@ -93,9 +91,10 @@ func main() {
 			}
 			is_rf := strings.HasPrefix(s.Name(), "AID_RF_")
 			if !cheev.Multi {
+				// Simple achievements: "yes" files shuold have the cheev; "no" files should not.
 				for _, expected := range []bool{true, false} {
 					for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
-						game, filename := real_filename(file, is_rf)
+						filename := real_filename(file, is_rf)
 						savedata, err := read_file(filename)
 						if err != nil {
 							fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
@@ -103,7 +102,7 @@ func main() {
 							continue
 						}
 
-						if cheev.Test(&achievements.Arg{*savedata, game, nil, nil, ""}) != expected {
+						if cheev.Test(&achievements.Arg{*savedata, nil, nil, ""}) != expected {
 							fmt.Printf(boolmap("File: %s does not have achievement %s\n", "File: %s has achievement %s but should not\n")[expected], filename, s.Name())
 							error_count += 1
 						}
@@ -112,6 +111,7 @@ func main() {
 			} else {
 				files := strings.Split(s.Key("multi").String(), ",")
 
+				// Multi-file achievements:
 				// The full list of files should get the achievement, but lists obtained by removing any one file should not.
 				file_lists := [][]string{files}
 				expected := []bool{true}
@@ -130,14 +130,14 @@ func main() {
 					result := false
 					prog := ""
 					for _, file := range list {
-						game, filename := real_filename(file, is_rf)
+						filename := real_filename(file, is_rf)
 						savedata, err := read_file(filename)
 						if err != nil {
 							fmt.Println("While loading file:", filename, " for "+s.Name()+":", err)
 							error_count += 1
 							goto cheev_end
 						}
-						arg := achievements.Arg{*savedata, game, visited, &secrets, ""}
+						arg := achievements.Arg{*savedata, visited, &secrets, ""}
 						arg.Update()
 
 						result = cheev.Test(&arg)

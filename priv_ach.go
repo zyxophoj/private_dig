@@ -209,7 +209,7 @@ func main() {
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
 
 					if cat_list.Cheeves[i].Multi {
-						arg := achievements.Arg{types.Savedata{}, types.GT_PRIV, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
+						arg := achievements.Arg{types.Savedata{}, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
 						cat_list.Cheeves[i].Test(&arg)
 						if arg.Progress != "" {
 							fmt.Println("   Progress: " + arg.Progress)
@@ -301,20 +301,15 @@ func handle_file(filename string) {
 	}
 
 	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
-	game := types.GT_PRIV
-	hidden := savedata.Forms[types.OFFSET_SSSS].Get("ORIG").Data
-	if hidden[len(hidden)-1] == 68 {
-		game = types.GT_RF
-	}
 
-	arg := achievements.Arg{*savedata, game, global_state.Visited[identity], global_state.Secrets[identity], ""}
+	arg := achievements.Arg{*savedata, global_state.Visited[identity], global_state.Secrets[identity], ""}
 
 	arg.Update()
 
 	for _, list := range achievements.Cheev_list {
 
 		cheeves := list.Cheeves
-		if arg.Game == types.GT_RF {
+		if arg.Savedata.Game() == types.GT_RF {
 			cheeves = append(cheeves, achievements.Cheev_list_rf[list.Category]...)
 		}
 
