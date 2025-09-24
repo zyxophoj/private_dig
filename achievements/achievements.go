@@ -12,7 +12,6 @@ import "privdump/readers"
 
 type Arg struct {
 	types.Savedata
-	Game types.Game
 
 	// These are *the actual variables* from global_state, not copies.
 	// In the case of maps, that works by itself.  Otherwise, some contortions
@@ -32,7 +31,7 @@ func (a *Arg) Update() {
 
 	a.Visited[a.Location()] = true // current location
 
-	switch a.Game {
+	switch a.Savedata.Game() {
 	case types.GT_PRIV:
 
 		a.Visited[0] = true // Achilles, the starting location
@@ -222,7 +221,7 @@ func mcs_complete_series(id string, name string, expl string, number uint8) Achi
 		expl,
 		false,
 		func(a *Arg) bool {
-			if a.Game == types.GT_RF {
+			if a.Savedata.Game() == types.GT_RF {
 				// RF plot info tells us nothing about what (if anything) was done in Privateer
 
 				// TODO: however, deductions can and should be made from secret compartment, unlocked jump points, and drone kill
@@ -263,7 +262,7 @@ func mcs_go_places(id string, name string, expl string, locations []tables.BASE_
 				if a.Visited[l] {
 					count += 1
 				} else {
-					missed = full_location(a.Game, l)
+					missed = full_location(a.Savedata.Game(), l)
 				}
 			}
 
@@ -372,7 +371,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_INTERSTELLAR", "Interstellar Rubicon", "Leave the Troy system", false, func(a *Arg) bool {
-			return slices.Index(tables.Systems(a.Game)[tables.SYS_TROY].Bases, a.Location()) == -1
+			return slices.Index(tables.Systems(a.Savedata.Game())[tables.SYS_TROY].Bases, a.Location()) == -1
 		}},
 	}},
 
@@ -392,7 +391,7 @@ var Cheev_list = []struct {
 		mcs_complete_series("AID_TAYLA", "I'm not a pirate, I just work for them", "Complete Tayla's missions", 1),
 
 		{"AID_LYNCH", "Can't you see that I am a privateer?", "Complete Roman Lynch's Missions", false, func(a *Arg) bool {
-			if a.Game == types.GT_RF {
+			if  a.Savedata.Game() == types.GT_RF {
 				// RF plot info tells us nothing about what (if anything) was done in Privateer
 				return false
 			}
@@ -423,7 +422,7 @@ var Cheev_list = []struct {
 		mcs_complete_series("AID_RYGANNON", "...and far beyond", "Complete Taryn Cross's missions", 5),
 
 		{"AID_STELTEK_GUN", "Strategically Transfer Equipment to Alternative Location", "Acquire the Steltek gun", false, func(a *Arg) bool {
-			if a.Game == types.GT_RF {
+			if a.Savedata.Game() == types.GT_RF {
 				// Gun type 8 is re-used in RF for the fusion cannon
 				return false
 			}
@@ -663,7 +662,7 @@ var Cheev_list = []struct {
 
 		{"AID_BITCORES_MAN", "The Bitcores maneuver", "Put the Steltek gun on a central mount", false, func(a *Arg) bool {
 			// To pull this one off, you have to remove a central gun at Rygannon then get to the derelict on just 3 guns.
-			if a.Game == types.GT_RF {
+			if a.Savedata.Game() == types.GT_RF {
 				// Gun type 8 is re-used in RF for the fusion cannon
 				return false
 			}
@@ -735,7 +734,7 @@ var Cheev_list = []struct {
 
 	{"Feats of Insanity", []Achievement{
 		{"AID_TARSUS_DERELICT", "Get that trophy screenshot", "Get to the derelict in a Tarsus", false, func(a *Arg) bool {
-			if a.Game == types.GT_RF {
+			if a.Savedata.Game() == types.GT_RF {
 				// Not possible in RF (and we don't want false positives caused by a fusion cannon)
 				return false
 			}
@@ -773,7 +772,7 @@ var Cheev_list = []struct {
 			// Hunters are notoriously hard to please.  The problem is that you have to kill a lot of them to win the game,
 			// losing 15 rep per Demon and 20 rep per Centurion - but nothing (except the drone) will improve hunter rep by more than 1.
 			// (That's right, killing a pirate talon impresses them exactly as much as killing a Kamekh)
-			if a.Game == types.GT_RF {
+			if a.Savedata.Game() == types.GT_RF {
 				// This one doesn't make any sense in RF
 				return false
 			}
@@ -856,7 +855,7 @@ var Cheev_list = []struct {
 		}},
 
 		{"AID_TROY_TRADE", "Optimism Rewarded", "Accept a cargo mission between two bases in the Troy system", false, func(a *Arg) bool {
-			troy_bases := tables.Systems(a.Game)[tables.SYS_TROY].Bases
+			troy_bases := tables.Systems(a.Savedata.Game())[tables.SYS_TROY].Bases
 
 			if slices.Index(troy_bases, a.Location()) == -1 {
 				// Not in troy
