@@ -95,7 +95,6 @@ func main() {
 		_, is_flag := flags[arg]
 		if is_flag {
 			flags[arg] = true
-			fmt.Println("fl;ags", arg)
 			continue
 		}
 		if main_arg == "" {
@@ -300,10 +299,8 @@ func handle_file(filename string) {
 		global_state.Secrets[identity] = new(uint8)
 	}
 
-	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
 
 	arg := achievements.Arg{*savedata, global_state.Visited[identity], global_state.Secrets[identity], ""}
-
 	arg.Update()
 
 	for _, list := range achievements.Cheev_list {
