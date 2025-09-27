@@ -40,7 +40,6 @@ func boolmap[K any](t K, f K) map[bool]K {
 // However, if the string does have an extension, use it, and that can force
 // the achievement test to run in RF mode.
 func real_filename(file string, RF bool) string {
-	game := types.GT_PRIV
 	ext := ".SAV"
 	if RF {
 		ext = ".PRS"
@@ -55,7 +54,7 @@ func real_filename(file string, RF bool) string {
 		}
 	}
 
-	return game, filename
+	return filename
 }
 
 func main() {
