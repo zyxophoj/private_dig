@@ -4,7 +4,7 @@ package tables
 
 import "privdump/types"
 
-var Factions = []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "Steltek?", "Retros"}
+var Factions = []string{"Merchants", "Hunters", "Confeds", "Kilrathi", "Militia", "Pirates", "Drone", "Steltek", "Retros"}
 
 const (
 	FACTION_MERCHANTS = iota
@@ -14,7 +14,7 @@ const (
 	FACTION_MILITIA
 	FACTION_PIRATES
 	FACTION_DRONE
-	FACTION_WTF
+	FACTION_STELTEK
 	FACTION_RETROS
 
 	FACTION_COUNT
