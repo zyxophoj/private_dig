@@ -163,12 +163,12 @@ Each of these records contains 18 bytes of data, which is 9 int values storing r
  - 8-9: Militia
  - 10-11: Pirates
  - 12-13: Drone
- - 14-15: Steltek?
+ - 14-15: Steltek
  - 16-17: Retros
 
 12-13 representing the "drone" faction has been confirmed by killing the drone; the kill count does go up to 1 (unless the confeds steal the kill)
 
-14-15 is speculative - nobody has managed to kill the steltek scout to confirm, and this is unlikely to change.
+14-15  representing the "steltex" faction has been confirmed by killing the scout.  Don't try this at home, kids.
 
 In the SCOR form, a reputation between -25 and 25 (inclusive) is Neutral.  Anything above 25 is Friendly; anything below -25 is Hostile.
 
