@@ -457,7 +457,7 @@ func load(full_filename string) (*types.Savedata, error) {
 	}
 	defer reader.Close()
 
-	return readers.Read_savedata(reader)
+	return types.Read_savedata(reader)
 }
 
 func stash(filename string, savedata *types.Savedata) error {

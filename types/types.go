@@ -1,10 +1,14 @@
 package types
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"privdump/writers"
 	"strings"
+		
+	"privdump/readers"
+	"privdump/writers"
 )
 
 type Game int
@@ -153,6 +157,117 @@ func (sd *Savedata) Game() Game {
 	return game
 }
 
+
+func read_header(r io.Reader) (Header, error) {
+	//Header format:
+	//
+	// bytes 0x00-0x03: File size
+	// bytes 0x04-??: Offsets
+	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
+	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
+	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
+	//   This number can be determined by peeking where the MISSIONS offset points, or by caculating based on the first offset.
+	out := Header{}
+
+	size, err := readers.Read_int_le(r)
+	if err != nil {
+		return out, err
+	}
+	out.File_size = size
+
+	for i := 0; i <= OFFSET_MISSIONS; i += 1 {
+		offset, err := readers.Read_int16(r)
+		if err != nil {
+			return out, err
+		}
+		out.Offsets = append(out.Offsets, offset)
+		readers.Advance(r, 2)
+	}
+
+	// Data starts where offsets end, so offset[0] indirectly tells us how many offsets there are.
+	// The -1 is for the file size.
+	missions := (out.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
+
+	// Expect 2 more offsets for each mission
+	mission_offsets := []int{}
+	for i := 0; i < 2*missions; i += 1 {
+		offset, err := readers.Read_int16(r)
+		if err != nil {
+			return out, err
+		}
+		mission_offsets = append(mission_offsets, offset)
+		readers.Advance(r, 2)
+	}
+
+	for i := OFFSET_MISSIONS + 1; i < OFFSET_COUNT; i += 1 {
+		offset, err := readers.Read_int16(r)
+		if err != nil {
+			return out, err
+		}
+		out.Offsets = append(out.Offsets, offset)
+		readers.Advance(r, 2)
+	}
+
+	out.Offsets = append(out.Offsets, mission_offsets...)
+
+	// TODO: advance to offsets[0]?
+
+	return out, nil
+}
+
+// Read_savedata reads savedata (presumably, from a Privateer/RF savefile)
+func Read_savedata(r io.ReadSeeker) (*Savedata, error) {
+	header, err := read_header(r)
+	if err != nil {
+		return nil, err
+	}
+	out := Savedata{
+		Forms:   map[int]*Form{},
+		Strings: map[int]*String_chunk{},
+		Blobs:   map[int]Blob{},
+	}
+
+	for true_index, _ := range header.Offsets {
+		i := Modify_index(true_index, header.Missions())
+		chunk_length := header.Offset_end(i) - header.Offsets[i]
+
+		// An attempt was made to use only io.Reader for file reading.
+		// It failed because mission forms sometimes lie about their lengths in a manner which claims the
+		// first byte of the next chunk.  This means we can not rely on being at the start of chunk n+1 after reading chunk n.
+		// This bullshit could in principle be caught and worked around, but it would massively complicate form reading.
+		r.Seek(int64(header.Offsets[i]), io.SeekStart)
+		switch header.Chunk_type(i) {
+		case CT_FORM:
+			f, err := Read_form(r)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to load form at offset %v - %v", i, err)
+			}
+			out.Forms[i] = f
+
+		case CT_STRING:
+			str, n, err := readers.Read_string(r)
+			if err != nil {
+				return nil, errors.New("Failed to read string")
+			}
+
+			st := String_chunk{str, chunk_length}
+			out.Strings[i] = &st
+			// Variable-length string in fixed-length chunk
+			readers.Advance(r, chunk_length-n)
+
+		case CT_BLOB:
+			blob, err := readers.Read_fixed(r, chunk_length)
+			if err != nil {
+				return nil, errors.New("Failed to read blob")
+			}
+			out.Blobs[i] = blob
+		}
+	}
+
+	return &out, nil
+}
+
+
 func (sd *Savedata) Write(out io.Writer) {
 	chunk_count := len(sd.Forms) + len(sd.Strings) + len(sd.Blobs)
 	missions := (chunk_count - OFFSET_COUNT) / 2
@@ -272,6 +387,98 @@ func (f *Form) Chunk_length() int {
 	return total
 }
 
+
+// Read_form reads a (almost IFF format) form
+func Read_form(r io.Reader) (*Form, error) {
+	// Form format:
+	//
+	// 1 Identifier: A 4-byte capital-letter string which is always "FORM"
+	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
+	// Data:
+	//    3 Form name: 4-byte capital-letter string
+	//    4 0 or more records.
+	//    5  A possible footer - anything within the form length that is not claimed by any records
+	//       (This only seems to happen for mission data forms and is probably just caused by the game calculating the length incorrectly)
+	// Note that the length does not include the length of the identifier "FORM" or of the length itself.
+
+	// Record Format:
+	//
+	// 1 Name: 4-byte capital-letter string
+	// 2 Data Length: 4 bytes indicating the length of the data (big endian int, presumably unsigned).
+	// 3 Data: could be anything, but there is one very special case:  If the name is "FORM" then this record is a form, and so the data is a form name plus a list of records.
+	// (4) A possible "footer" - this is one byte which pads the record out to an even length, and therefore only appears if the "length" field is odd.
+	//
+	// Again, length does not include the first 8 bytes or any footer.
+
+	_, err := readers.Read_fixed_string("FORM", r)
+	if err != nil {
+		return nil, err
+	}
+
+	length, err := readers.Read_int_be(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return read_form_inner(r, length)
+}
+
+func read_form_inner(r io.Reader, length int) (*Form, error) {
+	name_buf, err := readers.Read_fixed(r, 4)
+	if err != nil {
+		return nil, err
+	}
+	bytes_read := 4
+	out := Form{Length: length, Name: string(name_buf)}
+
+	// records
+	for bytes_read <= length-8 { // Minimum record size is 8
+		record_name_buf, err := readers.Read_fixed(r, 4)
+		if err != nil {
+			fmt.Println("Unable to read record")
+			//fmt.Println(fmt.Sprintf("Ignoring %v footer at %v: %v", out.Name, *cur, bytes[*cur:form_end]))
+			break
+		}
+		bytes_read += 4
+
+		length, err := readers.Read_int_be(r)
+		bytes_read += 4
+
+		record_bytes, err := readers.Read_fixed(r, length)
+		bytes_read += length
+
+		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
+
+		record := Record{string(record_name_buf), record_bytes, nil}
+		if length%2 == 1 {
+			record.Footer, _ = readers.Read_fixed(r, 1)
+			bytes_read += 1
+		}
+		//fmt.Println("Adding", record_name, "to", out.name)
+		out.Records = append(out.Records, &record)
+
+		if record.Name == "FORM" {
+			// This record is a form.
+			// We keep the record but also re-read the record data as form data
+			form, err := read_form_inner(bytes.NewReader(record.Data), len(record.Data))
+			if err != nil {
+				//fmt.Println(bytes[*cur:record_start+length])
+				//*cur = record_start+length
+				break
+			}
+
+			//fmt.Println("Adding", form.Name, "to", out.Name)
+			out.Subforms = append(out.Subforms, form)
+		}
+	}
+
+	// Any extra bytes left (there shouldn't be, but sometimes are)
+	out.Footer, _ = readers.Read_fixed(r, length-bytes_read)
+
+	return &out, nil
+}
+
+
 func (form *Form) Write(out io.Writer) (int, error) {
 	writers.Write_string_padded(out, "FORM", 4)
 	writers.Write_uint32_be(out, form.Chunk_length()-8)
@@ -337,10 +544,6 @@ func (b Blob) Write(w io.Writer) (int, error) {
 type String_chunk struct {
 	Value string 
 	Length int // chunk length not string length
-}
-
-func Make_String_chunk(str string, l int) String_chunk {
-	return String_chunk{str, l}
 }
 
 func (sc *String_chunk) Chunk_length() int {
