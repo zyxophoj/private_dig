@@ -14,7 +14,6 @@ import (
 	"gopkg.in/ini.v1"
 
 	"privdump/achievements"
-	"privdump/readers"
 	"privdump/tables"
 	"privdump/types"
 )
@@ -282,7 +281,7 @@ func handle_file(filename string) {
 		fmt.Println("Failed to load file", filename, "-", err)
 		return
 	}
-	savedata, err := readers.Read_savedata(reader)
+	savedata, err := types.Read_savedata(reader)
 	if err != nil {
 		fmt.Println("Failed to parse file", filename, "-", err)
 		return

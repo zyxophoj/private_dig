@@ -1,15 +1,16 @@
 package main
 
-import "fmt"
-import "os"
-import "strings"
+import (
+	"fmt"
+	"os"
+	"strings"
 
-import "gopkg.in/ini.v1"
+	"gopkg.in/ini.v1"
 
-import "privdump/achievements"
-import "privdump/readers"
-import "privdump/types"
-import "privdump/tables"
+	"privdump/achievements"
+	"privdump/types"
+	"privdump/tables"
+)
 
 var test_dir = "ach_test"
 
@@ -21,7 +22,7 @@ func read_file(filename string) (*types.Savedata, error) {
 	}
 	defer reader.Close()
 
-	savedata, err := readers.Read_savedata(reader)
+	savedata, err := types.Read_savedata(reader)
 	if err != nil {
 		fmt.Println("Failed to parse file", filename, "-", err)
 		return nil, err
