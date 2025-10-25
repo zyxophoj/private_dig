@@ -71,7 +71,7 @@ func main() {
 		return
 	}
 	defer f.Close()
-	
+
 	// PRIV.TRE file format:
 	// A TRE file is essentially a library of smaller files
 	//
@@ -133,7 +133,7 @@ func main() {
 		}
 		strings_ = append(strings_, strings.Split(str, " ")[0])
 	}
-	 // Leading "" is here because the game starts counting these at 1
+	// Leading "" is here because the game starts counting these at 1
 	base_type := []string{""}
 	base_type = append(base_type, strings_[22:27]...)
 	// Trailing "Special" covers any "nonstandard" base - e.g. New Detroit, Oxford, Derelict.
@@ -176,8 +176,7 @@ func main() {
 		fmt.Println(h)
 	}
 
-
-    // quadrants...
+	// quadrants...
 	make_enum(quads.Subforms, "QUAD", "QUAD_ID", func(i int, f *types.Form) (string, int) {
 		for _, r2 := range f.Records {
 			if r2.Name == "INFO" {
@@ -190,7 +189,6 @@ func main() {
 		return "", -1
 	})
 	fmt.Println()
-
 
 	// systems...
 	fmt.Println("//The strange order here is quadrant first, then ASCIIbetical")
@@ -261,8 +259,7 @@ func main() {
 	fmt.Println("}")
 	fmt.Println()
 
-
-    // bases...
+	// bases...
 	make_enum(bases.Records, "BASE", "BASE_ID", func(_ int, info *types.Record) (string, int) {
 		if info.Name == "INFO" {
 			// Byte 0: unique Id for this base
@@ -306,8 +303,7 @@ func main() {
 	}
 	fmt.Println("}")
 
-
-    // Flags...
+	// Flags...
 	flags := utils.Make_flags()
 	// Although it would be funny, we don't really want flags in random order
 	type flag struct {

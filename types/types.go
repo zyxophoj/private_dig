@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
-		
+
 	"privdump/readers"
 	"privdump/writers"
 )
@@ -157,7 +157,6 @@ func (sd *Savedata) Game() Game {
 	return game
 }
 
-
 func read_header(r io.Reader) (Header, error) {
 	//Header format:
 	//
@@ -266,7 +265,6 @@ func Read_savedata(r io.ReadSeeker) (*Savedata, error) {
 
 	return &out, nil
 }
-
 
 func (sd *Savedata) Write(out io.Writer) {
 	chunk_count := len(sd.Forms) + len(sd.Strings) + len(sd.Blobs)
@@ -528,7 +526,6 @@ func read_form_inner(r io.Reader, length int) (*Form, error) {
 	return &out, nil
 }
 
-
 func (form *Form) Write(out io.Writer) (int, error) {
 	writers.Write_string_padded(out, "FORM", 4)
 	writers.Write_uint32_be(out, form.Chunk_length()-8)
@@ -608,7 +605,7 @@ func (b Blob) Write(w io.Writer) (int, error) {
 // String_chunk holds a string and a chunk length
 // (since the string is always stored with a null terminator, max string length is 1 less than chunk length)
 type String_chunk struct {
-	Value string 
+	Value  string
 	Length int // chunk length not string length
 }
 
@@ -623,4 +620,3 @@ func (sc *String_chunk) Write(w io.Writer) (int, error) {
 func (sc *String_chunk) String() string {
 	return fmt.Sprintf("%v (max length %v)", sc.Value, sc.Length-1)
 }
-
