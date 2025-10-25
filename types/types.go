@@ -313,6 +313,7 @@ type Form struct {
 	Length   int
 	Records  []*Record
 	Subforms []*Form
+	Tables   []*Table
 	Footer   []byte
 }
 
@@ -387,6 +388,29 @@ func (f *Form) Chunk_length() int {
 	return total
 }
 
+func read_record(r io.Reader) (*Record, int, error) {
+	bytes_read := 0
+
+	record_name_buf, err := readers.Read_fixed(r, 4)
+	if err != nil {
+		return nil, 4, err
+	}
+	bytes_read += 4
+
+	length, err := readers.Read_int_be(r)
+	bytes_read += 4
+
+	record_bytes, err := readers.Read_fixed(r, length)
+	bytes_read += length
+
+	record := &Record{string(record_name_buf), record_bytes, nil}
+	if length%2 == 1 {
+		record.Footer, _ = readers.Read_fixed(r, 1)
+		bytes_read += 1
+	}
+
+	return record, bytes_read, nil
+}
 
 // Read_form reads a (almost IFF format) form
 func Read_form(r io.Reader) (*Form, error) {
@@ -433,29 +457,54 @@ func read_form_inner(r io.Reader, length int) (*Form, error) {
 
 	// records
 	for bytes_read <= length-8 { // Minimum record size is 8
-		record_name_buf, err := readers.Read_fixed(r, 4)
+
+		record, read, err := read_record(r)
 		if err != nil {
 			fmt.Println("Unable to read record")
 			//fmt.Println(fmt.Sprintf("Ignoring %v footer at %v: %v", out.Name, *cur, bytes[*cur:form_end]))
 			break
 		}
-		bytes_read += 4
+		bytes_read += read
 
-		length, err := readers.Read_int_be(r)
-		bytes_read += 4
+		if record.Name == "TABL" {
+			// TABL is a non-standard "record type" which doesn't even fit the definition of a record
+			table := Table{}
+			for i := 0; i < len(record.Data); i += 4 {
+				offset, _ := readers.Read_int_le(bytes.NewReader(record.Data[i : i+4])) //todo: fewer readers
+				table.Offsets = append(table.Offsets, offset)
+			}
 
-		record_bytes, err := readers.Read_fixed(r, length)
-		bytes_read += length
+			// The offsets are offsets into the *form*, starting at the very beginning.  Because of fucking course they are.
+			for _, offset := range table.Offsets {
+				foffset := offset - 8 // bytes_read counts from after the "FORM" and form length (4 bytes each).  So fudge the offset.
+				if bytes_read < foffset {
+					readers.Advance(r, foffset-bytes_read)
+					bytes_read = foffset
+				}
+				if bytes_read > foffset {
+					panic("messed up table!")
+				}
 
-		//fmt.Println(fmt.Sprintf("Record %v  %v->%v", record_name, *cur, *cur+length))
+				expected_length, _ := readers.Read_int_le(r)
+				bytes_read += 4
 
-		record := Record{string(record_name_buf), record_bytes, nil}
-		if length%2 == 1 {
-			record.Footer, _ = readers.Read_fixed(r, 1)
-			bytes_read += 1
+				table_record, actual_length, err := read_record(r)
+				if err != nil {
+					panic("Messed-up table!")
+				}
+				bytes_read += actual_length
+				if actual_length != expected_length {
+					panic(fmt.Sprintf("Messed-up table! read %v, should have read %v", actual_length, expected_length))
+				}
+
+				table.Records = append(table.Records, table_record)
+			}
+			out.Tables = append(out.Tables, &table)
+		} else {
+			// Normal Record
+			//fmt.Println("Adding", record_name, "to", out.name)
+			out.Records = append(out.Records, record)
 		}
-		//fmt.Println("Adding", record_name, "to", out.name)
-		out.Records = append(out.Records, &record)
 
 		if record.Name == "FORM" {
 			// This record is a form.
@@ -524,6 +573,22 @@ func (f *Form) String() string {
 	}
 	for _, subform := range f.Subforms {
 		out += subform.String()
+	}
+	for _, table := range f.Tables {
+		out += table.String()
+	}
+	return out
+}
+
+type Table struct {
+	Offsets []int
+	Records []*Record
+}
+
+func (t *Table) String() string {
+	out := "TABL\n"
+	for _, record := range t.Records {
+		out += fmt.Sprintf("%v\n", record)
 	}
 	return out
 }
