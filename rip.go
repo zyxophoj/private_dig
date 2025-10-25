@@ -112,17 +112,8 @@ func main() {
 		}
 	}
 
-	read_form_from := func(f *os.File, where int64, expected_name string) (*types.Form, error) {
-		_, err = f.Seek(where, 0)
-		form, err := readers.Read_form(f)
-		if err != nil {
-			return form, err
-		}
-		if form.Name != expected_name {
-			return form, errors.New(fmt.Sprintf("Expected %v form; found %v", expected_name, form.Name))
-		}
-		return form, err
-	}
+	//dump_guns(f, subfiles["..\\..\\DATA\\TYPES\\GUNS.IFF"].start)
+	//return
 
 	// Base types
 	// This is dirty.  We are relying on the fact that the strings in the string table are in the correct order.
@@ -347,4 +338,41 @@ func main() {
 		return f.str, f.value
 	})
 	fmt.Println()
+}
+
+func read_form_from(f *os.File, where int64, expected_name string) (*types.Form, error) {
+	f.Seek(where, 0)
+	form, err := types.Read_form(f)
+	if err != nil {
+		return form, err
+	}
+	if form.Name != expected_name {
+		return form, errors.New(fmt.Sprintf("Expected %v form; found %v", expected_name, form.Name))
+	}
+	return form, err
+}
+
+func dump_guns(f *os.File, where int64) {
+	guns_form, _ := read_form_from(f, where, "GUNS")
+	for _, rec := range guns_form.Tables[0].Records {
+		r := bytes.NewReader(rec.Data)
+		str1, _, _ := readers.Read_string(r)
+		_str2, _ := readers.Read_fixed(r, 16)
+		str2 := strings.Trim(string(_str2), string([]byte{0}))
+		r = bytes.NewReader(rec.Data[21:])
+		abuse, _ := readers.Read_int16(r)
+		readers.Advance(r, 1)
+		speed, _ := readers.Read_int16(r)
+		readers.Advance(r, 1)
+		duration, _ := readers.Read_int_le(r)
+		refire, _ := readers.Read_int_le(r)
+		energy, _ := readers.Read_int16(r)
+		damage, _ := readers.Read_int16(r)
+
+		fmt.Println(str1, fmt.Sprintf("%17s ", str2), "abuse:", fmt.Sprintf("%5v ", abuse), "speed:", fmt.Sprintf("%4v ", speed),
+			"duration:", fmt.Sprintf("%4v ", float32(int(float32(duration)*100/256+0.99))/100),
+			"range:", fmt.Sprintf("%4v ", speed*duration/256),
+			"refire", fmt.Sprintf("%4v ", float32(int(float32(refire)*100.0/256.0+0.99))/100), //UGH!!
+			"energy:", fmt.Sprintf("%2v ", energy), "damage:", float32(damage)/10.0)
+	}
 }
