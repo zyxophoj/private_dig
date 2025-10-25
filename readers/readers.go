@@ -109,3 +109,17 @@ func Read_int16(r io.Reader) (int, error) {
 
 	return int(out), nil
 }
+
+func Read_uint16(r io.Reader) (int, error) {
+	bytes, err := Read_fixed(r, 2)
+	if err != nil {
+		return 0, err
+	}
+	// little-endian
+	out := int(0)
+	for cur := range 2 {
+		out = out + (int(uint(bytes[cur])) << (8 * cur))
+	}
+
+	return int(out), nil
+}
