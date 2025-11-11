@@ -149,10 +149,14 @@ func (sd *Savedata) Chunk(n int) Chunk {
 func (sd *Savedata) Game() Game {
 	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
 	game := GT_PRIV
-	hidden := sd.Forms[OFFSET_SSSS].Get("ORIG").Data
-	if hidden[len(hidden)-1] == 68 {
-		game = GT_RF
+	if sd.Forms[OFFSET_SSSS] != nil{
+		hidden := sd.Forms[OFFSET_SSSS].Get("ORIG").Data
+		if hidden[len(hidden)-1] == 68 {
+			game = GT_RF
+		}
 	}
+	// TODO: it's possible that we are being called in a "show_missing -rf context" - ideally, we should
+	// get the -rf value here.
 
 	return game
 }
