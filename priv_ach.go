@@ -1,20 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime/debug"
 	"strings"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"gopkg.in/ini.v1"
 
 	"privdump/achievements"
-	"privdump/tables"
+	"privdump/priv_ach"
 	"privdump/types"
 )
 
@@ -47,24 +41,6 @@ func get_dir() string {
 
 	wd, _ := os.Getwd()
 	return wd
-}
-
-var global_state = struct {
-	Unlocked map[string]map[string]bool         // cheeves earned
-	Visited  map[string]map[tables.BASE_ID]bool // locations visited
-	Secrets  map[string]*uint8                  // which ships have had the secret compartment
-}{map[string]map[string]bool{}, map[string]map[tables.BASE_ID]bool{}, map[string]*uint8{}}
-
-var state_file = ""
-
-func save_state() {
-	b, _ := json.Marshal(global_state)
-	ioutil.WriteFile(state_file, b, 0644)
-}
-
-func load_state() {
-	bytes, _ := ioutil.ReadFile(state_file)
-	json.Unmarshal(bytes, &global_state)
 }
 
 func main() {
@@ -125,7 +101,6 @@ func main() {
 	}
 
 	dir := get_dir()
-	state_file = filepath.Join(dir, "pracst.json")
 
 	switch main_arg {
 	case "help":
@@ -137,13 +112,13 @@ func main() {
 		fmt.Println("Target dir is: " + dir)
 
 	case "list":
-		load_state()
-		if len(global_state.Unlocked) == 0 {
+		state := priv_ach.GetState(dir)
+		if len(state.Unlocked) == 0 {
 			fmt.Println("(no profiles detected")
 			os.Exit(0)
 		}
 
-		for p := range global_state.Unlocked {
+		for p := range state.Unlocked {
 			fmt.Println(p)
 		}
 
@@ -151,8 +126,8 @@ func main() {
 		fmt.Println("Showing achevements for", subargs[0])
 		fmt.Println()
 
-		load_state()
-		got := global_state.Unlocked[subargs[0]]
+		state := priv_ach.GetState(dir)
+		got := state.Unlocked[subargs[0]]
 		ttotal := 0
 		for _, cat_list := range achievements.Cheev_list {
 			cat_list.Cheeves = append(cat_list.Cheeves, achievements.Cheev_list_rf[cat_list.Category]...)
@@ -178,12 +153,12 @@ func main() {
 		fmt.Println("Showing missing achevements for", subargs[0])
 		fmt.Println()
 
-		load_state()
-		got := global_state.Unlocked[subargs[0]]
+		state := priv_ach.GetState(dir)
+		has := state.Unlocked[subargs[0]]
 
 		// TODO:  a per-character "rf" flag would help here.
 		is_rf := flags["--rf"]
-		for cheev := range got {
+		for cheev := range has {
 			if strings.HasPrefix(cheev, "AID_RF") {
 				is_rf = true
 				break
@@ -196,7 +171,7 @@ func main() {
 			total := len(cat_list.Cheeves)
 			indices := []int{}
 			for i, cheev := range cat_list.Cheeves {
-				if !got[cheev.Id] {
+				if !has[cheev.Id] {
 					indices = append(indices, i)
 				}
 			}
@@ -207,7 +182,7 @@ func main() {
 					fmt.Println("   (" + cat_list.Cheeves[i].Expl + ")")
 
 					if cat_list.Cheeves[i].Multi {
-						arg := achievements.Arg{types.Savedata{}, global_state.Visited[subargs[0]], global_state.Secrets[subargs[0]], ""}
+						arg := achievements.Arg{types.Savedata{}, state.Visited[subargs[0]], state.Secrets[subargs[0]], ""}
 						cat_list.Cheeves[i].Test(&arg)
 						if arg.Progress != "" {
 							fmt.Println("   Progress: " + arg.Progress)
@@ -221,132 +196,34 @@ func main() {
 		}
 
 	case "run":
-		main_run(dir)
+		cheeves := make(chan *priv_ach.Achievement)
+		watcher := priv_ach.New_watcher(dir)
+		go func() {
+			for {
+				select {
+				case cheev := <-cheeves:
+					fmt.Println(cheev.Name)
+					fmt.Println(cheev.Desc)
+					fmt.Println("Category:", cheev.Category)
+					fmt.Println()
+				}
+			}
+		}()
+
+		err := watcher.Start_watching(cheeves)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println("Watching...", dir)
+		fmt.Println()
+		fmt.Println()
+
+		// Wait forever!
+		// TODO: some clean way to detect a quit key and call watcher.Stop_watching()
+		<-make(chan bool)
 	}
 
 	os.Exit(0)
-}
-
-func main_run(dir string) {
-	// Create new watcher.
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer watcher.Close()
-
-	load_state()
-
-	// Start listening for events.
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Has(fsnotify.Write) {
-					if strings.HasSuffix(event.Name, ".SAV") || strings.HasSuffix(event.Name, ".PRS") {
-						handle_file(event.Name)
-					}
-
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				fmt.Println("error:", err)
-			}
-		}
-	}()
-
-	fmt.Println("Watching...", dir)
-	fmt.Println()
-	fmt.Println()
-	err = watcher.Add(dir)
-
-	// Wait forever!
-	<-make(chan bool)
-}
-
-var last_identity = ""
-
-func handle_file(filename string) {
-	// Wait for Privateer itself to finish with the file
-	time.Sleep(5 * time.Second)
-
-	reader, err := os.Open(filename)
-	if err != nil {
-		fmt.Println("Failed to load file", filename, "-", err)
-		return
-	}
-	savedata, err := types.Read_savedata(reader)
-	if err != nil {
-		fmt.Println("Failed to parse file", filename, "-", err)
-		return
-	}
-	identity := savedata.Strings[types.OFFSET_NAME].Value + ":" + savedata.Strings[types.OFFSET_CALLSIGN].Value
-
-	// Set up proper "uninitialised" values
-	_, ok := global_state.Visited[identity]
-	if !ok {
-		global_state.Visited[identity] = map[tables.BASE_ID]bool{}
-	}
-	_, ok = global_state.Secrets[identity]
-	if !ok {
-		global_state.Secrets[identity] = new(uint8)
-	}
-
-
-	arg := achievements.Arg{*savedata, global_state.Visited[identity], global_state.Secrets[identity], ""}
-	arg.Update()
-
-	for _, list := range achievements.Cheev_list {
-
-		cheeves := list.Cheeves
-		if arg.Savedata.Game() == types.GT_RF {
-			cheeves = append(cheeves, achievements.Cheev_list_rf[list.Category]...)
-		}
-
-		for _, cheev := range cheeves {
-
-			if last_identity != identity {
-				fmt.Println("Identity is", identity)
-				fmt.Println()
-				last_identity = identity
-			}
-
-			// Really not a fan of panic-recover, but I suppose there's a case for it here
-			// Recovering will prevent a shittily-written cheev test from bringing the entire app down.
-			ct_wrap := func(a *achievements.Achievement, arg achievements.Arg) bool {
-				defer func() {
-					if recover() != nil {
-						fmt.Println("Something went *very* wrong when calculating achievement \"" + a.Name + "\":")
-						debug.PrintStack()
-						// If this happens, the ct_wrap function returns the default value, which is false
-					}
-				}()
-
-				return a.Test(&arg)
-			}
-
-			if !global_state.Unlocked[identity][cheev.Id] && ct_wrap(&cheev, arg) {
-				fmt.Println(cheev.Name)
-				fmt.Println(cheev.Expl)
-				fmt.Println("Category:", list.Category)
-				fmt.Println()
-
-				_, ok := global_state.Unlocked[identity]
-				if !ok {
-					global_state.Unlocked[identity] = map[string]bool{}
-				}
-				global_state.Unlocked[identity][cheev.Id] = true
-			}
-		}
-	}
-
-	save_state()
-	//fmt.Println("   Finished with file", filename)
-	//fmt.Println()
 }
