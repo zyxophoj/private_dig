@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	
 	"privdump/achievements"
-
 	"privdump/tables"
 	"privdump/types"
 )
@@ -24,7 +24,7 @@ type Achievement struct {
 }
 
 const (
-	// a bitfield withroom for expansion
+	// a bitfield with room for expansion
 	FLAG_RF = 1
 )
 
@@ -59,28 +59,49 @@ func (dw *dir_watcher) Start_watching(cheeves chan<- *Achievement) error {
 	dw.load_state()
 
 	go func() {
+		// Watcher thread - detects "file saved" events, waits for 5 seconds, then calls handle_file
+		// We wait without blocking because the watcher probably wouldn't like that.
+		delay := time.Second*5
+		
+		tasks := map[string]time.Time{}
+		alert := make(chan bool)
 		for {
 			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Has(fsnotify.Write) {
-					if strings.HasSuffix(event.Name, ".SAV") || strings.HasSuffix(event.Name, ".PRS") {
-						dw.handle_file(event.Name, cheeves)
-					}
-
-				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
 				// TODO: report error!
 				fmt.Println(err)
+			
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Write) {
+					if strings.HasSuffix(event.Name, ".SAV") || strings.HasSuffix(event.Name, ".PRS") {
+						// Wait until Privateer itself has finished writing to the file
+						// This may overwrite an existing task time (if it does, that old time is no longer valid anyway)
+						tasks[event.Name] = time.Now().Add(delay)
+						time.AfterFunc(delay, func(){alert<-true})
+					}
+				}
+			case <-alert:
+				done := []string{}
+				for filename, t := range(tasks){
+					if time.Now().After(t){
+						dw.handle_file(filename, cheeves)
+						done=append(done, filename)
+					}
+				}
+					
+				for _,f:=range(done){
+					delete(tasks, f)
+				}
 			}
 		}
 	}()
-
+	
 	err = dw.watcher.Add(dw.dir)
 	if err != nil {
 		dw.watcher.Close()
@@ -114,10 +135,7 @@ func GetState(dir string) *state_type {
 }
 
 func (dw *dir_watcher) handle_file(filename string, out chan<- *Achievement) {
-	// Wait for Privateer itself to finish with the file
-	time.Sleep(5 * time.Second)
-
-	// TODO : report errors betterly
+	// TODO : report errors better - this will have to wait until we have a real logging system.
 
 	reader, err := os.Open(filename)
 	if err != nil {
