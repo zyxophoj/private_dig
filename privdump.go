@@ -11,8 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"gopkg.in/ini.v1"
-
 	"privdump/readers"
 	"privdump/tables"
 	"privdump/types"
@@ -605,29 +603,9 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 	return out
 }
 
-func get_dir() string {
-	// dir from command line
-	if len(os.Args) > 1 && os.Args[1] == "--dir" {
-		return os.Args[2]
-	}
-
-	//dir from ini file
-	cfg, err := ini.Load("priv_ach.ini")
-	if err == nil {
-		// Classic read of values, default section can be represented as empty string
-		dir := cfg.Section("").Key("dir").String()
-		if dir != "" {
-			return dir
-		}
-	}
-
-	wd, _ := os.Getwd()
-	return wd
-}
-
 func main() {
 
-	basedir := get_dir()
+	basedir := utils.Get_savefile_dir()
 	filename := os.Args[1]
 	full_filename := basedir + "/" + filename
 

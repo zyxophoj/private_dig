@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
-	"os"
 	"strconv"
 	"time"
 	"unicode"
@@ -20,28 +19,8 @@ import (
 	"github.com/gopxl/pixel/v2/ext/text"
 
 	"privdump/priv_ach"
+	"privdump/utils"
 )
-
-// get_dir gets the dir to look for Privateer savefiles in
-func get_dir() string {
-	// dir from command line
-	if len(os.Args) > 1 && os.Args[1] == "--dir" {
-		return os.Args[2]
-	}
-
-	//dir from ini file
-	cfg, err := ini.Load("priv_ach.ini")
-	if err == nil {
-		// Classic read of values, default section can be represented as empty string
-		dir := cfg.Section("").Key("dir").String()
-		if dir != "" {
-			return dir
-		}
-	}
-
-	wd, _ := os.Getwd()
-	return wd
-}
 
 func solid_rect_sprite(rect pixel.Rect, colour color.RGBA) *pixel.Sprite {
 	pd := pixel.MakePictureData(rect)
@@ -88,7 +67,7 @@ func color_from_string(str string) (color.RGBA, error) {
 	return out, nil
 }
 
-// clean cleans a slice (i.e. throws away anything in the underlying array, allowing GC to happen)
+// clean cleans a slice (i.e. throws away anything that is inaccessible but still in the underlying array, allowing GC to happen)
 // This does copy the part of the slice that should remain.
 func clean[T any](in []T) []T {
 	out := make([]T, len(in))
@@ -162,7 +141,7 @@ func run() {
 	texts := []*text.Text{}
 	cheeves := make(chan *priv_ach.Achievement)
 	expired := make(chan bool)
-	watcher := priv_ach.New_watcher(get_dir())
+	watcher := priv_ach.New_watcher(utils.Get_savefile_dir())
 	err = watcher.Start_watching(cheeves)
 	if err != nil {
 		fmt.Println(err)
@@ -216,7 +195,7 @@ func run() {
 			y_base := cfg["H"] - cfg["Y_BORDER"] + current_scroll*float64(TEXT_HEIGHT)
 			for i, t := range texts {
 				y_base_i := y_base - float64(i*TEXT_HEIGHT)
-				bgsprite.Draw(win, pixel.IM.Moved(pixel.V(cfg["W"]/2, y_base_i-(TEXT_HEIGHT)/2+LINE_HEIGHT/4)))
+				bgsprite.Draw(win, pixel.IM.Moved(pixel.V(cfg["W"]/2, y_base_i-TEXT_HEIGHT/2+LINE_HEIGHT/4)))
 				t.Draw(win, pixel.IM.Moved(pixel.V(cfg["X_BORDER"], y_base_i-TEXT_H_OFFSET)))
 			}
 			win.Update()

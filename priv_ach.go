@@ -5,43 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"gopkg.in/ini.v1"
-
 	"privdump/achievements"
 	"privdump/priv_ach"
 	"privdump/types"
+	"privdump/utils"
 )
-
-func get_dir() string {
-	// dir from command line
-	if len(os.Args) > 1 && os.Args[1] == "--dir" {
-		return os.Args[2]
-	}
-
-	//dir from ini file
-	cfg, err := ini.Load("priv_ach.ini")
-	if err == nil {
-		// Classic read of values, default section can be represented as empty string
-		dir := cfg.Section("").Key("dir").String()
-		if dir != "" {
-			return dir
-		}
-	}
-
-	/*bytes, err := ioutil.ReadFile("priv_ach.cfg")
-	if err == nil {
-		cfg := map[string]string{}
-		_ = json.Unmarshal(bytes, &cfg)
-		if cfg["dir"] != "" {
-			return cfg["dir"]
-		}
-	}*/
-
-	//current dir
-
-	wd, _ := os.Getwd()
-	return wd
-}
 
 func main() {
 	// Deal with args
@@ -100,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dir := get_dir()
+	dir := utils.Get_savefile_dir()
 
 	switch main_arg {
 	case "help":

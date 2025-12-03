@@ -47,7 +47,7 @@ var g_stash_filename = "privedit.tmp"
 
 func get_dir() string {
 	// dir from command line
-	if len(os.Args) > 1 && os.Args[1] == "--dir" {
+	if len(os.Args) > 2 && os.Args[1] == "--dir" {
 		return os.Args[2]
 	}
 

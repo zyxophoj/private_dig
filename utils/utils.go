@@ -1,7 +1,32 @@
 package utils
 
+import "os"
 import "strconv"
+
+import "gopkg.in/ini.v1"
+
 import "privdump/types"
+
+// get_dir gets the dir to look for Privateer savefiles in
+func Get_savefile_dir() string {
+	// dir from command line
+	if len(os.Args) > 2 && os.Args[1] == "--dir" {
+		return os.Args[2]
+	}
+
+	//dir from ini file
+	cfg, err := ini.Load("priv_ach.ini")
+	if err == nil {
+		// Classic read of values, default section can be represented as empty string
+		dir := cfg.Section("").Key("dir").String()
+		if dir != "" {
+			return dir
+		}
+	}
+
+	wd, _ := os.Getwd()
+	return wd
+}
 
 func Make_flags() map[types.Game]map[int]string {
 	
