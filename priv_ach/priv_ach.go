@@ -3,7 +3,6 @@ package priv_ach
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -117,19 +116,19 @@ func (dw *dir_watcher) Stop_watching() {
 func (dw *dir_watcher) save_state() {
 	state_file := filepath.Join(dw.dir, "pracst.json")
 	b, _ := json.Marshal(dw.state)
-	ioutil.WriteFile(state_file, b, 0644)
+	os.WriteFile(state_file, b, 0644)
 }
 
 func (dw *dir_watcher) load_state() {
 	state_file := filepath.Join(dw.dir, "pracst.json")
-	bytes, _ := ioutil.ReadFile(state_file)
+	bytes, _ := os.ReadFile(state_file)
 	json.Unmarshal(bytes, &dw.state)
 }
 
 func GetState(dir string) *state_type {
 	state := state_type{}
 	state_file := filepath.Join(dir, "pracst.json")
-	bytes, _ := ioutil.ReadFile(state_file)
+	bytes, _ := os.ReadFile(state_file)
 	json.Unmarshal(bytes, &state)
 	return &state
 }
