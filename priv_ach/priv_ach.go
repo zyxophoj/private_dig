@@ -79,7 +79,7 @@ func (dw *dir_watcher) Start_watching(cheeves chan<- *Achievement) error {
 					return
 				}
 				if event.Has(fsnotify.Write) {
-					if strings.HasSuffix(event.Name, ".SAV") || strings.HasSuffix(event.Name, ".PRS") {
+					if strings.HasSuffix(strings.ToUpper(event.Name), ".SAV") || strings.HasSuffix(strings.ToUpper(event.Name), ".PRS") {
 						// Wait until Privateer itself has finished writing to the file
 						// This may overwrite an existing task time (if it does, that old time is no longer valid anyway)
 						tasks[event.Name] = time.Now().Add(delay)
