@@ -924,7 +924,8 @@ var Cheev_list_rf = map[string][]Achievement{
 			return a.Has_flags(tables.FLAG_RF_TERRELL_DONE)
 		}},
 		{"AID_RF_WIN", "God Emperor of toasters", "Kill Mordecai Jones (RF)", false, func(a *Arg) bool {
-			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE)
+			mission, flag := a.Plot_info()
+			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE) || (mission=="s14mb" && is_completed_status(flag))
 		}},
 	},
 	"Random": []Achievement{
@@ -1007,7 +1008,8 @@ var Cheev_list_rf = map[string][]Achievement{
 				}
 			}
 
-			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE)
+			mission, flag := a.Plot_info()
+			return a.Has_flags(tables.FLAG_RF_KILL_JONES_DONE) || (mission=="s14mb" && is_completed_status(flag))
 		}},
 	},
 }
