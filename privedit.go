@@ -11,13 +11,9 @@ package main
 // privedit set engine 5
 // privedit set shields 5
 // privedit set guns "left:Boosted Steltek gun"
-// privedit set guns left_outer:boo
-// privedit set guns right:boo
-// privedit set guns right_o:boo
+// privedit set guns left_outer:boo right:boo right_o:boo
 // privedit set missiles Image:32000
-// privedit set launchers left:miss
-// privedit set launchers right:miss
-// privedit set launchers turret_1:miss
+// privedit set launchers left:miss right:miss turret_1:miss
 // privedit set turrets rear:present
 // privedit set reputation retros:100
 // privedit set name Filthy
@@ -418,14 +414,28 @@ func main2() error {
 			}
 			return errors.New(str)
 		}
-		to := os.Args[3]
+		to_list := os.Args[3:]
 
-		to_matched, err := set(what, to, savedata)
-		if err != nil {
-			return err
+		_,is_mountable :=mount_infos[what]
+		if len(to_list) >1 && !is_mountable {
+			return errors.New(what+" can only be set to one thing!")
 		}
 
-		fmt.Println(what, "set to", to_matched)
+		success := []string{}
+		for _,to:=range to_list{
+			to_matched, err := set(what, to, savedata)
+			if err != nil {
+				// TODO: think about this
+				// If we were given a partially-valid instruction, should we do part of it, or fail entirely?
+				// Currently we fail entirely, because one error returns out here so the stash never happens.
+				return err
+			}
+			success=append(success, to_matched)
+		}
+
+		for _, suc :=range(success){
+			fmt.Println(what, "set to", suc)
+		}
 		return stash(filename, savedata)
 
 	case "dump":

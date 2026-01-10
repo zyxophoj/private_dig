@@ -24,13 +24,9 @@ privedit set location new_d
 privedit set engine 5
 privedit set shield 5
 privedit set guns "left:Boosted Steltek gun"
-privedit set guns left_outer:boo
-privedit set guns right:boo
-privedit set guns right_o:boo
+privedit set guns left_outer:boo right:boo right_o:boo
 privedit set missiles Image:32000
-privedit set launchers left:miss
-privedit set launchers right:miss
-privedit set launchers turret_1:miss
+privedit set launchers left:miss right:miss turret_1:miss
 privedit set turrets rear:present
 privedit set reputation retros:100
 privedit set name Filthy
