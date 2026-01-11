@@ -91,7 +91,7 @@ func main() {
 			}
 			is_rf := strings.HasPrefix(s.Name(), "AID_RF_")
 			if !cheev.Multi {
-				// Simple achievements: "yes" files shuold have the cheev; "no" files should not.
+				// Simple achievements: "yes" files should have the cheev; "no" files should not.
 				for _, expected := range []bool{true, false} {
 					for _, file := range strings.Split(s.Key(boolmap("yes", "no")[expected]).String(), ",") {
 						filename := real_filename(file, is_rf)

@@ -166,7 +166,7 @@ var mount_infos = map[string]mount_info{
 }
 
 // add_new_record adds a new record to a savadata
-// Ideally, this should be a member functino of types.Savedata, but that would make a promise of
+// Ideally, this should be a member function of types.Savedata, but that would make a promise of
 // completeness that really isn't delivered here.  This is the "good enough for privedit" version.
 //
 // offset is the data offset- which had better be a form offset - where the target form is located

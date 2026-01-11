@@ -10,6 +10,7 @@ Go to the releases page (https://github.com/zyxophoj/private_dig/releases) and d
  
 - Edit the priv_ach.ini file.  There is only one setting, which should be the location of your Privateer saved games.  Change it if it is wrong.
 - privedit.exe should now be ready to run
+- privedit is a command-line application.  Windows users should run it inside a DOS box (cmd.exe)
 
 
 ### Some example commands
@@ -34,7 +35,7 @@ privedit set callsign Cheater
 privedit save
 ```
 
-Alternatively, to take advantage of the Galkaxy's ability to fit 4 launchers - and therefore fire 4 missiles at once:
+Alternatively, to take advantage of the Galaxy's ability to fit 4 launchers - and therefore fire 4 missiles at once:
 
 ```
 privedit load savefile.sav

@@ -200,6 +200,8 @@ func find_all_places(bt tables.BASE_TYPE) []tables.BASE_ID {
 	return out
 }
 
+// mcs = Make Cheev Struct
+
 // mcs_kill makes a "kill a bunch of people" achievement
 func mcs_kill(id string, name string, number int, faction int) Achievement {
 	return Achievement{
