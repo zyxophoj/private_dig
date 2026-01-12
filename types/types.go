@@ -312,7 +312,6 @@ type Chunk interface {
 
 type Form struct {
 	Name     string
-	Length   int
 	Records  []*Record
 	Subforms []*Form
 	Tables   []*Table
@@ -382,7 +381,7 @@ func (f *Form) Chunk_length() int {
 		if rec.Name == "FORM" {
 			continue
 		}
-		total += (4 + len(rec.Name) + len(rec.Data) + (len(rec.Data) % 2)) //(name(4), length(4) +data(whatever) + footer)
+		total += (len(rec.Name) + 4 + len(rec.Data) + (len(rec.Data) % 2)) //(name(4), length(4), data(whatever), footer(0 or 1))
 	}
 	for _, sf := range f.Subforms {
 		total += sf.Chunk_length()
@@ -456,7 +455,7 @@ func read_form_inner(r io.Reader, length int) (*Form, error) {
 		return nil, err
 	}
 	bytes_read := 4
-	out := Form{Length: length, Name: string(name_buf)}
+	out := Form{Name: string(name_buf)}
 
 	// records
 	for bytes_read <= length-8 { // Minimum record size is 8
