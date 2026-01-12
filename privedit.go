@@ -388,7 +388,7 @@ func main3(log *burstlogger.BurstLogger) error {
 		writer.Flush()
 		f.Sync()
 		log.Logln("New file written to", filename)
-		
+
 		err = os.Remove(g_stash_filename)
 		if err != nil {
 			return err
@@ -679,6 +679,7 @@ func set(what string, to string, savedata *types.Savedata, log Logger) (string, 
 			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), savedata.Chunk(g.offset).Chunk_length()))
 		}
 		savedata.Strings[g.offset].Value = to
+		return matched, nil
 
 	case CT_BLOB:
 		target = savedata.Blobs[g.offset]
@@ -777,9 +778,7 @@ func set_mountables(what, to string, savedata *types.Savedata, log Logger) (stri
 	}
 
 	matched_bits := []string{to_bits[0], to_bits[1]}
-
 	var err error
-
 	to_mount := -1
 	to_mount, matched_bits[0], err = fuzzy_reverse_lookup(mounts, to_bits[0], "mount")
 	if err != nil {
@@ -807,8 +806,9 @@ func set_mountables(what, to string, savedata *types.Savedata, log Logger) (stri
 			}
 		}
 	}
-
 	matched := matched_bits[0] + ":" + matched_bits[1]
+
+	// Now we actually do what we were asked to do
 
 	record := savedata.Forms[g.offset].Get(g.record...)
 	if record == nil {
@@ -830,12 +830,16 @@ func set_mountables(what, to string, savedata *types.Savedata, log Logger) (stri
 		return matched, nil
 	}
 
+	eq_new_str := safe_lookup(equipment, to_thing)
+	mount_str := safe_lookup(mounts, to_mount)
 	for i := 0; i < len(data); i += cl {
 		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
 		if err != nil {
 			return "", err
 		}
 		mount := int(data[i+minfo.mount_offset])
+
+		eq_old_str := safe_lookup(equipment, thing)
 
 		if mount == to_mount {
 			// equipment exists...
@@ -962,15 +966,16 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	// front-mounted launchers must appear before turret-mounted launchers (or the game crashes when user pressses 'W')
 	launchers := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
+		cl := mount_infos["launchers"].chunk_length
+		mo := mount_infos["launchers"].mount_offset
 		d := launchers.Data
-		L := len(d) / 4
 		// Fix the problem by sorting
 		// TODO: something smarter than bubblesort.  Ugh.
-		for i1 := 0; i1 < L-1; i1 += 1 {
-			for i2 := i1 + 1; i2 < L; i2 += 1 {
-				if d[4*i1+1] > d[4*i2+1] {
-					fmt.Println("Sanity fix: reordering launchers")
-					d[4*i1+1], d[4*i2+1] = d[4*i2+1], d[4*i1+1]
+		for i1 := 0; i1 < len(d)-cl; i1 += cl {
+			for i2 := i1 + cl; i2 < len(d); i2 += cl {
+				if d[i1+mo] > d[i2+mo] {
+					log.Logln("Sanity fix: reordering launchers")
+					d[i1+mo], d[i2+mo] = d[i2+mo], d[i1+mo]
 				}
 			}
 		}
@@ -984,9 +989,10 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	launchers = savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
 		d := launchers.Data
-		L := len(d) / 4
-		for i := 0; i < L; i += 1 {
-			if d[4*i] == 51 {
+		cl := mount_infos["launchers"].chunk_length
+		eo := mount_infos["launchers"].equipment_offset
+		for i := 0; i < len(d); i += cl {
+			if d[i+eo] == 51 {
 				has_torp_launcher = true
 				break
 			}
@@ -996,12 +1002,13 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		missiles := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "MISL")
 		if missiles != nil {
 			d := missiles.Data
-			L := int(len(d) / 3)
+			cl := mount_infos["missiles"].chunk_length
+			eo := mount_infos["launchers"].equipment_offset
 			// Iterating backwards ensures that deletion doesn't screw things up
-			for i := L - 1; i >= 0; i -= 1 {
-				if d[3*i] == 1 {
-					fmt.Println("Sanity fix: destroying torpedo stack at position", i, "due to lack of launchers")
-					missiles.Data = append(d[:3*i], d[3*(i+1):]...)
+			for i := len(d) - cl; i >= 0; i -= cl {
+				if d[i+eo] == 1 {
+					log.Logln("Sanity fix: destroying torpedo stack at position", i/cl, "due to lack of launchers")
+					missiles.Data = append(d[:i], d[i+cl:]...)
 				}
 			}
 		}
