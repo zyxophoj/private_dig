@@ -3,22 +3,23 @@ package main
 // savefile reader/editor for Privateer
 //
 // example usage:
-//
-// privedit load new.sav
-// privedit set ship Centurion
-// privedit set credits 10000000
-// privedit set location "New Detroit"
-// privedit set engine 5
-// privedit set shields 5
-// privedit set guns "left:Boosted Steltek gun"
-// privedit set guns left_outer:boo right:boo right_o:boo
-// privedit set missiles Image:32000
-// privedit set launchers left:miss right:miss turret_1:miss
-// privedit set turrets rear:present
-// privedit set reputation retros:100
-// privedit set name Filthy
-// privedit set callsign Cheater
-// privedit save
+/*
+privedit load new.sav
+privedit set ship Centurion
+privedit set credits 10000000
+privedit set location "New Detroit"
+privedit set engine 5
+privedit set shields 5
+privedit set guns "left:Boosted Steltek gun"
+privedit set guns left_outer:boo right:boo right_o:boo
+privedit set missiles Image:32000
+privedit set launchers left:miss right:miss turret_1:miss
+privedit set turrets rear:present
+privedit set reputation retros:100
+privedit set name Filthy
+privedit set callsign Cheater
+privedit save
+*/
 
 import (
 	"bufio"
