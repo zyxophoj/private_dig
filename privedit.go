@@ -169,7 +169,7 @@ var mount_infos = map[string]mount_info{
 	"turrets":    mount_info{tables.Turrets, 1, 0, 0, 0},
 	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
 	"kills":      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
-	"cargo":      mount_info{tables.Cargo, 4, 1,2,0},
+	"cargo":      mount_info{tables.Cargo, 4, 1, 2, 0},
 }
 
 // add_new_record adds a new record to a savadata
