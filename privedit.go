@@ -33,6 +33,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
+	"privdump/burstlogger"
 	"privdump/readers"
 	"privdump/tables"
 	"privdump/types"
@@ -85,6 +86,11 @@ var fuzzy = []func(input string, candidate string) bool{
 	func(i string, c string) bool {
 		return strings.Contains(smash(strings.ToUpper(c)), smash(strings.ToUpper(i)))
 	},
+}
+
+type Logger interface {
+	Logln(a ...any)
+	Logfn(str string, strs ...any)
 }
 
 // Savefile data at every offset is either a form, a string, or a blob.
@@ -271,19 +277,34 @@ func make_present_map(game types.Game) map[int]string {
 	return map[int]string{0: "present"}
 }
 
+// main1  makes sure we exit with the right code
 func main() {
-	err := main2()
+	bl := burstlogger.BurstLogger{}
+	log := &bl
+
+	err := main2(log)
 	if err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func main2() error {
+// main2 makes sure all logs are written
+// (sadly, this can't be combined with main1 because os.Exit destroys deferred calls)
+func main2(log *burstlogger.BurstLogger) error {
+	defer log.Fire()
+	err := main3(log)
+	if err != nil {
+		log.Logln(err)
+	}
+	return err
+}
 
+// main3 is the real main function
+func main3(log *burstlogger.BurstLogger) error {
 	arg := "help"
 	if len(os.Args) < 2 {
-		fmt.Println("No args detected - falling back to \"help\", since you clearly need it...")
+		log.Logln("No args detected - falling back to \"help\", since you clearly need it...")
+		log.Fire() // Get that out before help test
 	} else {
 		arg = os.Args[1]
 	}
@@ -342,7 +363,7 @@ func main2() error {
 			return err
 		}
 
-		sanity_fix(savedata)
+		sanity_fix(savedata, log)
 
 		// Back up the old file
 		// Since this is a "powerful" (i.e. capable of completely trashing savefiles) tool,
@@ -352,7 +373,7 @@ func main2() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(filename, "renamed to", newname)
+		log.Logln(filename, "renamed to", newname)
 
 		// The save we were asked to do
 		f, err := os.Create(filename)
@@ -365,14 +386,13 @@ func main2() error {
 		savedata.Write(writer)
 		writer.Flush()
 		f.Sync()
-		fmt.Println("New file written to", filename)
-		// It actually isn't written until the deferred Close() happens, but I can live with lying to the user for a few microseconds.
-
+		log.Logln("New file written to", filename)
+		
 		err = os.Remove(g_stash_filename)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Temporary data cleaned up")
+		log.Logln("Temporary data cleaned up")
 
 	case "get":
 		if len(os.Args) < 3 {
@@ -416,25 +436,27 @@ func main2() error {
 		}
 		to_list := os.Args[3:]
 
-		_,is_mountable :=mount_infos[what]
-		if len(to_list) >1 && !is_mountable {
-			return errors.New(what+" can only be set to one thing!")
+		_, is_mountable := mount_infos[what]
+		if len(to_list) > 1 && !is_mountable {
+			return errors.New(what + " can only be set to one thing!")
 		}
 
 		success := []string{}
-		for _,to:=range to_list{
-			to_matched, err := set(what, to, savedata)
+		for _, to := range to_list {
+			to_matched, err := set(what, to, savedata, log)
 			if err != nil {
 				// TODO: think about this
 				// If we were given a partially-valid instruction, should we do part of it, or fail entirely?
 				// Currently we fail entirely, because one error returns out here so the stash never happens.
+
+				log.Forget() // Since it "didn't happen", don't log it
 				return err
 			}
-			success=append(success, to_matched)
+			success = append(success, to_matched)
 		}
 
-		for _, suc :=range(success){
-			fmt.Println(what, "set to", suc)
+		for _, suc := range success {
+			log.Logln(what, "set to", suc)
 		}
 		return stash(filename, savedata)
 
@@ -605,14 +627,14 @@ func get(what string, savedata *types.Savedata) (string, error) {
 // what: the thing to be set
 // to: the value to set it to
 // savedata: processed savefile data
-func set(what string, to string, savedata *types.Savedata) (string, error) {
+func set(what string, to string, savedata *types.Savedata, log Logger) (string, error) {
 	g, ok := ettables[what]
 	if !ok {
 		return "", errors.New(what + " is not settable.  Settables are:\n" + list_ettables())
 	}
 
 	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
-		return set_mountables(what, to, savedata)
+		return set_mountables(what, to, savedata, log)
 	}
 
 	matched := to
@@ -739,7 +761,7 @@ func get_mountables(what string, data []byte, savedata *types.Savedata) (string,
 	return out, nil
 }
 
-func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
+func set_mountables(what, to string, savedata *types.Savedata, log Logger) (string, error) {
 	g := ettables[what]
 	var equipment map[int]string
 	if g.trans_int != nil {
@@ -815,12 +837,15 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 		mount := int(data[i+minfo.mount_offset])
 
 		if mount == to_mount {
+			// equipment exists...
 			if to_bits[1] == "empty" {
-				fmt.Println("Destroying existing", safe_lookup(equipment, thing), "at", safe_lookup(mounts, mount))
+				// ...but should not
+				log.Logln("Destroying existing", eq_old_str, "at", mount_str)
 				record.Data = append(record.Data[:i], record.Data[i+cl:]...)
 				return matched, nil
 			}
-			fmt.Println("Transmogrifying existing", safe_lookup(equipment, thing), "at", safe_lookup(mounts, mount), "into a", safe_lookup(equipment, to_thing))
+			// ...but is of wrong type
+			log.Logln("Transmogrifying existing", eq_old_str, "at", mount_str, "into a", eq_new_str)
 			err := write_int(to_thing, minfo.equipment_length, data[i+minfo.equipment_offset:])
 			if err != nil {
 				return "", err
@@ -830,11 +855,13 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 	}
 
 	if to_bits[1] == "empty" {
-		fmt.Println(safe_lookup(mounts, to_mount), "is already empty, so... done, I guess?")
+		// equipment does not exist and doesn't need to
+		log.Logln(mount_str, "is already empty, so... done, I guess?")
 		return matched, nil
 	}
 
-	fmt.Println("Adding new", safe_lookup(equipment, to_thing), "at", safe_lookup(mounts, to_mount))
+	// equipment does not exist but needs to
+	log.Logln("Adding new", eq_new_str, "at", mount_str)
 	new_data := make([]byte, cl)
 	write_int(to_thing, minfo.equipment_length, new_data[minfo.equipment_offset:])
 	new_data[minfo.mount_offset] = byte(to_mount)
@@ -844,7 +871,7 @@ func set_mountables(what, to string, savedata *types.Savedata) (string, error) {
 
 // sanity_fix attempts to fix inconsistencies in savedata - but only the ones that would cause the game to crash
 // Crashing inconsistencies appear to be: turrets, weapons or launchers in mounts that don't exist.
-func sanity_fix(savedata *types.Savedata) {
+func sanity_fix(savedata *types.Savedata, log Logger) {
 	// Turret mounts:   1: Rear, 2:top, 3:bottom
 	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer,
 	// Only the Centurion has outer mounts.
@@ -888,9 +915,9 @@ func sanity_fix(savedata *types.Savedata) {
 				newmap[mount] = oldmap[mount]
 			} else {
 				if new_mount == -1 {
-					fmt.Println("Sanity fix:", weapon, "from mount", mount, "thrown away")
+					log.Logln("Sanity fix:", weapon, "from mount", mount, "thrown away")
 				} else {
-					fmt.Println("Sanity fix:", weapon, "moved from mount", mount, "to mount", new_mount)
+					log.Logln("Sanity fix:", weapon, "moved from mount", mount, "to mount", new_mount)
 					oldmap[mount][minfo.mount_offset] = byte(new_mount)
 					newmap[byte(new_mount)] = oldmap[mount]
 				}
@@ -926,7 +953,7 @@ func sanity_fix(savedata *types.Savedata) {
 	has_shield := savedata.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "INFO") != nil
 	has_shield_damg := savedata.Forms[types.OFFSET_REAL].Get("FITE", "SHLD", "DAMG") != nil
 	if has_shield && !has_shield_damg {
-		fmt.Println("Adding 0-damage shield damage record")
+		log.Logln("Adding 0-damage shield damage record")
 		add_new_record(savedata, types.OFFSET_REAL, []string{"FITE", "SHLD", "DAMG"})
 	}
 
