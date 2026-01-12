@@ -114,14 +114,12 @@ func run() {
 
 		for k := range colour {
 			if sec.HasKey(k + "_COLOUR") {
-
 				col, err := color_from_string(sec.Key(k + "_COLOUR").String())
 				if err != nil {
 					fmt.Println(err)
 				} else {
 					colour[k] = col
 				}
-
 			}
 		}
 	}
@@ -148,7 +146,7 @@ func run() {
 	}
 	defer watcher.Stop_watching() // somewhat unnecessary since there is not (yet) any quit function other than CTRL-C
 
-	// Gap betwen two text blocks is a single LINE_HEIGHT
+	// Gap between two text blocks is a single LINE_HEIGHT
 	// To have a proper border, background rectangle is LINE_HEIGHT/2 taller than this, centred so that there is LINE_HEIGHT/4 of rectangle above and below the text
 	bgsprite := solid_rect_sprite(pixel.Rect{pixel.V(0, 0), pixel.V(cfg["W"]-cfg["X_BORDER"], TEXT_HEIGHT-LINE_HEIGHT/2)}, colour["RECTANGLE"])
 
@@ -182,7 +180,7 @@ func run() {
 			fmt.Fprintln(ach_text, "Category:", cheev.Category)
 			texts = append(texts, ach_text)
 
-			time.AfterFunc(time.Duration(cfg["ACH_DURATION"])*time.Second, // UGH!!!
+			time.AfterFunc(time.Duration(cfg["ACH_DURATION"]*float64(time.Second)), // UGH!!!!
 				func() { expired <- true })
 
 		case <-expired:
