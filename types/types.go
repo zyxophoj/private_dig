@@ -23,8 +23,10 @@ const (
 // The game stores mission info between OFFSET_MISSIONS and OFFSET_PLAY,
 // which means the true index of anything after OFFSET_MISSIONS is variable.
 //
-// We want names to mean things, so mission info is moved to the end
-
+// # We want names to mean things, so mission info is moved to the end
+//
+// We work with modified offsets, except during loading and saving where we can't avoid true offsets.
+// Offsets should be considered non-true unless explicitly labelled as true.
 const (
 	OFFSET_SHIP = iota // Ship type, location, guild membership
 	OFFSET_PLOT        //Plot status
@@ -36,8 +38,9 @@ const (
 	OFFSET_NAME
 	OFFSET_CALLSIGN
 
-	OFFSET_COUNT                       // This only counts the always-present offsets
-	OFFSET_MISSION_BASE = OFFSET_COUNT // Used as an internal index for the first non-plot mission
+	OFFSET_COUNT                             // This only counts the always-present offsets
+	OFFSET_MISSION_BASE       = OFFSET_COUNT // Used as an internal index for the first non-plot mission
+	OFFSET_TRUE_MISSION_START = OFFSET_MISSIONS + 1
 )
 
 func Offset_name(o int) string {
@@ -66,16 +69,20 @@ func (h *Header) Missions() int {
 
 // Modify_index converts a true index into an OFFSET_* enum value
 func Modify_index(i int, missions int) int {
-	if i > OFFSET_MISSIONS && i <= OFFSET_MISSIONS+2*missions {
+	if i < OFFSET_TRUE_MISSION_START {
+		// First group
+		// Since this does not depend on mission count, we must
+		// return correctly here even if "missions" contains garbage
+		return i
+	}
+	if i < OFFSET_TRUE_MISSION_START+2*missions {
+		// Mission group
 		// First mission starts at OFFSET_MISSIONS+1;
-		i = i - (OFFSET_MISSIONS + 1) + OFFSET_MISSION_BASE
-	} else {
-		if i > OFFSET_MISSIONS+2*missions {
-			i -= 2 * missions
-		}
+		return i - OFFSET_TRUE_MISSION_START + OFFSET_MISSION_BASE
 	}
 
-	return i
+	// Last group
+	return i - 2*missions
 }
 
 func (h *Header) Chunk_type(i int) ChunkType {
@@ -178,42 +185,36 @@ func read_header(r io.Reader) (Header, error) {
 	}
 	out.File_size = size
 
-	for i := 0; i <= OFFSET_MISSIONS; i += 1 {
+	for range OFFSET_TRUE_MISSION_START {
 		offset, err := readers.Read_int16(r)
 		if err != nil {
 			return out, err
 		}
 		out.Offsets = append(out.Offsets, offset)
-		readers.Advance(r, 2)
+		readers.Advance(r, 2) //skip 00E0
+		// TODO: read_fixed_bytes(00,E0)) would make more sense
 	}
 
-	// Data starts where offsets end, so offset[0] indirectly tells us how many offsets there are.
-	// The -1 is for the file size.
-	missions := (out.Offsets[0]/4 - OFFSET_COUNT - 1) / 2
-
-	// Expect 2 more offsets for each mission
 	mission_offsets := []int{}
-	for i := 0; i < 2*missions; i += 1 {
+	for range 2 * out.Missions() { // 2 chunks per mission
 		offset, err := readers.Read_int16(r)
 		if err != nil {
 			return out, err
 		}
 		mission_offsets = append(mission_offsets, offset)
-		readers.Advance(r, 2)
+		readers.Advance(r, 2) //skip 00E0
 	}
 
-	for i := OFFSET_MISSIONS + 1; i < OFFSET_COUNT; i += 1 {
+	for range OFFSET_COUNT - OFFSET_TRUE_MISSION_START {
 		offset, err := readers.Read_int16(r)
 		if err != nil {
 			return out, err
 		}
 		out.Offsets = append(out.Offsets, offset)
-		readers.Advance(r, 2)
+		readers.Advance(r, 2) //skip 00E0
 	}
 
 	out.Offsets = append(out.Offsets, mission_offsets...)
-
-	// TODO: advance to offsets[0]?
 
 	return out, nil
 }
