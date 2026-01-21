@@ -112,16 +112,17 @@ const (
 	DT_ADDMOUNT // Block of data, no explicit mount field because position is the mount
 )
 
+// "ettables" are (s)ettable or (g)ettable things
 type ettable struct {
 	chunk_type ChunkType
 	data_type  DataType
-	offset     int
-	start      int
-	end        int
+	offset     int // chunk offset within file from the OFFSET_* enum
+	start      int // data offset within chunk or record
+	end        int // data offset within chunk or record
 
 	trans_int func(game types.Game) map[int]string
 	trans_str map[string]string
-	record    []string
+	record    []string // record within chunk (only if chunk_type is CT_FORM)
 }
 
 // Extra info for mountables
@@ -213,6 +214,7 @@ func list_ettables() string {
 }
 
 func make_ship_map(game types.Game) map[int]string {
+	// TODO: unduplicate this info (it's also in privdump.go)
 	return map[int]string{
 		tables.SHIP_TARSUS:    "Tarsus",
 		tables.SHIP_ORION:     "Orion",
@@ -970,7 +972,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		mo := mount_infos["launchers"].mount_offset
 		d := launchers.Data
 		// Fix the problem by sorting
-		// TODO: something smarter than bubblesort.  Ugh.
+		// Bubblesort, but n will never be larger than 4.  Ugh.
 		for i1 := 0; i1 < len(d)-cl; i1 += cl {
 			for i2 := i1 + cl; i2 < len(d); i2 += cl {
 				if d[i1+mo] > d[i2+mo] {
@@ -1036,6 +1038,7 @@ func read_int(data []byte) (int, error) {
 func write_int(n int, length int, target []byte) error {
 	switch length {
 	case 0:
+		// ...because it's simpler for this not to be a special case
 		if n != 0 {
 			return errors.New("Internal privedit error: attempt to write non-zero number to empty")
 		}
