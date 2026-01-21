@@ -87,7 +87,7 @@ The number of offsets varies because there are 2 for each non-plot mission.  (Th
 |  6    | Merchants guild member | boolean |
 |  7-9  | Unused? | Always 0 |
 
-Note: The length of this chunk is odd, and the length of the header (ann every other chunk) is even.  This means that every form and record in the following data starts on an odd byte, which is the exact opposite of what the IFF spec demands.
+Note: The length of this chunk is odd, and the length of the header (and every other chunk) is even.  This means that every form and record in the following data starts on an odd byte, which is the exact opposite of what the IFF spec demands.
 
 
 ### Chunk 2: Plot status (10 bytes) ###
@@ -168,7 +168,7 @@ Each of these records contains 18 bytes of data, which is 9 int values storing r
 
 12-13 representing the "drone" faction has been confirmed by killing the drone; the kill count does go up to 1 (unless the confeds steal the kill)
 
-14-15  representing the "steltex" faction has been confirmed by killing the scout.  Don't try this at home, kids.
+14-15  representing the "steltek" faction has been confirmed by killing the scout.  Don't try this at home, kids.
 
 In the SCOR form, a reputation between -25 and 25 (inclusive) is Neutral.  Anything above 25 is Friendly; anything below -25 is Hostile.
 

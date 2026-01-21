@@ -50,7 +50,7 @@ privedit set turrets bottom:present
 privedit save
 ```
 
-Privedit tries to make savefiles that will not crash immediately on load or launch.  The usual problems here are mounted equipment (guns, launchers, turrets) on mounts that don't exist, or length mismatches between equipment data and the corresponding damage data.  For example, there are actually 5 front launcher mounts: two left mounts, one centre, and two right mounts.  The Tarsus uses different left and right mounts to the Centurion and Galaxy, and so changing the ship type might result in a broken file.  This sort of thing is automatically fixed in the "sanity fix" stage at the start of saving, but it could result in equipment destruction.
+Privedit tries to make savefiles that will not crash immediately on load or launch.  The usual problems here are mounted equipment (guns, launchers, turrets) on mounts that don't exist, or length mismatches between equipment data and the corresponding damage data.  For example, there are actually 5 front launcher mounts: two left mounts, one centre, and two right mounts.  The Tarsus uses different left and right mounts to the Orion and Galaxy, and so changing the ship type might result in a broken file.  This sort of thing is automatically fixed in the "sanity fix" stage at the start of saving, but it could result in equipment destruction.
 
 With that said, the game is completely fine with other seemingly-invalid setups, including:
 
@@ -70,6 +70,6 @@ With that said, the game is completely fine with other seemingly-invalid setups,
 
 ### Known Privateer limitations ###
 
-- Privateer will crash if you try to exchange a ship with more than one Steltek gun. (Presumably, the code that preserves a single steltek gun doens't quite know what to do here)
+- Privateer will crash if you try to exchange a ship with more than one Steltek gun. (Presumably, the code that preserves a single steltek gun doesn't quite know what to do here)
 - Privateer really does not like it if you change your location to the derelict before advancing the plot to the point where this is possible.
 - Although the game engine is perfectly happy with 2 bytes of missile count, the ship dealer gets very confused and displays phantom missiles.  If you are feeling restrained, you could limit yourself to a mere 255 missiles of each type. 
