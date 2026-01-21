@@ -113,6 +113,29 @@ const (
 )
 
 // "ettables" are (s)ettable or (g)ettable things
+
+type etype int
+
+const (
+	ET_NONE etype = iota // not a real value
+
+	ET_SHIP
+	ET_LOCATION
+	ET_CREDITS
+	ET_SHIELD
+	ET_ENGINE
+	ET_NAME
+	ET_CALLSIGN
+
+	ET_GUN
+	ET_LAUNCHER
+	ET_MISSILE //including torpedos
+	ET_TURRET
+	ET_REPUTATION
+	ET_KILLS
+	ET_CARGO
+)
+
 type ettable struct {
 	chunk_type ChunkType
 	data_type  DataType
@@ -123,6 +146,7 @@ type ettable struct {
 	trans_int func(game types.Game) map[int]string
 	trans_str map[string]string
 	record    []string // record within chunk (only if chunk_type is CT_FORM)
+	hr_name   string
 }
 
 // Extra info for mountables
@@ -132,6 +156,7 @@ type mount_info struct {
 	equipment_offset int
 	equipment_length int
 	mount_offset     int
+	hr_name_plural   string
 }
 
 func map_from_array[K comparable](in []K) map[int]K {
@@ -144,33 +169,33 @@ func map_from_array[K comparable](in []K) map[int]K {
 
 // Savefile format data starts
 
-var ettables = map[string]*ettable{
-	"ship":     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, make_ship_map, map[string]string{}, nil},
-	"location": &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, make_location_map, map[string]string{}, nil},
-	"credits":  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}},
-	"shield":   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}},
-	"engine":   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}},
-	"name":     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, nil, map[string]string{}, nil},
-	"callsign": &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil},
+var ettables = map[etype]*ettable{
+	ET_SHIP:     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, make_ship_map, map[string]string{}, nil, "ship"},
+	ET_LOCATION: &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, make_location_map, map[string]string{}, nil, "location"},
+	ET_CREDITS:  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}, "credits"},
+	ET_SHIELD:   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}, "shield"},
+	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine"},
+	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, nil, map[string]string{}, nil, "name"},
+	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil, "callsign"},
 
 	// Mountables
-	"guns":       &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}},
-	"launchers":  &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}},
-	"missiles":   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}},
-	"turrets":    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}},
-	"reputation": &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}},
-	"kills":      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}},
-	"cargo":      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}},
+	ET_GUN:        &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
+	ET_LAUNCHER:   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
+	ET_MISSILE:    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
+	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
+	ET_REPUTATION: &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
+	ET_KILLS:      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}, "kills"},
+	ET_CARGO:      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
 }
 
-var mount_infos = map[string]mount_info{
-	"guns":       mount_info{tables.Gun_mounts, 4, 0, 1, 1},
-	"launchers":  mount_info{tables.Launcher_mounts, 4, 0, 1, 1},
-	"missiles":   mount_info{tables.Missiles, 3, 1, 2, 0},
-	"turrets":    mount_info{tables.Turrets, 1, 0, 0, 0},
-	"reputation": mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
-	"kills":      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0},
-	"cargo":      mount_info{tables.Cargo, 4, 1, 2, 0},
+var mount_infos = map[etype]mount_info{
+	ET_GUN:        mount_info{tables.Gun_mounts, 4, 0, 1, 1, "guns"},
+	ET_LAUNCHER:   mount_info{tables.Launcher_mounts, 4, 0, 1, 1, "launchers"},
+	ET_MISSILE:    mount_info{tables.Missiles, 3, 1, 2, 0, "missiles"},
+	ET_TURRET:     mount_info{tables.Turrets, 1, 0, 0, 0, "turrets"},
+	ET_REPUTATION: mount_info{map_from_array(tables.Factions), 2, 0, 2, 0, "reputation"},
+	ET_KILLS:      mount_info{map_from_array(tables.Factions), 2, 0, 2, 0, "kills"},
+	ET_CARGO:      mount_info{tables.Cargo, 4, 1, 2, 0, "cargo"},
 }
 
 // add_new_record adds a new record to a savadata
@@ -204,11 +229,28 @@ func add_new_record(savedata *types.Savedata, offset int, name []string) (*types
 }
 
 // Savefile format data end
+func etype_from_string(str string) etype {
+	out := ET_NONE
+	for k, v := range ettables {
+		if str == v.hr_name {
+			out = k
+		}
+	}
+	if out != ET_NONE {
+		return out
+	}
+	for k, v := range mount_infos {
+		if str == v.hr_name_plural {
+			out = k
+		}
+	}
+	return out
+}
 
 func list_ettables() string {
 	ret := ""
-	for k := range ettables {
-		ret = ret + k + "\n"
+	for _, v := range ettables {
+		ret = ret + v.hr_name + "\n"
 	}
 	return ret
 }
@@ -327,8 +369,8 @@ func main3(log *burstlogger.BurstLogger) error {
 			"",
 			"Things that can be set-ted or get-ted are:",
 		}
-		for k := range ettables {
-			help_text = append(help_text, "   "+k)
+		for _, v := range ettables {
+			help_text = append(help_text, "   "+v.hr_name)
 		}
 		help_text = append(help_text, []string{
 			"",
@@ -401,7 +443,11 @@ func main3(log *burstlogger.BurstLogger) error {
 		if len(os.Args) < 3 {
 			return errors.New("Get what?  Gettables are:\n" + list_ettables())
 		}
-		what := os.Args[2]
+
+		what := etype_from_string(os.Args[2])
+		if what == ET_NONE {
+			return errors.New(os.Args[2] + " is not gettable  Gettables are:\n" + list_ettables())
+		}
 
 		_, savedata, err := retrieve()
 		if err != nil {
@@ -418,12 +464,12 @@ func main3(log *burstlogger.BurstLogger) error {
 		if len(os.Args) < 3 {
 			return errors.New("Set what? Settables are:\n" + list_ettables())
 		}
-		what := os.Args[2]
 
-		g, ok := ettables[what]
-		if !ok {
-			return errors.New(what + " is not settable.  Settables are:\n" + list_ettables()) // UGH! (duplicated in set())
+		what := etype_from_string(os.Args[2])
+		if what == ET_NONE {
+			return errors.New(os.Args[2] + " is not settable  Settables are:\n" + list_ettables())
 		}
+		g := ettables[what]
 
 		filename, savedata, err := retrieve()
 		if err != nil {
@@ -431,7 +477,7 @@ func main3(log *burstlogger.BurstLogger) error {
 		}
 
 		if len(os.Args) < 4 {
-			str := "Set " + what + " to what?  Options are:"
+			str := "Set " + os.Args[2] + " to what?  Options are:"
 			for _, v := range g.trans_int(savedata.Game()) {
 				str += ("\n" + v)
 			}
@@ -441,7 +487,7 @@ func main3(log *burstlogger.BurstLogger) error {
 
 		_, is_mountable := mount_infos[what]
 		if len(to_list) > 1 && !is_mountable {
-			return errors.New(what + " can only be set to one thing!")
+			return errors.New(os.Args[2] + " can only be set to one thing!")
 		}
 
 		success := []string{}
@@ -469,12 +515,12 @@ func main3(log *burstlogger.BurstLogger) error {
 			return err
 		}
 
-		for what := range ettables {
+		for what, info := range ettables {
 			str, err := get(what, savedata)
 			if err != nil {
 				return err
 			}
-			fmt.Println(what + ":")
+			fmt.Println(info.hr_name + ":")
 			fmt.Println(str)
 			fmt.Println()
 		}
@@ -577,11 +623,9 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 // get gets something and returns it as a human-readable string
 // what: the thing to be got
 // savedata: processed savefile data
-func get(what string, savedata *types.Savedata) (string, error) {
-	g, ok := ettables[what]
-	if !ok {
-		return "", errors.New(what + " is not gettable.    Gettables are:\n" + list_ettables())
-	}
+func get(what etype, savedata *types.Savedata) (string, error) {
+	g := ettables[what]
+
 	bytes := []uint8{}
 	switch g.chunk_type {
 	case CT_STRING:
@@ -630,37 +674,34 @@ func get(what string, savedata *types.Savedata) (string, error) {
 // what: the thing to be set
 // to: the value to set it to
 // savedata: processed savefile data
-func set(what string, to string, savedata *types.Savedata, log Logger) (string, error) {
-	g, ok := ettables[what]
-	if !ok {
-		return "", errors.New(what + " is not settable.  Settables are:\n" + list_ettables())
-	}
+func set(what etype, to string, savedata *types.Savedata, log Logger) (string, error) {
+	info := ettables[what]
 
-	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
+	if info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT {
 		return set_mountables(what, to, savedata, log)
 	}
 
 	matched := to
 	value := 0
 	value_bytes := []byte{}
-	if g.trans_int != nil {
+	if info.trans_int != nil {
 		// map is "backwards" from the setting PoV
-		v, m, err := fuzzy_reverse_lookup(g.trans_int(savedata.Game()), to, what)
+		k, m, err := fuzzy_reverse_lookup(info.trans_int(savedata.Game()), to, info.hr_name)
 		if err != nil {
 			return "", err
 		}
-		value = v
+		value = k
 		matched = m
-	} else if len(g.trans_str) > 0 {
+	} else if len(info.trans_str) > 0 {
 		// Another backwards map
-		s, m, err := fuzzy_reverse_lookup(g.trans_str, to, what)
+		k, m, err := fuzzy_reverse_lookup(info.trans_str, to, info.hr_name)
 		if err != nil {
 			return "", err
 		}
-		value_bytes = []byte(s)
+		value_bytes = []byte(k)
 		matched = m
 
-	} else if g.data_type == DT_INT {
+	} else if info.data_type == DT_INT {
 		// No lookup available and DT_INT - this is something like "credits" where the expected argument is just an int to be used directly.
 		err := error(nil)
 		value, err = strconv.Atoi(to)
@@ -668,47 +709,48 @@ func set(what string, to string, savedata *types.Savedata, log Logger) (string, 
 			return "", err
 		}
 		if value < 0 {
-			return "", errors.New("Negative values are not allowed for " + what)
+			return "", errors.New("Negative values are not allowed for " + info.hr_name)
 		}
 	}
 
 	target := []byte{}
-	switch g.chunk_type {
+	switch info.chunk_type {
 	case CT_STRING:
 		// At least this one is easy?
-		if len(to)+1 > savedata.Chunk(g.offset).Chunk_length() { //+1 for the null terminator
+		cl := savedata.Chunk(info.offset).Chunk_length()
+		if len(to)+1 > cl { //+1 for the null terminator
 			// TODO: in "I know what I'm doing" mode, this should just be a warning
-			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), savedata.Chunk(g.offset).Chunk_length()))
+			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), cl))
 		}
-		savedata.Strings[g.offset].Value = to
+		savedata.Strings[info.offset].Value = to
 		return matched, nil
 
 	case CT_BLOB:
-		target = savedata.Blobs[g.offset]
+		target = savedata.Blobs[info.offset]
 
 	case CT_FORM:
-		record := savedata.Forms[g.offset].Get(g.record...)
+		record := savedata.Forms[info.offset].Get(info.record...)
 		var err error
 		if record == nil {
-			record, err = add_new_record(savedata, g.offset, g.record)
+			record, err = add_new_record(savedata, info.offset, info.record)
 			if err != nil {
 				return "", err
 			}
 		}
 
-		if g.data_type == DT_STRING {
-			end := g.end
+		if info.data_type == DT_STRING {
+			end := info.end
 			if end < 0 {
 				end += (len(record.Data) + 1) // +1 because negative indices have to start at -1, not 0
 			}
-			record.Data = append(record.Data[:g.start], append(value_bytes, record.Data[end:]...)...)
+			record.Data = append(record.Data[:info.start], append(value_bytes, record.Data[end:]...)...)
 			return matched, nil
 		}
 
 		target = record.Data
 	}
 
-	err := write_int(value, g.end-g.start, target[g.start:g.end])
+	err := write_int(value, info.end-info.start, target[info.start:info.end])
 	if err != nil {
 		return "", err
 	}
@@ -735,7 +777,7 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return fn()
 }*/
 
-func get_mountables(what string, data []byte, savedata *types.Savedata) (string, error) {
+func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, error) {
 	var equipment map[int]string
 	if ettables[what].trans_int != nil {
 		equipment = ettables[what].trans_int(savedata.Game())
@@ -765,8 +807,9 @@ func get_mountables(what string, data []byte, savedata *types.Savedata) (string,
 	return out, nil
 }
 
-func set_mountables(what, to string, savedata *types.Savedata, log Logger) (string, error) {
+func set_mountables(what etype, to string, savedata *types.Savedata, log Logger) (string, error) {
 	g := ettables[what]
+
 	var equipment map[int]string
 	if g.trans_int != nil {
 		equipment = g.trans_int(savedata.Game())
@@ -776,7 +819,7 @@ func set_mountables(what, to string, savedata *types.Savedata, log Logger) (stri
 	// decipher "to"
 	to_bits := strings.Split(to, ":")
 	if len(to_bits) != 2 {
-		return "", errors.New("Expected argument to \"set " + what + "\" is \"" + what + "_type:value\"")
+		return "", errors.New("Expected argument to \"set " + g.hr_name + "\" is \"" + g.hr_name + "_type:value\"")
 	}
 
 	matched_bits := []string{to_bits[0], to_bits[1]}
@@ -802,7 +845,7 @@ func set_mountables(what, to string, savedata *types.Savedata, log Logger) (stri
 			}
 			matched_bits[1] = to_bits[1]
 		} else {
-			to_thing, matched_bits[1], err = fuzzy_reverse_lookup(equipment, to_bits[1], what) // TODO un-pluralise "what"?  Ugh.
+			to_thing, matched_bits[1], err = fuzzy_reverse_lookup(equipment, to_bits[1], g.hr_name)
 			if err != nil {
 				return "", err
 			}
@@ -899,13 +942,15 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		tables.SHIP_GALAXY:    {map[byte]int{1: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 1: 2, 4: 3}},
 	}
 
-	fix_record := func(weapon string, record *types.Record, fixer map[byte]int) {
+	fix_record := func(weapon etype, fixer map[byte]int) {
+		info := ettables[weapon]
+		record := savedata.Forms[info.offset].Get(info.record...)
 		if record == nil {
 			// Not an error, sometimes records are empty if there's no equipment
 			return
 		}
 
-		minfo := mount_infos[weapon+"s"] // UGH! GAH!! BLETCH!!!
+		minfo := mount_infos[weapon]
 		cl := minfo.chunk_length
 
 		data := record.Data
@@ -939,10 +984,10 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	}
 
 	ship := savedata.Blobs[types.OFFSET_SHIP][0]
-	fix_record("turret", savedata.Forms[types.OFFSET_REAL].Get("FITE", "TRRT"), mounts[ship].fix_turrets)
+	fix_record(ET_TURRET, mounts[ship].fix_turrets)
 	// We do not add turrets merely because existing equipment demands it, because the game doesn't seem to care.
-	fix_record("gun", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS"), mounts[ship].fix_guns)
-	fix_record("launcher", savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH"), mounts[ship].fix_launchers)
+	fix_record(ET_GUN, mounts[ship].fix_guns)
+	fix_record(ET_LAUNCHER, mounts[ship].fix_launchers)
 
 	// Engine damage...
 	// It looks like engine info is a list of engine subcomponents, and engine damage info is a list of damage-per-subcomponent values.
@@ -968,8 +1013,8 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	// front-mounted launchers must appear before turret-mounted launchers (or the game crashes when user pressses 'W')
 	launchers := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
-		cl := mount_infos["launchers"].chunk_length
-		mo := mount_infos["launchers"].mount_offset
+		cl := mount_infos[ET_LAUNCHER].chunk_length
+		mo := mount_infos[ET_LAUNCHER].mount_offset
 		d := launchers.Data
 		// Fix the problem by sorting
 		// Bubblesort, but n will never be larger than 4.  Ugh.
@@ -991,8 +1036,8 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	launchers = savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
 		d := launchers.Data
-		cl := mount_infos["launchers"].chunk_length
-		eo := mount_infos["launchers"].equipment_offset
+		cl := mount_infos[ET_LAUNCHER].chunk_length
+		eo := mount_infos[ET_LAUNCHER].equipment_offset
 		for i := 0; i < len(d); i += cl {
 			if d[i+eo] == 51 {
 				has_torp_launcher = true
@@ -1004,8 +1049,8 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		missiles := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "MISL")
 		if missiles != nil {
 			d := missiles.Data
-			cl := mount_infos["missiles"].chunk_length
-			eo := mount_infos["launchers"].equipment_offset
+			cl := mount_infos[ET_MISSILE].chunk_length
+			eo := mount_infos[ET_MISSILE].equipment_offset
 			// Iterating backwards ensures that deletion doesn't screw things up
 			for i := len(d) - cl; i >= 0; i -= cl {
 				if d[i+eo] == 1 {
