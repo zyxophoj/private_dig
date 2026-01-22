@@ -366,6 +366,36 @@ func (f *Form) Add_record(what ...string) *Record {
 	return f.Records[len(f.Records)-1]
 }
 
+// delete a Record
+// note: this currently CAN NOT DELETE RECORDS THAT ARE SUBFORMS; it can only delete bottom-level records
+// TODO:fix? (it's hard)
+func (f *Form) Delete_record(what ...string) error {
+	for _, w := range what[:len(what)-1] {
+		found := false
+		for _, subform := range f.Subforms {
+			if strings.HasSuffix(subform.Name, w) {
+				f = subform //member functions are smoke and mirrors
+				found = true
+				fmt.Println("Found", w)
+				break
+			}
+		}
+		
+		if !found {
+			return errors.New("Failed to find subform "+w)
+		}
+	}
+	
+	last := what[len(what)-1]
+	for r, record := range f.Records {
+		if record.Name == last {
+			f.Records = append(f.Records[:r], f.Records[r+1:]...)
+			return nil
+		}
+	}
+	return errors.New("Failed to find record "+last+" to delete")
+}
+
 func (f *Form) Get_subform(w string) *Form {
 	//TODO: allow multiple args
 	for _, subform := range f.Subforms {
