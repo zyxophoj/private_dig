@@ -9,7 +9,7 @@ privedit set ship Centurion
 privedit set credits 10000000
 privedit set location "New Detroit"
 privedit set engine 5
-privedit set shields 5
+privedit set shield 5
 privedit set guns "left:Boosted Steltek gun"
 privedit set guns left_outer:boo right:boo right_o:boo
 privedit set missiles Image:32000
