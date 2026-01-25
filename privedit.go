@@ -832,16 +832,16 @@ func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error
 		}
 		target = append(target[:info.start], append([]byte(to.(string)), target[end:]...)...)
 	}
-	
+
 	// ...except that maybe we didn't really write into actual data so write "target" back onto where it should be
-	// (This can't easily be avoided because values in maps aren't addressable, and Blobs are slices of bytes) 
+	// (This can't easily be avoided because values in maps aren't addressable, and Blobs are slices of bytes)
 	switch info.chunk_type {
 	case CT_BLOB:
 		savedata.Blobs[info.offset] = target
 	case CT_FORM:
 		savedata.Forms[info.offset].Get(info.record...).Data = target
 	}
-	
+
 	return nil
 }
 
@@ -869,6 +869,7 @@ func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, 
 	if ettables[what].trans_int != nil {
 		equipment = ettables[what].trans_int(savedata.Game())
 	}
+
 	// TODO: rear/top is "turret 1"; get ship from savedata to make more sense of this?
 	mounts := mount_infos[what].mounts
 
@@ -916,7 +917,7 @@ func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Sa
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
 
-	// DT_ADDMOUNT is the easy case - everything alwasy exists, and simply adding 
+	// DT_ADDMOUNT is the easy case - everything alwasy exists, and simply adding
 	// the mount (multiplied by chunk length) tells us where we need to write
 	if ettables[what].data_type == DT_ADDMOUNT {
 		err := write_int(to_thing, cl, (*target)[to_mount*cl:to_mount*cl+cl])
@@ -984,7 +985,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer,
 	// Only the Centurion has outer mounts.
 	// Launcher mounts: 0: Centre, 1: Left (not Centurion), 2: Left (Centurion), 3: Right (Centurion), 4: Right (not Centurion),
-	type fixers struct {
+	type fixers struct { //key is bad slot, value is alternative good slot
 		fix_turrets   map[byte]int
 		fix_guns      map[byte]int
 		fix_launchers map[byte]int
@@ -992,7 +993,6 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	// We try to "fix" bad equipment by moving it to a corresponding allowed slot.
 	// However, since ships don't even have the same numbers of mounts, weapons
 	// must sometimes be thrown away.
-	// TODO: try not to throw away steltek gun(s)
 	mounts := map[uint8]fixers{
 		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 5: -1, 7: -1, 8: -1, 10: -1}, map[byte]int{0: -1, 2: 1, 3: 4, 6: -1, 9: -1}},
 		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 8: -1, 10: -1}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1, 9: -1}},
@@ -1001,7 +1001,9 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	}
 
 	fix_record := func(weapon etype, fixer map[byte]int) {
+
 		info := ettables[weapon]
+		hr_weapon := info.hr_name
 		record := savedata.Forms[info.offset].Get(info.record...)
 		if record == nil {
 			// Not an error, sometimes records are empty if there's no equipment
@@ -1013,28 +1015,38 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 
 		data := record.Data
 		// weapon block format: weapon, mount, damage, ???
+		// load this into a map so we can deal with it more easily (?)
 		oldmap := map[byte][]byte{}
 		for i := range len(data) / cl {
 			oldmap[data[i*cl+minfo.mount_offset]] = data[i*cl : (i+1)*cl]
 		}
 		newmap := map[byte][]byte{}
-		for mount := range oldmap {
-			new_mount, bad := fixer[mount]
+		for old_mount := range oldmap {
+			new_mount, bad := fixer[old_mount]
 			if !bad {
-				// Easy case: gun is allowed to exist
-				newmap[mount] = oldmap[mount]
+				// no fixed mount - weapon is allowed to exist where it is
+				new_mount = int(old_mount)
+			}
+
+			_, occupied := newmap[byte(new_mount)]
+			if new_mount == -1 || (occupied && oldmap[old_mount][minfo.equipment_offset] < newmap[byte(new_mount)][minfo.equipment_offset]) {
+				// If new mount is occupied then weapon with the larger ID wins
+				// This is to avoid putting a good  savefile into an unwinnable state by throwing away steltek guns (which have the highest IDs)
+				// (If we're not called in a gun context, then it doesn't matter what we keep or throw away)
+				log.Logln("Sanity fix:", hr_weapon, "from mount", old_mount, "thrown away")
 			} else {
-				if new_mount == -1 {
-					log.Logln("Sanity fix:", weapon, "from mount", mount, "thrown away")
-				} else {
-					log.Logln("Sanity fix:", weapon, "moved from mount", mount, "to mount", new_mount)
-					oldmap[mount][minfo.mount_offset] = byte(new_mount)
-					newmap[byte(new_mount)] = oldmap[mount]
+				newmap[byte(new_mount)] = oldmap[old_mount]
+
+				if new_mount != int(old_mount) {
+					if occupied {
+						log.Logln("Sanity fix:", hr_weapon, "from mount", new_mount, "thrown away")
+					}
+					log.Logln("Sanity fix:", hr_weapon, "moved from mount", old_mount, "to mount", new_mount)
 				}
 			}
 		}
 		// This does randomize weapon order, but the game doesn't care so neither do I
-		// TODO: actually, I do care, for file comparison purposes.
+		// TODO: actually, I do care, for file comparison purposes.  So preserve order, at least when nothing is changed.
 		record.Data = []byte{}
 		for _, gundata := range newmap {
 			record.Data = append(record.Data, gundata...)
@@ -1066,9 +1078,15 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		log.Logln("Adding 0-damage shield damage record")
 		add_new_record(savedata, types.OFFSET_REAL, []string{"FITE", "SHLD", "DAMG"})
 	}
+	if !has_shield && has_shield_damg {
+		// Get rid of the shield damage then.
+		// This is probably unnecessary but good houseguests don't shit on the floor
+		log.Logln("Removing shield damage record")
+		savedata.Forms[types.OFFSET_REAL].Delete_record("FITE", "SHLD", "DAMG")
+	}
 
 	// Launcher order
-	// front-mounted launchers must appear before turret-mounted launchers (or the game crashes when user pressses 'W')
+	// front-mounted launchers must appear before turret-mounted launchers (or the game crashes when user presses 'W')
 	launchers := savedata.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "LNCH")
 	if launchers != nil {
 		cl := mount_infos[ET_LAUNCHER].chunk_length
