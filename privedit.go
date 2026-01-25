@@ -27,6 +27,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -137,16 +138,18 @@ const (
 )
 
 type ettable struct {
-	chunk_type ChunkType
-	data_type  DataType
-	offset     int // chunk offset within file from the OFFSET_* enum
-	start      int // data offset within chunk or record
-	end        int // data offset within chunk or record
-
-	trans_int func(game types.Game) map[int]string
-	trans_str map[string]string
-	record    []string // record within chunk (only if chunk_type is CT_FORM)
-	hr_name   string
+	chunk_type   ChunkType
+	data_type    DataType
+	offset       int // chunk offset within file from the OFFSET_* enum
+	start        int // data offset within chunk or record
+	end          int // data offset within chunk or record
+	int_min      int // Only for non-looked-up DT_INT values
+	int_max      int // likewise
+	can_be_empty bool
+	trans_int    func(game types.Game) map[int]string
+	trans_str    map[string]string
+	record       []string // record within chunk (only if chunk_type is CT_FORM)
+	hr_name      string
 }
 
 // Extra info for mountables
@@ -170,22 +173,22 @@ func map_from_array[K comparable](in []K) map[int]K {
 // Savefile format data starts
 
 var ettables = map[etype]*ettable{
-	ET_SHIP:     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, make_ship_map, map[string]string{}, nil, "ship"},
-	ET_LOCATION: &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, make_location_map, map[string]string{}, nil, "location"},
-	ET_CREDITS:  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}, "credits"},
-	ET_SHIELD:   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}, "shield"},
-	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine"},
-	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, nil, map[string]string{}, nil, "name"},
-	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, nil, map[string]string{}, nil, "callsign"},
+	ET_SHIP:     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, 0, 0, false, make_ship_map, map[string]string{}, nil, "ship"},
+	ET_LOCATION: &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, 0, 0, false, make_location_map, map[string]string{}, nil, "location"},
+	ET_CREDITS:  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, 0, math.MaxInt32, false, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}, "credits"},
+	ET_SHIELD:   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, 0, 0, true, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}, "shield"},
+	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, 0, 0, false, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine"},
+	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "name"},
+	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "callsign"},
 
 	// Mountables
-	ET_GUN:        &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
-	ET_LAUNCHER:   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
-	ET_MISSILE:    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
-	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
-	ET_REPUTATION: &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
-	ET_KILLS:      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, nil, map[string]string{}, []string{"KILL"}, "kills"},
-	ET_CARGO:      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
+	ET_GUN:        &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
+	ET_LAUNCHER:   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
+	ET_MISSILE:    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
+	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
+	ET_REPUTATION: &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
+	ET_KILLS:      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills"},
+	ET_CARGO:      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
 }
 
 var mount_infos = map[etype]mount_info{
@@ -461,38 +464,22 @@ func main3(log *burstlogger.BurstLogger) error {
 		fmt.Println(str)
 
 	case "set":
-		if len(os.Args) < 3 {
-			return errors.New("Set what? Settables are:\n" + list_ettables())
+		is_mountable, setargses, err := parseSetArgs(os.Args[2:])
+		if err != nil {
+			return err
 		}
-
-		what := etype_from_string(os.Args[2])
-		if what == ET_NONE {
-			return errors.New(os.Args[2] + " is not settable  Settables are:\n" + list_ettables())
-		}
-		g := ettables[what]
 
 		filename, savedata, err := retrieve()
 		if err != nil {
 			return err
 		}
 
-		if len(os.Args) < 4 {
-			str := "Set " + os.Args[2] + " to what?  Options are:"
-			for _, v := range g.trans_int(savedata.Game()) {
-				str += ("\n" + v)
+		for _, set_args := range setargses {
+			if is_mountable {
+				err = set_mountables(set_args.what, set_args.to_value, set_args.to_mount, savedata, log)
+			} else {
+				err = set(set_args.what, set_args.to_value, savedata, log)
 			}
-			return errors.New(str)
-		}
-		to_list := os.Args[3:]
-
-		_, is_mountable := mount_infos[what]
-		if len(to_list) > 1 && !is_mountable {
-			return errors.New(os.Args[2] + " can only be set to one thing!")
-		}
-
-		success := []string{}
-		for _, to := range to_list {
-			to_matched, err := set(what, to, savedata, log)
 			if err != nil {
 				// TODO: think about this
 				// If we were given a partially-valid instruction, should we do part of it, or fail entirely?
@@ -501,12 +488,9 @@ func main3(log *burstlogger.BurstLogger) error {
 				log.Forget() // Since it "didn't happen", don't log it
 				return err
 			}
-			success = append(success, to_matched)
+			log.Logln(set_args.hr_name, "set to", set_args.matched)
 		}
 
-		for _, suc := range success {
-			log.Logln(what, "set to", suc)
-		}
 		return stash(filename, savedata)
 
 	case "dump":
@@ -529,6 +513,126 @@ func main3(log *burstlogger.BurstLogger) error {
 	}
 
 	return nil
+}
+
+type setArgs struct {
+	what     etype
+	to_value interface{}
+	to_mount int
+	hr_name  string
+	matched  string
+}
+
+func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err error) {
+	err = func() error {
+		if len(args) < 1 {
+			return errors.New("Set what? Settables are:\n" + list_ettables())
+		}
+		what := etype_from_string(args[0])
+		if what == ET_NONE {
+			return errors.New(args[0] + " is not settable  Settables are:\n" + list_ettables())
+		}
+		info := ettables[what]
+
+		_, savedata, err := retrieve()
+		if err != nil {
+			return err
+		}
+
+		if len(os.Args) < 2 {
+			str := "Set " + args[0] + " to what?  Options are:"
+			for _, v := range info.trans_int(savedata.Game()) {
+				str += ("\n" + v)
+			}
+			return errors.New(str)
+		}
+		to_list := args[1:]
+
+		_, is_mountable = mount_infos[what]
+		if len(to_list) > 1 && !is_mountable {
+			return errors.New(args[0] + " can only be set to one thing!")
+		}
+
+		//success := []string{}
+		for _, to := range to_list {
+			// decipher "to"
+			matched := ""
+			mount_matched := ""
+
+			to_mount := -1
+			if is_mountable {
+				mounts := mount_infos[what].mounts
+
+				to_bits := strings.Split(to, ":")
+				if len(to_bits) != 2 {
+					return errors.New("Expected argument to \"set " + info.hr_name + "\" is \"" + info.hr_name + "_type:value\"")
+				}
+
+				matched_bits := []string{to_bits[0], to_bits[1]}
+				var err error
+
+				to_mount, matched_bits[0], err = fuzzy_reverse_lookup(mounts, to_bits[0], "mount")
+				if err != nil {
+					return err
+				}
+
+				to = to_bits[1]
+				mount_matched = matched_bits[0]
+			}
+
+			var to_value interface{}
+
+			if to == "empty" && info.data_type == DT_INT {
+				if !info.can_be_empty {
+					return errors.New(info.hr_name + " can't be empty")
+				}
+				to_value = nil
+				matched += to
+			} else if info.trans_int != nil {
+				// map is "backwards" from the setting PoV
+				k, m, err := fuzzy_reverse_lookup(info.trans_int(savedata.Game()), to, info.hr_name)
+				if err != nil {
+					return err
+				}
+				to_value = k
+				matched += m
+			} else if len(info.trans_str) > 0 {
+				// Another backwards map
+				k, m, err := fuzzy_reverse_lookup(info.trans_str, to, info.hr_name)
+				if err != nil {
+					return err
+				}
+				to_value = k
+				matched += m
+			} else if info.data_type == DT_INT || info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT {
+				// No lookup available and DT_INT - this is something like "credits" where the expected argument is just an int to be used directly.
+				// TODO: the awkward condition here suggests that mountableness should be a seperate flag that doesn't squash DT_INT or DT_STRING
+				int_value, err := strconv.Atoi(to)
+				if err != nil {
+					return err
+				}
+				if int_value < info.int_min || int_value > info.int_max {
+					return errors.New(info.hr_name + " number must be between " + strconv.Itoa(info.int_min) + " and " + strconv.Itoa(info.int_max))
+				}
+				to_value = int_value
+				matched += to
+			} else if info.data_type == DT_STRING {
+				// No lookup available and DT_STRING - use string directly
+				to_value = to
+				matched += to
+			} else {
+				return errors.New("This really should not happen")
+			}
+
+			name := info.hr_name
+			if mount_matched != "" {
+				name += ":" + mount_matched
+			}
+			setargses = append(setargses, setArgs{what, to_value, to_mount, name, matched})
+		}
+		return nil
+	}()
+	return
 }
 
 func load(full_filename string) (*types.Savedata, error) {
@@ -672,90 +776,73 @@ func get(what etype, savedata *types.Savedata) (string, error) {
 // set sets something
 // Exactly how to set something is encoded in the "ettables" data
 // what: the thing to be set
-// to: the value to set it to
+// to: the value to set it to (may be nil; this means "equipment not present")
 // savedata: processed savefile data
-func set(what etype, to string, savedata *types.Savedata, log Logger) (string, error) {
+func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error {
 	info := ettables[what]
+	should_be_empty := (to == nil)
 
-	if info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT {
-		return set_mountables(what, to, savedata, log)
-	}
-
-	matched := to
-	value := 0
-	value_bytes := []byte{}
-	if info.trans_int != nil {
-		// map is "backwards" from the setting PoV
-		k, m, err := fuzzy_reverse_lookup(info.trans_int(savedata.Game()), to, info.hr_name)
-		if err != nil {
-			return "", err
-		}
-		value = k
-		matched = m
-	} else if len(info.trans_str) > 0 {
-		// Another backwards map
-		k, m, err := fuzzy_reverse_lookup(info.trans_str, to, info.hr_name)
-		if err != nil {
-			return "", err
-		}
-		value_bytes = []byte(k)
-		matched = m
-
-	} else if info.data_type == DT_INT {
-		// No lookup available and DT_INT - this is something like "credits" where the expected argument is just an int to be used directly.
-		err := error(nil)
-		value, err = strconv.Atoi(to)
-		if err != nil {
-			return "", err
-		}
-		if value < 0 {
-			return "", errors.New("Negative values are not allowed for " + info.hr_name)
-		}
-	}
-
-	target := []byte{}
-	switch info.chunk_type {
-	case CT_STRING:
-		// At least this one is easy?
+	if info.chunk_type == CT_STRING {
+		// Special case: StringChunk contains a proper string (not a byte array)
+		// Also, strings can't be empty since "" is not a special value.
 		cl := savedata.Chunk(info.offset).Chunk_length()
-		if len(to)+1 > cl { //+1 for the null terminator
+		to_str := to.(string)
+		if len(to_str)+1 > cl { //+1 for the null terminator
 			// TODO: in "I know what I'm doing" mode, this should just be a warning
-			return "", errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to), cl))
+			return errors.New(fmt.Sprintf("Failed - new %v has %v characters; max length is %v", what, len(to_str), cl))
 		}
-		savedata.Strings[info.offset].Value = to
-		return matched, nil
+		savedata.Strings[info.offset].Value = to_str
+		return nil
+	}
 
+	// Find the target (byte array to write into)
+	var target []byte
+	switch info.chunk_type {
 	case CT_BLOB:
 		target = savedata.Blobs[info.offset]
-
 	case CT_FORM:
 		record := savedata.Forms[info.offset].Get(info.record...)
 		var err error
-		if record == nil {
+		if record == nil && !should_be_empty {
 			record, err = add_new_record(savedata, info.offset, info.record)
 			if err != nil {
-				return "", err
+				return err
 			}
 		}
-
-		if info.data_type == DT_STRING {
-			end := info.end
-			if end < 0 {
-				end += (len(record.Data) + 1) // +1 because negative indices have to start at -1, not 0
-			}
-			record.Data = append(record.Data[:info.start], append(value_bytes, record.Data[end:]...)...)
-			return matched, nil
+		if record != nil && should_be_empty {
+			savedata.Forms[info.offset].Delete_record(info.record...)
+			return nil
+		}
+		if record == nil && should_be_empty {
+			log.Logln(info.hr_name, "is already empty, so... done, I guess?")
+			return nil
 		}
 
 		target = record.Data
 	}
 
-	err := write_int(value, info.end-info.start, target[info.start:info.end])
-	if err != nil {
-		return "", err
+	// Write into the target
+	switch info.data_type {
+	case DT_INT:
+		write_int(to.(int), info.end-info.start, target[info.start:info.end])
+	case DT_STRING:
+		end := info.end
+		if end < 0 {
+			end += (len(target) + 1) // +1 because negative indices have to start at -1, not 0
+		}
+		target = append(target[:info.start], append([]byte(to.(string)), target[end:]...)...)
 	}
-
-	return matched, nil
+	
+	// ...except that maybe we didn't really write into actual data so write "target" back onto where it should be
+	// (This can't easily be avoided because values in maps aren't addressable, and Blobs are slices of bytes) 
+	switch info.chunk_type {
+	case CT_BLOB:
+		savedata.Blobs[info.offset] = target
+	case CT_FORM:
+		savedata.Forms[info.offset].Get(info.record...).Data = target
+	}
+	
+	return nil
 }
 
 func safe_lookup[K comparable](from map[K]string, with K) string {
@@ -807,107 +894,78 @@ func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, 
 	return out, nil
 }
 
-func set_mountables(what etype, to string, savedata *types.Savedata, log Logger) (string, error) {
-	g := ettables[what]
+// to can be nil, this indicates "empty"
+func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Savedata, log Logger) error {
+	info := ettables[what]
 
-	var equipment map[int]string
-	if g.trans_int != nil {
-		equipment = g.trans_int(savedata.Game())
-	}
-	mounts := mount_infos[what].mounts
-
-	// decipher "to"
-	to_bits := strings.Split(to, ":")
-	if len(to_bits) != 2 {
-		return "", errors.New("Expected argument to \"set " + g.hr_name + "\" is \"" + g.hr_name + "_type:value\"")
+	to_thing := 0
+	should_be_empty := (to == nil)
+	if !should_be_empty {
+		to_thing = to.(int)
 	}
 
-	matched_bits := []string{to_bits[0], to_bits[1]}
-	var err error
-	to_mount := -1
-	to_mount, matched_bits[0], err = fuzzy_reverse_lookup(mounts, to_bits[0], "mount")
-	if err != nil {
-		return "", err
-	}
-
-	to_thing := -1
-	if to_bits[1] != "empty" {
-		if equipment == nil {
-			// no lookup - the number itself is the required value
-			to_thing, err = strconv.Atoi(to_bits[1])
-			if err != nil {
-				return "", err
-			}
-			// TODO: upper limit depends on mounts.equipment_length
-			if to_thing < -32767 || to_thing > 32767 {
-				return "", errors.New("Numeric argument must be between -32767 and 32767")
-				// TODO: allow 0, treat it the same as "empty"
-			}
-			matched_bits[1] = to_bits[1]
-		} else {
-			to_thing, matched_bits[1], err = fuzzy_reverse_lookup(equipment, to_bits[1], g.hr_name)
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-	matched := matched_bits[0] + ":" + matched_bits[1]
-
-	// Now we actually do what we were asked to do
-
-	record := savedata.Forms[g.offset].Get(g.record...)
+	record := savedata.Forms[info.offset].Get(info.record...)
 	if record == nil {
-		record, err = add_new_record(savedata, g.offset, g.record)
+		var err error
+		record, err = add_new_record(savedata, info.offset, info.record)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
-
-	data := record.Data
+	target := &record.Data
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
 
+	// DT_ADDMOUNT is the easy case - everything alwasy exists, and simply adding 
+	// the mount (multiplied by chunk length) tells us where we need to write
 	if ettables[what].data_type == DT_ADDMOUNT {
-		err := write_int(to_thing, cl, data[to_mount*cl:to_mount*cl+cl])
+		err := write_int(to_thing, cl, (*target)[to_mount*cl:to_mount*cl+cl])
 		if err != nil {
-			return "", err
+			return err
 		}
-		return matched, nil
+		return nil
+	}
+
+	// DT_HASMOUNT case...
+	var equipment map[int]string
+	if info.trans_int != nil {
+		equipment = info.trans_int(savedata.Game())
 	}
 
 	eq_new_str := safe_lookup(equipment, to_thing)
-	mount_str := safe_lookup(mounts, to_mount)
-	for i := 0; i < len(data); i += cl {
-		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
+	mount_str := safe_lookup(mount_infos[what].mounts, to_mount)
+
+	for i := 0; i < len(*target); i += cl {
+		thing, err := read_int((*target)[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
 		if err != nil {
-			return "", err
+			return err
 		}
-		mount := int(data[i+minfo.mount_offset])
+		mount := int((*target)[i+minfo.mount_offset])
 
 		eq_old_str := safe_lookup(equipment, thing)
 
 		if mount == to_mount {
 			// equipment exists...
-			if to_bits[1] == "empty" {
+			if should_be_empty {
 				// ...but should not
 				log.Logln("Destroying existing", eq_old_str, "at", mount_str)
-				record.Data = append(record.Data[:i], record.Data[i+cl:]...)
-				return matched, nil
+				(*target) = append((*target)[:i], (*target)[i+cl:]...)
+				return nil
 			}
-			// ...but is of wrong type
+			// ...and should exist
 			log.Logln("Transmogrifying existing", eq_old_str, "at", mount_str, "into a", eq_new_str)
-			err := write_int(to_thing, minfo.equipment_length, data[i+minfo.equipment_offset:])
+			err := write_int(to_thing, minfo.equipment_length, (*target)[i+minfo.equipment_offset:])
 			if err != nil {
-				return "", err
+				return err
 			}
-			return matched, nil
+			return nil
 		}
 	}
 
-	if to_bits[1] == "empty" {
+	if should_be_empty {
 		// equipment does not exist and doesn't need to
 		log.Logln(mount_str, "is already empty, so... done, I guess?")
-		return matched, nil
+		return nil
 	}
 
 	// equipment does not exist but needs to
@@ -915,8 +973,8 @@ func set_mountables(what etype, to string, savedata *types.Savedata, log Logger)
 	new_data := make([]byte, cl)
 	write_int(to_thing, minfo.equipment_length, new_data[minfo.equipment_offset:])
 	new_data[minfo.mount_offset] = byte(to_mount)
-	record.Data = append(record.Data, new_data...)
-	return matched, nil
+	*target = append(*target, new_data...)
+	return nil
 }
 
 // sanity_fix attempts to fix inconsistencies in savedata - but only the ones that would cause the game to crash
