@@ -64,6 +64,35 @@ func get_dir() string {
 	return wd
 }
 
+// zero returns the zero value for a type
+func zero[K any]() K {
+	var k K
+	return k
+}
+
+// sniff in an inexacronym for "Safe Nil Function"
+// Although nil maps, slices and arrays act like non-modifiable empty objects of the same type,
+// nil functions act like nuclear-armed landmines.  A sniff-ed function just returns the default value
+// if the function is nil.
+func sniff[K any](fn func() K) func() K {
+	return func() K {
+		if fn == nil {
+			return zero[K]()
+		}
+		return fn()
+	}
+}
+
+// sniff1 is sniff for one-argument functions
+func sniff1[K any, A any](fn func(arg A) K) func(arg A) K {
+	return func(a A) K {
+		if fn == nil {
+			return zero[K]()
+		}
+		return fn(a)
+	}
+}
+
 // smash smashes "funny characters" (which includes anything that's remotely tricky to type into a command line) in a string into the '_' character
 func smash(in string) string {
 	out := ""
@@ -113,8 +142,7 @@ const (
 	DT_ADDMOUNT // Block of data, no explicit mount field because position is the mount
 )
 
-// "ettables" are (s)ettable or (g)ettable things
-
+// ET_* things and "ettables" are (s)ettable or (g)ettable things
 type etype int
 
 const (
@@ -570,7 +598,6 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 
 				matched_bits := []string{to_bits[0], to_bits[1]}
 				var err error
-
 				to_mount, matched_bits[0], err = fuzzy_reverse_lookup(mounts, to_bits[0], "mount")
 				if err != nil {
 					return err
@@ -673,17 +700,16 @@ func retrieve() (string, *types.Savedata, error) {
 	if err != nil {
 		return "", nil, err
 	}
-
 	defer f.Close()
 
 	encoder := gob.NewDecoder(bufio.NewReader(f))
 	var filename *string
-	savedata := types.Savedata{}
 	err = encoder.Decode(&filename)
 	if err != nil {
 		return "", nil, err
 
 	}
+	savedata := types.Savedata{}
 	err = encoder.Decode(&savedata)
 	if err != nil {
 		return "", nil, err
@@ -700,8 +726,6 @@ func retrieve() (string, *types.Savedata, error) {
 //
 // Returns: K: lookup result key, string: lookup result value (not necessarily equal to "to" due to fuzzy matching)
 func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what string) (K, string, error) {
-	var K0 K
-
 	for _, match := range fuzzy {
 		matches := []K{}
 		names := []string{}
@@ -715,13 +739,13 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 			continue
 		}
 		if len(matches) > 1 {
-			return K0, "", errors.New(fmt.Sprint("Ambiguous argument:", to, " could be anything from {", strings.Join(names, ", "), "}"))
+			return zero[K](), "", errors.New(fmt.Sprint("Ambiguous argument:", to, " could be anything from {", strings.Join(names, ", "), "}"))
 		}
 
 		return matches[0], names[0], nil
 	}
 
-	return K0, "", errors.New(to + " could not be matched to a valid value for " + what)
+	return zero[K](), "", errors.New(to + " could not be matched to a valid value for " + what)
 }
 
 // get gets something and returns it as a human-readable string
@@ -856,42 +880,24 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-// sniff in an inexacronym for "Safe Nil Function call"
-/*func sniff[K comparable](fn func()K)K{
-	if fn==nil{
-		return K()
-	}
-	return fn()
-}*/
-
 func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, error) {
-	var equipment map[int]string
-	if ettables[what].trans_int != nil {
-		equipment = ettables[what].trans_int(savedata.Game())
-	}
-
-	// TODO: rear/top is "turret 1"; get ship from savedata to make more sense of this?
-	mounts := mount_infos[what].mounts
-
 	out := ""
-	cl := mount_infos[what].chunk_length
-	for i := range len(data) / cl {
-		start := i*cl + mount_infos[what].equipment_offset
-		end := start + mount_infos[what].equipment_length
-		thing, err := read_int(data[start:end])
+	minfo := mount_infos[what]
+	cl := minfo.chunk_length
+	for i := 0; i < len(data); i += cl {
+		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
 		if err != nil {
 			return "", nil
 		}
 		mount := 0
 		if ettables[what].data_type == DT_HASMOUNT {
-			mount = int(data[i*cl+mount_infos[what].mount_offset])
+			mount = int(data[i+minfo.mount_offset])
 		}
 		if ettables[what].data_type == DT_ADDMOUNT {
-			mount = i
+			mount = i / cl
 		}
-		out += fmt.Sprintf("%v: %v\n", safe_lookup(mounts, mount), safe_lookup(equipment, thing))
+		out += fmt.Sprintf("%v: %v\n", safe_lookup(minfo.mounts, mount), safe_lookup(sniff1(ettables[what].trans_int)(savedata.Game()), thing))
 	}
-
 	return out, nil
 }
 
@@ -917,7 +923,7 @@ func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Sa
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
 
-	// DT_ADDMOUNT is the easy case - everything alwasy exists, and simply adding
+	// DT_ADDMOUNT is the easy case - everything always exists, and simply adding
 	// the mount (multiplied by chunk length) tells us where we need to write
 	if ettables[what].data_type == DT_ADDMOUNT {
 		err := write_int(to_thing, cl, (*target)[to_mount*cl:to_mount*cl+cl])
@@ -928,11 +934,7 @@ func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Sa
 	}
 
 	// DT_HASMOUNT case...
-	var equipment map[int]string
-	if info.trans_int != nil {
-		equipment = info.trans_int(savedata.Game())
-	}
-
+	equipment := sniff1(ettables[what].trans_int)(savedata.Game())
 	eq_new_str := safe_lookup(equipment, to_thing)
 	mount_str := safe_lookup(mount_infos[what].mounts, to_mount)
 
@@ -941,10 +943,9 @@ func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Sa
 		if err != nil {
 			return err
 		}
-		mount := int((*target)[i+minfo.mount_offset])
-
 		eq_old_str := safe_lookup(equipment, thing)
 
+		mount := int((*target)[i+minfo.mount_offset])
 		if mount == to_mount {
 			// equipment exists...
 			if should_be_empty {
@@ -1001,7 +1002,6 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	}
 
 	fix_record := func(weapon etype, fixer map[byte]int) {
-
 		info := ettables[weapon]
 		hr_weapon := info.hr_name
 		record := savedata.Forms[info.offset].Get(info.record...)
@@ -1012,7 +1012,6 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 
 		minfo := mount_infos[weapon]
 		cl := minfo.chunk_length
-
 		data := record.Data
 		// weapon block format: weapon, mount, damage, ???
 		// load this into a map so we can deal with it more easily (?)
@@ -1157,13 +1156,12 @@ func read_int(data []byte) (int, error) {
 }
 
 func write_int(n int, length int, target []byte) error {
+	if length == 0 && n != 0 {
+		// validate int0
+		return errors.New("Internal privedit error: attempt to write non-zero number to empty")
+	}
 	switch length {
-	case 0:
-		// ...because it's simpler for this not to be a special case
-		if n != 0 {
-			return errors.New("Internal privedit error: attempt to write non-zero number to empty")
-		}
-	case 1, 2, 4: // OK
+	case 0, 1, 2, 4: // OK
 	default:
 		return errors.New("Internal privedit error: unexpected byte length for field")
 	}
