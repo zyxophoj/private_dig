@@ -1013,28 +1013,35 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		minfo := mount_infos[weapon]
 		cl := minfo.chunk_length
 		data := record.Data
-		// weapon block format: weapon, mount, damage, ???
-		// load this into a map so we can deal with it more easily (?)
-		oldmap := map[byte][]byte{}
-		for i := range len(data) / cl {
-			oldmap[data[i*cl+minfo.mount_offset]] = data[i*cl : (i+1)*cl]
-		}
-		newmap := map[byte][]byte{}
-		for old_mount := range oldmap {
+		new_data := [][]byte{}
+		new_data_by_mount := map[int]int{}
+		// go through "data", read each chunk, write into "new_data" (modified, if necessary)
+		// The reason for doing it this way is that we don't want to change the order (particularly in the case where we don't need to change anything)
+		// Although the game doesn't care if we randomize the order, tests are much easier to write if file output is deterministic and 
+		// as order-preserving as it can be.
+		for i:=0; i<len(data); i+=cl {
+			old_mount := data[i+minfo.mount_offset]
 			new_mount, bad := fixer[old_mount]
 			if !bad {
 				// no fixed mount - weapon is allowed to exist where it is
 				new_mount = int(old_mount)
 			}
 
-			_, occupied := newmap[byte(new_mount)]
-			if new_mount == -1 || (occupied && oldmap[old_mount][minfo.equipment_offset] < newmap[byte(new_mount)][minfo.equipment_offset]) {
+			nd_i, occupied := new_data_by_mount[new_mount]
+			if new_mount == -1 || (occupied && data[i+minfo.equipment_offset] < new_data[nd_i][minfo.equipment_offset]) {
 				// If new mount is occupied then weapon with the larger ID wins
 				// This is to avoid putting a good  savefile into an unwinnable state by throwing away steltek guns (which have the highest IDs)
 				// (If we're not called in a gun context, then it doesn't matter what we keep or throw away)
 				log.Logln("Sanity fix:", hr_weapon, "from mount", old_mount, "thrown away")
 			} else {
-				newmap[byte(new_mount)] = oldmap[old_mount]
+				if occupied{
+					new_data[nd_i] = data[i:i+cl]
+				} else {
+					new_data=append(new_data, data[i:i+cl])
+					nd_i = len(new_data)-1
+				}
+				new_data[nd_i][minfo.mount_offset]=byte(new_mount)
+				new_data_by_mount[new_mount] = nd_i
 
 				if new_mount != int(old_mount) {
 					if occupied {
@@ -1044,11 +1051,10 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 				}
 			}
 		}
-		// This does randomize weapon order, but the game doesn't care so neither do I
-		// TODO: actually, I do care, for file comparison purposes.  So preserve order, at least when nothing is changed.
+
 		record.Data = []byte{}
-		for _, gundata := range newmap {
-			record.Data = append(record.Data, gundata...)
+		for _, subdata := range new_data {
+			record.Data = append(record.Data, subdata...)
 		}
 	}
 
