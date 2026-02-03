@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"privdump/readers"
 	"privdump/writers"
@@ -323,7 +322,7 @@ func (f *Form) Get(what ...string) *Record {
 	for _, w := range what[:len(what)-1] {
 		found := false
 		for _, subform := range f.Subforms {
-			if strings.HasSuffix(subform.Name, w) {
+			if subform.Name==w {
 				f = subform
 				//fmt.Println("Subform", f.Name)
 				found = true
@@ -337,7 +336,7 @@ func (f *Form) Get(what ...string) *Record {
 	}
 
 	for i, rec := range f.Records {
-		if strings.HasSuffix(rec.Name, what[len(what)-1]) {
+		if rec.Name == what[len(what)-1] {
 			return f.Records[i]
 		}
 	}
@@ -349,7 +348,7 @@ func (f *Form) Add_record(what ...string) *Record {
 	for _, w := range what[:len(what)-1] {
 		found := false
 		for _, subform := range f.Subforms {
-			if strings.HasSuffix(subform.Name, w) {
+			if subform.Name == w {
 				f = subform //member functions are smoke and mirrors
 				found = true
 				break
@@ -373,7 +372,7 @@ func (f *Form) Delete_record(what ...string) error {
 	for _, w := range what[:len(what)-1] {
 		found := false
 		for _, subform := range f.Subforms {
-			if strings.HasSuffix(subform.Name, w) {
+			if subform.Name == w {
 				f = subform //member functions are smoke and mirrors
 				found = true
 				fmt.Println("Found", w)
@@ -399,7 +398,7 @@ func (f *Form) Delete_record(what ...string) error {
 func (f *Form) Get_subform(w string) *Form {
 	//TODO: allow multiple args
 	for _, subform := range f.Subforms {
-		if strings.HasSuffix(subform.Name, w) {
+		if subform.Name == w {
 			return f
 		}
 	}
