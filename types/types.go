@@ -583,9 +583,11 @@ func (form *Form) Write(out io.Writer) (int, error) {
 			if r != len(form.Records)-1 {
 				out.Write([]byte{form.Records[r+1].Name[0]})
 			} else {
-				// Next byte is not available, so re-write the last byte.
-				//fmt.Println("Doubling last byte in", record.Name, form.Name)
-				out.Write(record.Data[len(record.Data)-1 : len(record.Data)])
+				// Next byte is not readily available, but it's probably 'F' for FORM
+				// In practice, Privateer does not always do this for top-level FORMs, resulting in FORMs that claim
+				// the first byte of the next chunk.  While this could be simulated, that would be revolting code
+				// for a revolting purpose.
+				out.Write([]byte{byte('F')})
 			}
 		}
 	}
