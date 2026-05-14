@@ -213,7 +213,7 @@ var ettables = map[etype]*ettable{
 	ET_GUN:        &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
 	ET_LAUNCHER:   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
 	ET_MISSILE:    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
-	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
+	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
 	ET_REPUTATION: &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
 	ET_KILLS:      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills"},
 	ET_CARGO:      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
