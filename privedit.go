@@ -562,12 +562,14 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 		}
 		info := ettables[what]
 
+		// Ugly, but what else can we do?  We can't validate args without knowing what type of savefile
+		// we've been asked to modify, so we can't really avoid the retreive.
 		_, savedata, err := retrieve()
 		if err != nil {
 			return err
 		}
 
-		if len(os.Args) < 2 {
+		if len(args) < 2 {
 			str := "Set " + args[0] + " to what?  Options are:"
 			for _, v := range info.trans_int(savedata.Game()) {
 				str += ("\n" + v)
