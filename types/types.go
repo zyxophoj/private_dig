@@ -1,5 +1,10 @@
 package types
 
+// types for loading and saving Privateer savefiles (including Righteous Fire savefiles)
+//
+// The top-level type here is SaveData, which is generally acquired by calling Read_savadata with a file reader argument.
+// All slices in the output of Read_Savedata are "safe", meaning no chunk of data is pointed to by 2 seemingly-independent slices.  
+
 import (
 	"bytes"
 	"errors"
@@ -84,6 +89,7 @@ func Modify_index(i int, missions int) int {
 	return i - 2*missions
 }
 
+// Chunk_type returns the type of a chunk based on its offset
 func (h *Header) Chunk_type(i int) ChunkType {
 	if i >= OFFSET_MISSION_BASE {
 		// This is mission-related
@@ -106,8 +112,8 @@ func (h *Header) Chunk_type(i int) ChunkType {
 	return CT_BLOB
 }
 
-// Offset_end returns the index of the byte one after the end of the offset with the given offset ID.
-// This will normally be h.Offsets[o+1], but enum order not matching file order (due to moving missions to the end of the list) complicates things.
+// Offset_end returns the index (in true offset order) of the byte one after the end of the offset with the given offset ID.
+// This will normally be h.Offsets[o+1], but offset fudging complicates things.
 func (h *Header) Offset_end(o int) int {
 	if o == OFFSET_MISSIONS && len(h.Offsets) > OFFSET_COUNT {
 		// Jump to mission offsets
@@ -118,7 +124,7 @@ func (h *Header) Offset_end(o int) int {
 		return h.Offsets[OFFSET_PLAY]
 	}
 	if o == OFFSET_CALLSIGN {
-		// Since this is the last offset, we can't look at the next one to see where it ends.
+		// Since this is the last offset, we can't look at the next one!
 		return h.File_size
 	}
 
@@ -136,7 +142,7 @@ type Savedata struct {
 	Blobs   map[int]Blob
 }
 
-// n is a modified index
+// Chunk returns the data chunk at a (modified) offset index
 func (sd *Savedata) Chunk(n int) Chunk {
 	// Ugh... some kind of polymprphism might help here
 	if sd.Forms[n] != nil {
@@ -270,6 +276,10 @@ func Read_savedata(r io.ReadSeeker) (*Savedata, error) {
 	return &out, nil
 }
 
+// Write writes (possibly modified) savedata to a file
+// This will automatically create the file header, and recalculate all embededded lengths and offsets.
+// If data is not modified, order of data inside records and records inside FORMs is preserved
+// (if it is, order is preserved as much as it can be)
 func (sd *Savedata) Write(out io.Writer) {
 	chunk_count := len(sd.Forms) + len(sd.Strings) + len(sd.Blobs)
 	missions := (chunk_count - OFFSET_COUNT) / 2
