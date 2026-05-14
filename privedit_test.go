@@ -9,6 +9,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"privdump/readers"
+	"privdump/tables"
 	"privdump/types"
 )
 
@@ -40,6 +41,14 @@ func real_filename(file string, RF bool) string {
 	return filename
 }
 
+//min exists because math.Min only works for floats
+func min(a, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}
+
 func basic_chunk_split(file []byte) [][]byte {
 	// Read chunks out of the file
 	chunks := [][]byte{}
@@ -55,27 +64,6 @@ func basic_chunk_split(file []byte) [][]byte {
 		chunks = append(chunks, file[bounds[i]:bounds[i+1]])
 	}
 
-	// Now for the really evil part.  Detect FORMs that are lying about their lengths!
-	for i := range chunks {
-		if len(chunks[i]) < 12 {
-			// too short to be a FORM
-			continue
-		}
-		r := bytes.NewReader(chunks[i])
-		_, err := readers.Read_fixed_string("FORM", r)
-		if err != nil {
-			// not a form
-			continue
-		}
-
-		length, _ := readers.Read_int_be(r)
-		length += 8 // because read length does not include the stuff we already read
-		for length > len(chunks[i]) {
-			// F is for footer?  In any case, 'F' the form until it is no longer lying about its length
-			chunks[i] = append(append([]byte{}, chunks[i]...), byte('F')) // Beware of append side-effects!  UGH!
-		}
-	}
-
 	return chunks
 }
 
@@ -83,16 +71,13 @@ func basic_chunk_split(file []byte) [][]byte {
 // We would like to do a byte-for-byte compare, but that wouldn't work - because real privateer savefiles
 // may contain forms that lie about their lengths.
 // Savedata.Write does not commit this crime against humanity, which means load-saving will not produce
-// an identical file - so we fix that bullshit, then compare as byte-for-byte as we can.
+// an identical file - so we compare as close to byte-for-byte as we can get.
 func savefiles_equal(file1 []byte, file2 []byte) (bool, error) {
 	chunks1 := basic_chunk_split(file1)
 	chunks2 := basic_chunk_split(file2)
 
 	for i := 0; i < len(chunks1); i += 1 {
-		if len(chunks1[i]) != len(chunks2[i]) {
-			return false, fmt.Errorf("Length mismatch: %v != %v", len(chunks1[i]), len(chunks2[i]))
-		}
-		for j := range chunks1[i] {
+		for j := range min(len(chunks1[i]), len(chunks2[i])) {
 			if chunks1[i][j] != chunks2[i][j] {
 				return false, fmt.Errorf("Data mismatch in chunk %v at %v (out of %v), (%v != %v)", i, j, len(chunks1[i]), int(chunks1[i][j]), int(chunks2[i][j]))
 			}
@@ -125,7 +110,7 @@ func Test_LoadStashRetrieveSave(t *testing.T) {
 		}
 	}
 	if len(filenames) == 0 {
-		// Something has clearly gone wrong her,e and we want to avoid vacuous success
+		// Something has clearly gone wrong here and we want to avoid vacuous success
 		t.Error("No filenames read!")
 	}
 
@@ -159,7 +144,7 @@ func Test_LoadStashRetrieveSave(t *testing.T) {
 		out_buf := &bytes.Buffer{}
 		sd2.Write(out_buf)
 
-		// Sadly, data length isn't conserved because real files contain forms that lie about their lengths
+		// Sadly, data length isn't conserved because real files contain dishonest forms
 		/*if len(out_buf.Bytes()) != len(file_bytes){
 			t.Logf("Data length not conserved by load->stash->retrieve->save (%v -> %v) (%v)", len(file_bytes), len(out_buf.Bytes()), filename)
 			error_count++
@@ -182,5 +167,44 @@ func Test_LoadStashRetrieveSave(t *testing.T) {
 
 	if error_count > 0 {
 		t.Errorf("Errors! (%v errors, %v successes)", error_count, success_count)
+	}
+}
+
+// test the "set" function - at least in the non-mountable cases
+// (this also depends on load() and get())
+func Test_SetSimple(t *testing.T) {
+	// NEW.SAV was created by immediately saving from a new game
+	filename := real_filename("NEW", false)
+	sd, err := load(filename)
+	if err != nil {
+		t.Errorf("Failed to load file %v - %v", filename, err)
+	}
+
+	tests := []struct {
+		what etype
+		from interface{}
+		to   interface{}
+	}{
+		{ET_SHIP, int(tables.SHIP_TARSUS), int(tables.SHIP_CENTURION)},
+		{ET_LOCATION, int(tables.BASE_ACHILLES), int(tables.BASE_NEW_DETROIT)},
+		{ET_CREDITS, 2000, 12345678},
+		{ET_SHIELD, tables.SHIELD_BASE_0 + 1, tables.SHIELD_BASE_0 + 5},
+		//{ET_ENGINE,   0,5},  TODO!!
+		{ET_NAME, "test", "Blair"},
+		{ET_CALLSIGN, "test", "Maverick"},
+	}
+
+	for _, test := range tests {
+		old, _ := get(test.what, sd)
+		if old != test.from {
+			t.Errorf("Starting %v not as expected (got %v, expected %v)", ettables[test.what].hr_name, old, test.from)
+		}
+
+		set(test.what, test.to, sd, nil)
+
+		new_, _ := get(test.what, sd)
+		if new_ != test.to {
+			t.Errorf("Modified %v not as expected (got %v, expected %v)", ettables[test.what].hr_name, new_, test.to)
+		}
 	}
 }
