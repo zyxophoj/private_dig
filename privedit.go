@@ -485,11 +485,25 @@ func main3(log *burstlogger.BurstLogger) error {
 			return err
 		}
 
-		str, err := get(what, savedata)
+		got, err := get(what, savedata)
 		if err != nil {
 			return err
 		}
-		fmt.Println(str)
+		mount_info, is_mountable := mount_infos[what]
+		translate := sniff1(ettables[what].trans_int)(savedata.Game())
+		print_info := func(prefix string, is_int bool, thing interface{}) {
+			if is_int {
+				thing = safe_lookup(translate, thing.(int))
+			}
+			fmt.Printf("%v%v\n", prefix, thing)
+		}
+		if is_mountable {
+			for mount, thing := range got.(map[int]interface{}) {
+				print_info(safe_lookup(mount_info.mounts, mount)+":", true, thing)
+			}
+		} else {
+			print_info(ettables[what].hr_name+": ", (ettables[what].data_type == DT_INT), got)
+		}
 
 	case "set":
 		is_mountable, setargses, err := parseSetArgs(os.Args[2:])
@@ -504,7 +518,7 @@ func main3(log *burstlogger.BurstLogger) error {
 
 		for _, set_args := range setargses {
 			if is_mountable {
-				err = set_mountables(set_args.what, set_args.to_value, set_args.to_mount, savedata, log)
+				err = set_at_mount(set_args.what, set_args.to_value, set_args.to_mount, savedata, log)
 			} else {
 				err = set(set_args.what, set_args.to_value, savedata, log)
 			}
@@ -609,9 +623,11 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 				mount_matched = matched_bits[0]
 			}
 
-			var to_value interface{}
+			// TODO: the awkward condition here suggests that mountableness should be a separate flag that doesn't squash DT_INT or DT_STRING
+			data_type_is_int := info.data_type == DT_INT || info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT
 
-			if to == "empty" && info.data_type == DT_INT {
+			var to_value interface{}
+			if to == "empty" && data_type_is_int {
 				if !info.can_be_empty {
 					return errors.New(info.hr_name + " can't be empty")
 				}
@@ -633,9 +649,8 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 				}
 				to_value = k
 				matched += m
-			} else if info.data_type == DT_INT || info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT {
-				// No lookup available and DT_INT - this is something like "credits" where the expected argument is just an int to be used directly.
-				// TODO: the awkward condition here suggests that mountableness should be a seperate flag that doesn't squash DT_INT or DT_STRING
+			} else if data_type_is_int {
+				// No lookup available and int - this is something like "credits" where the expected argument is just an int to be used directly.
 				int_value, err := strconv.Atoi(to)
 				if err != nil {
 					return err
@@ -753,7 +768,8 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 // get gets something and returns it as a human-readable string
 // what: the thing to be got
 // savedata: processed savefile data
-func get(what etype, savedata *types.Savedata) (string, error) {
+// returns a savefile-friendly value e.g. 7 not "Tachyon Cannon" how to convert this to something useful is up to the caller
+func get(what etype, savedata *types.Savedata) (interface{}, error) {
 	g := ettables[what]
 
 	bytes := []uint8{}
@@ -778,32 +794,31 @@ func get(what etype, savedata *types.Savedata) (string, error) {
 	}
 
 	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
-		return get_mountables(what, bytes, savedata)
+		return get_at_mounts(what, bytes, savedata)
 	}
 
 	if g.data_type == DT_STRING {
-		str := string(bytes)
-		return fmt.Sprint(bytes, ": ", g.trans_str[str]), nil
+		return string(bytes), nil
 	}
 
 	n, err := read_int(bytes)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	if g.trans_int != nil && len(g.trans_int(savedata.Game())) > 0 {
-		return fmt.Sprint(n, ": ", g.trans_int(savedata.Game())[n]), nil
-	} else {
-		// no translation necessary
-		return fmt.Sprint(n), nil
-	}
+	return n, nil
 }
 
 // set sets something
 // Exactly how to set something is encoded in the "ettables" data
 // what: the thing to be set
-// to: the value to set it to (may be nil; this means "equipment not present")
+// to: the value to set it to.  This is a savefile-friendly  value e.g. 7 not "Tachyon Cannon".
+//
+//	This may be nil; that means "equipment not present".
+//
 // savedata: processed savefile data
+//
+// set does not check for argument inconsistencies (e.g to==nil but ettables[what].can_be_empty==false); that should have happened already
+// set does not check for game-crash-causing holistic savefile inconsistencies; that happens in sanity_fix
 func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error {
 	info := ettables[what]
 	should_be_empty := (to == nil)
@@ -882,14 +897,21 @@ func safe_lookup[K comparable](from map[K]string, with K) string {
 	return out
 }
 
-func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, error) {
-	out := ""
+// get_at_mounts is an alternative version of get for  "mountable" things
+// "mountable" includes more than actually-mounted equipment; it covers anything where there is an extra type value
+// and there can be at most one thing with a given type.  e.g reputation values are "mounted" at a faction and cargo
+// quantities are "mounted" at a cargo type.
+//
+// This function gets *all* the data for a given type, including where it is mounted (so no mount argument is needed)
+// returned map keys are mount IDs; map values are what is mounted there
+func get_at_mounts(what etype, data []byte, savedata *types.Savedata) (map[int]interface{}, error) {
+	out := map[int]interface{}{}
 	minfo := mount_infos[what]
 	cl := minfo.chunk_length
 	for i := 0; i < len(data); i += cl {
 		thing, err := read_int(data[i+minfo.equipment_offset : i+minfo.equipment_offset+minfo.equipment_length])
 		if err != nil {
-			return "", nil
+			return nil, err
 		}
 		mount := 0
 		if ettables[what].data_type == DT_HASMOUNT {
@@ -898,13 +920,13 @@ func get_mountables(what etype, data []byte, savedata *types.Savedata) (string, 
 		if ettables[what].data_type == DT_ADDMOUNT {
 			mount = i / cl
 		}
-		out += fmt.Sprintf("%v: %v\n", safe_lookup(minfo.mounts, mount), safe_lookup(sniff1(ettables[what].trans_int)(savedata.Game()), thing))
+		out[mount] = thing
 	}
 	return out, nil
 }
 
-// to can be nil, this indicates "empty"
-func set_mountables(what etype, to interface{}, to_mount int, savedata *types.Savedata, log Logger) error {
+// set_at_mount is an alternate version of set for "mountable" things
+func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Savedata, log Logger) error {
 	info := ettables[what]
 
 	to_thing := 0
