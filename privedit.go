@@ -1003,8 +1003,10 @@ func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Save
 	return nil
 }
 
-// sanity_fix attempts to fix inconsistencies in savedata - but only the ones that would cause the game to crash
-// Crashing inconsistencies appear to be: turrets, weapons or launchers in mounts that don't exist.
+// sanity_fix attempts to fix inconsistencies in savedata - but only the ones that would result in things the player doesn't like, such as immediate game crashes.
+// Since the game doesn't care about silly little things like quad-Steltek-gun Centurions with level 5 engines and a 3rd launcher in the nonexistent rear turret, we don't either.
+//
+// Multiple steltek guns are in fact a partial exception - this is so much fun that we allow it, even though ships so equipped can't be traded.
 func sanity_fix(savedata *types.Savedata, log Logger) {
 	// Turret mounts:   1: Rear, 2:top, 3:bottom
 	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer,
@@ -1041,9 +1043,9 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		new_data_by_mount := map[int]int{}
 		// go through "data", read each chunk, write into "new_data" (modified, if necessary)
 		// The reason for doing it this way is that we don't want to change the order (particularly in the case where we don't need to change anything)
-		// Although the game doesn't care if we randomize the order, tests are much easier to write if file output is deterministic and 
+		// Although the game doesn't care if we randomize the order, tests are much easier to write if file output is deterministic and
 		// as order-preserving as it can be.
-		for i:=0; i<len(data); i+=cl {
+		for i := 0; i < len(data); i += cl {
 			old_mount := data[i+minfo.mount_offset]
 			new_mount, bad := fixer[old_mount]
 			if !bad {
@@ -1058,13 +1060,13 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 				// (If we're not called in a gun context, then it doesn't matter what we keep or throw away)
 				log.Logln("Sanity fix:", hr_weapon, "from mount", old_mount, "thrown away")
 			} else {
-				if occupied{
+				if occupied {
 					new_data[nd_i] = data[i:i+cl]
 				} else {
-					new_data=append(new_data, data[i:i+cl])
-					nd_i = len(new_data)-1
+					new_data = append(new_data, data[i:i+cl])
+					nd_i = len(new_data) - 1
 				}
-				new_data[nd_i][minfo.mount_offset]=byte(new_mount)
+				new_data[nd_i][minfo.mount_offset] = byte(new_mount)
 				new_data_by_mount[new_mount] = nd_i
 
 				if new_mount != int(old_mount) {
@@ -1121,7 +1123,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		cl := mount_infos[ET_LAUNCHER].chunk_length
 		mo := mount_infos[ET_LAUNCHER].mount_offset
 		d := launchers.Data
-		// Fix the problem by sorting
+		// Fix the problem by sorting (because all front mounts have samller IDs than all non-front mounts)
 		// Bubblesort, but n will never be larger than 4.  Ugh.
 		for i1 := 0; i1 < len(d)-cl; i1 += cl {
 			for i2 := i1 + cl; i2 < len(d); i2 += cl {
