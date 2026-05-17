@@ -768,7 +768,7 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 // get gets something and returns it as a human-readable string
 // what: the thing to be got
 // savedata: processed savefile data
-// returns a savefile-friendly value e.g. 7 not "Tachyon Cannon" how to convert this to something useful is up to the caller
+// returns a savefile-friendly value e.g. 7 not "Tachyon Cannon"; how to convert this to something useful is up to the caller
 func get(what etype, savedata *types.Savedata) (interface{}, error) {
 	g := ettables[what]
 
@@ -811,7 +811,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 // set sets something
 // Exactly how to set something is encoded in the "ettables" data
 // what: the thing to be set
-// to: the value to set it to.  This is a savefile-friendly  value e.g. 7 not "Tachyon Cannon".
+// to: the value to set it to.  This is a savefile-friendly value e.g. 7 not "Tachyon Cannon".
 //
 //	This may be nil; that means "equipment not present".
 //
@@ -875,7 +875,7 @@ func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error
 	}
 
 	// ...except that maybe we didn't really write into actual data so write "target" back onto where it should be
-	// (This can't easily be avoided because values in maps aren't addressable, and Blobs are slices of bytes)
+	// (This can't easily be avoided for Blobs because values in maps aren't addressable, and Blobs are slices of bytes)
 	switch info.chunk_type {
 	case CT_BLOB:
 		savedata.Blobs[info.offset] = target
@@ -1168,6 +1168,9 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 		}
 	}
 }
+
+// read_int and write_int always read/write in little-endian.
+// Since the file data is always little-endian (whereas metadata is always big-endian), this is what we want.
 
 func read_int(data []byte) (int, error) {
 	n := 0
