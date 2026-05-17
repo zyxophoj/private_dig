@@ -1009,9 +1009,9 @@ func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Save
 // Multiple steltek guns are in fact a partial exception - this is so much fun that we allow it, even though ships so equipped can't be traded.
 func sanity_fix(savedata *types.Savedata, log Logger) {
 	// Turret mounts:   1: Rear, 2:top, 3:bottom
-	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer,
+	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer, 5: Turret 1a, 7: turret 1b, 8: turret 2a, 10 turret 2b
 	// Only the Centurion has outer mounts.
-	// Launcher mounts: 0: Centre, 1: Left (not Centurion), 2: Left (Centurion), 3: Right (Centurion), 4: Right (not Centurion),
+	// Launcher mounts: 0: Centre, 1: Left (not Centurion), 2: Left (Centurion), 3: Right (Centurion), 4: Right (not Centurion), 6: turret 1, 9: turret 2
 	type fixers struct { //key is bad slot, value is alternative good slot
 		fix_turrets   map[byte]int
 		fix_guns      map[byte]int
@@ -1023,7 +1023,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	mounts := map[uint8]fixers{
 		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 5: -1, 7: -1, 8: -1, 10: -1}, map[byte]int{0: -1, 2: 1, 3: 4, 6: -1, 9: -1}},
 		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 8: -1, 10: -1}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1, 9: -1}},
-		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{}, map[byte]int{0: -1, 1: 2, 4: 3, 9: -1, 8: -1, 10: -1}},
+		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{8: -1, 10: -1}, map[byte]int{0: -1, 1: 2, 4: 3, 9: -1}},
 		tables.SHIP_GALAXY:    {map[byte]int{1: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 1: 2, 4: 3}},
 	}
 
