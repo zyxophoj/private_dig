@@ -450,7 +450,7 @@ var Cheev_list = []struct {
 
 	{"Ships", []Achievement{ // The idea here is one achievement per ship which exemplifies what that ship is for.
 
-		{"AID_CENTURION", "Pew Pew Pew", "Mount 4 front guns and 20 warheads (on a Centurion)", false, func(a *Arg) bool {
+		{"AID_CENTURION", "Power Extreme!", "Mount 4 front guns and 20 warheads (on a Centurion)", false, func(a *Arg) bool {
 			count := 0
 			guns := a.Forms[types.OFFSET_REAL].Get("FITE", "WEAP", "GUNS")
 			if guns != nil {
