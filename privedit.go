@@ -136,7 +136,7 @@ const (
 type DataType int
 
 const (
-	DT_INT DataType = iota
+	DT_INT DataType = 1 << iota
 	DT_STRING
 	DT_HASMOUNT // Block of data, including a mount field
 	DT_ADDMOUNT // Block of data, no explicit mount field because position is the mount
@@ -210,13 +210,13 @@ var ettables = map[etype]*ettable{
 	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "callsign"},
 
 	// Mountables
-	ET_GUN:        &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
-	ET_LAUNCHER:   &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
-	ET_MISSILE:    &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
-	ET_TURRET:     &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
-	ET_REPUTATION: &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
-	ET_KILLS:      &ettable{CT_FORM, DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills"},
-	ET_CARGO:      &ettable{CT_FORM, DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
+	ET_GUN:        &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
+	ET_LAUNCHER:   &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
+	ET_MISSILE:    &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
+	ET_TURRET:     &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
+	ET_REPUTATION: &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
+	ET_KILLS:      &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills"},
+	ET_CARGO:      &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
 }
 
 var mount_infos = map[etype]mount_info{
@@ -502,7 +502,7 @@ func main3(log *burstlogger.BurstLogger) error {
 				print_info(safe_lookup(mount_info.mounts, mount)+":", true, thing)
 			}
 		} else {
-			print_info(ettables[what].hr_name+": ", (ettables[what].data_type == DT_INT), got)
+			print_info(ettables[what].hr_name+": ", ettables[what].data_type&DT_INT != 0, got)
 		}
 
 	case "set":
@@ -623,8 +623,7 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 				mount_matched = matched_bits[0]
 			}
 
-			// TODO: the awkward condition here suggests that mountableness should be a separate flag that doesn't squash DT_INT or DT_STRING
-			data_type_is_int := info.data_type == DT_INT || info.data_type == DT_HASMOUNT || info.data_type == DT_ADDMOUNT
+			data_type_is_int := (info.data_type & DT_INT) != 0
 
 			var to_value interface{}
 			if to == "empty" && data_type_is_int {
@@ -660,12 +659,12 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 				}
 				to_value = int_value
 				matched += to
-			} else if info.data_type == DT_STRING {
-				// No lookup available and DT_STRING - use string directly
+			} else if info.data_type&DT_STRING != 0 {
+				// No lookup available data is a string - use it directly
 				to_value = to
 				matched += to
 			} else {
-				return errors.New("This really should not happen")
+				return errors.New(fmt.Sprintf("Internal privedit error: ettables[%v] failed to specify an action ", what))
 			}
 
 			name := info.hr_name
@@ -797,7 +796,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 		return get_at_mounts(what, bytes, savedata)
 	}
 
-	if g.data_type == DT_STRING {
+	if g.data_type&DT_STRING != 0 {
 		return string(bytes), nil
 	}
 
@@ -863,7 +862,7 @@ func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error
 	}
 
 	// Write into the target
-	switch info.data_type {
+	switch info.data_type & (DT_INT | DT_STRING) {
 	case DT_INT:
 		write_int(to.(int), info.end-info.start, target[info.start:info.end])
 	case DT_STRING:
@@ -913,11 +912,12 @@ func get_at_mounts(what etype, data []byte, savedata *types.Savedata) (map[int]i
 		if err != nil {
 			return nil, err
 		}
+
 		mount := 0
-		if ettables[what].data_type == DT_HASMOUNT {
+		switch ettables[what].data_type | (DT_HASMOUNT & DT_ADDMOUNT) {
+		case DT_HASMOUNT:
 			mount = int(data[i+minfo.mount_offset])
-		}
-		if ettables[what].data_type == DT_ADDMOUNT {
+		case DT_ADDMOUNT:
 			mount = i / cl
 		}
 		out[mount] = thing
@@ -928,7 +928,9 @@ func get_at_mounts(what etype, data []byte, savedata *types.Savedata) (map[int]i
 // set_at_mount is an alternate version of set for "mountable" things
 func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Savedata, log Logger) error {
 	info := ettables[what]
-
+	if info.data_type&(DT_INT|DT_STRING) != DT_INT {
+		return errors.New("Internal privedit error: atttempt to mount a string type")
+	}
 	to_thing := 0
 	should_be_empty := (to == nil)
 	if !should_be_empty {
@@ -949,7 +951,7 @@ func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Save
 
 	// DT_ADDMOUNT is the easy case - everything always exists, and simply adding
 	// the mount (multiplied by chunk length) tells us where we need to write
-	if ettables[what].data_type == DT_ADDMOUNT {
+	if info.data_type&DT_ADDMOUNT != 0 {
 		err := write_int(to_thing, cl, (*target)[to_mount*cl:to_mount*cl+cl])
 		if err != nil {
 			return err
