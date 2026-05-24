@@ -405,15 +405,6 @@ func (f *Form) Delete_record(what ...string) error {
 	return errors.New("Failed to find record "+last+" to delete")
 }
 
-func (f *Form) Get_subform(w string) *Form {
-	//TODO: allow multiple args
-	for _, subform := range f.Subforms {
-		if subform.Name == w {
-			return f
-		}
-	}
-	return nil
-}
 
 func (f *Form) Chunk_length() int {
 	total := 12 //("FORM"(4), length(4), name(4))

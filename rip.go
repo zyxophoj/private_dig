@@ -147,7 +147,6 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	quads := universe.Get_subform("QUAD")
 
 	// Bases
 	bases, err := read_form_from(f, subfiles["..\\..\\DATA\\SECTORS\\BASES.IFF"].start, "BASE")
@@ -177,7 +176,7 @@ func main() {
 	}
 
 	// quadrants...
-	make_enum(quads.Subforms, "QUAD", "QUAD_ID", func(i int, f *types.Form) (string, int) {
+	make_enum(universe.Subforms, "QUAD", "QUAD_ID", func(i int, f *types.Form) (string, int) {
 		for _, r2 := range f.Records {
 			if r2.Name == "INFO" {
 				// skip 2 16-bit ints, which seem to be coords of centre of quadrant
@@ -194,7 +193,7 @@ func main() {
 	fmt.Println("//The strange order here is quadrant first, then ASCIIbetical")
 	// Single array for make_enum
 	systems := []*types.Form{}
-	for _, sf := range quads.Subforms {
+	for _, sf := range universe.Subforms {
 		systems = append(systems, sf.Subforms...)
 	}
 	make_enum(systems, "SYS", "SYS_ID", func(_ int, syst *types.Form) (string, int) {
@@ -224,7 +223,7 @@ func main() {
 	fmt.Println(indent + "Bases []BASE_ID")
 	fmt.Println("}")
 	fmt.Println("var systems = map[SYS_ID]Sysinfo{")
-	for quadrant, sf := range quads.Subforms {
+	for quadrant, sf := range universe.Subforms {
 		for _, syst := range sf.Subforms {
 			string_id := ""
 			for _, r3 := range syst.Records {
