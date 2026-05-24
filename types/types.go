@@ -385,7 +385,6 @@ func (f *Form) Delete_record(what ...string) error {
 			if subform.Name == w {
 				f = subform //member functions are smoke and mirrors
 				found = true
-				fmt.Println("Found", w)
 				break
 			}
 		}
