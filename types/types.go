@@ -3,7 +3,7 @@ package types
 // types for loading and saving Privateer savefiles (including Righteous Fire savefiles)
 //
 // The top-level type here is SaveData, which is generally acquired by calling Read_savadata with a file reader argument.
-// All slices in the output of Read_Savedata are "safe", meaning no chunk of data is pointed to by 2 seemingly-independent slices.  
+// All slices in the output of Read_Savedata are "safe", meaning no chunk of data is pointed to by 2 seemingly-independent slices.
 
 import (
 	"bytes"
@@ -161,7 +161,7 @@ func (sd *Savedata) Chunk(n int) Chunk {
 func (sd *Savedata) Game() Game {
 	// We're dealing with RF iff the Valhalla<->Gaea jump point was originally hidden.
 	game := GT_PRIV
-	if sd.Forms[OFFSET_SSSS] != nil{
+	if sd.Forms[OFFSET_SSSS] != nil {
 		hidden := sd.Forms[OFFSET_SSSS].Get("ORIG").Data
 		if hidden[len(hidden)-1] == 68 {
 			game = GT_RF
@@ -179,7 +179,8 @@ func read_header(r io.Reader) (Header, error) {
 	// bytes 0x00-0x03: File size
 	// bytes 0x04-??: Offsets
 	//   Offsets are locations of things in the save file.  It is odd to see these in a save file format - perhaps it is also a memory dump?
-	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk?
+	//   Each offset is 4 bytes.  Technically, only the first 2 bytes are the location; the last 2 bytes are always 00E0.  Maybe it's some sort of thunk,
+	//   or perhaps this is a direct dump of a C struct/array, including padding.
 	//   The number of offsets varies.  The named 9 in the offset enum are always present, but there are 2 more for each non-plot mission
 	//   This number can be determined by peeking where the MISSIONS offset points, or by caculating based on the first offset.
 	out := Header{}
@@ -332,7 +333,7 @@ func (f *Form) Get(what ...string) *Record {
 	for _, w := range what[:len(what)-1] {
 		found := false
 		for _, subform := range f.Subforms {
-			if subform.Name==w {
+			if subform.Name == w {
 				f = subform
 				//fmt.Println("Subform", f.Name)
 				found = true
@@ -388,12 +389,12 @@ func (f *Form) Delete_record(what ...string) error {
 				break
 			}
 		}
-		
+
 		if !found {
-			return errors.New("Failed to find subform "+w)
+			return errors.New("Failed to find subform " + w)
 		}
 	}
-	
+
 	last := what[len(what)-1]
 	for r, record := range f.Records {
 		if record.Name == last {
@@ -401,9 +402,8 @@ func (f *Form) Delete_record(what ...string) error {
 			return nil
 		}
 	}
-	return errors.New("Failed to find record "+last+" to delete")
+	return errors.New("Failed to find record " + last + " to delete")
 }
-
 
 func (f *Form) Chunk_length() int {
 	total := 12 //("FORM"(4), length(4), name(4))
