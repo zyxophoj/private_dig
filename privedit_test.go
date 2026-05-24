@@ -41,12 +41,12 @@ func real_filename(file string, RF bool) string {
 	return filename
 }
 
-//min exists because math.Min only works for floats
+// min exists because math.Min only works for floats
 func min(a, b int) int {
-    if a < b {
-        return a
-    }
-    return b
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func basic_chunk_split(file []byte) [][]byte {
@@ -86,6 +86,14 @@ func savefiles_equal(file1 []byte, file2 []byte) (bool, error) {
 	}
 	return true, nil
 }
+
+// Mock up something that looks like a Logger
+type BogoLogger struct{}
+
+func (bl *BogoLogger) Logln(a ...any)                {}
+func (bl *BogoLogger) Logfn(str string, strs ...any) {}
+
+var log *BogoLogger
 
 // The most basic test - can a file survive load-stash-retrieve-save (equivalent to privedit load and privedit save)?
 func Test_LoadStashRetrieveSave(t *testing.T) {
@@ -208,3 +216,54 @@ func Test_SetSimple(t *testing.T) {
 		}
 	}
 }
+
+// test the set_at_mount function
+// (this also depends on load() and get())
+func Test_SetAtMount(t *testing.T) {
+	filename := real_filename("NEW", false)
+	sd, err := load(filename)
+	if err != nil {
+		t.Errorf("Failed to load file %v - %v", filename, err)
+	}
+
+	// Some of these tests leave the ship in an illegal state.
+	//We don't care because we're not testing sanity_fix here.
+	tests := []struct {
+		what  etype
+		from  interface{}
+		to    interface{}
+		where int
+	}{
+		// the DT_HASMOUNT types have a second "nil" line here that tests removing the equipment.
+		// TODO: define enums for these in tables.h so we don't have to dump a steaming pile of magic numbers here.
+		{ET_GUN, 5, 7, 2},
+		{ET_GUN, 7, nil, 2},
+		{ET_LAUNCHER, 50, 51, 4},
+		{ET_LAUNCHER, 51, nil, 4},
+		{ET_MISSILE, 5, 100, 4},
+		{ET_MISSILE, 100, nil, 4},
+		{ET_TURRET, nil, 0, 1}, // Here, nil is "not present" and 0 is "present".  I am sorry.
+		{ET_TURRET, 0, nil, 1}, // Here, nil is "not present" and 0 is "present".  I am sorry.
+		{ET_REPUTATION, 0, 1234, tables.FACTION_MERCHANTS},
+		{ET_KILLS, 0, 2345, tables.FACTION_KILRATHI},
+	}
+
+	for _, test := range tests {
+		old_map, _ := get(test.what, sd)
+		fmt.Println(test)
+		fmt.Println(old_map)
+		old := old_map.(map[int]interface{})[test.where]
+		if old != test.from {
+			t.Errorf("Starting %v not as expected (got %v, expected %v)", ettables[test.what].hr_name, old, test.from)
+		}
+		set_at_mount(test.what, test.to, test.where, sd, log)
+		new_map, _ := get(test.what, sd)
+		new_ := new_map.(map[int]interface{})[test.where]
+		if new_ != test.to {
+			t.Errorf("Modified %v not as expected (got %v, expected %v)", ettables[test.what].hr_name, new_, test.to)
+		}
+	}
+}
+
+// TODO: test sanity_fix
+// TODO: test command parsing
