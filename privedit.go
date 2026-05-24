@@ -242,7 +242,7 @@ func add_new_record(savedata *types.Savedata, offset int, name []string) (*types
 	// Theoretical record data indicating "no equipment" or containing a blank space for equipment data to go in
 	// this is often actually empty, but sometimes the game uses several bytes to say "nothing"
 	// These are arguably invalid until equipment data has been added, because if the game actually used an empty record
-	// rather than "no record", they woudln't be here.
+	// rather than "no record", they wouldn't be here.
 	empties := map[string][]byte{
 		"FITE-TRRT":      nil,
 		"FITE-WEAP-GUNS": nil,
@@ -770,7 +770,8 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 // returns a savefile-friendly value e.g. 7 not "Tachyon Cannon"; how to convert this to something useful is up to the caller
 func get(what etype, savedata *types.Savedata) (interface{}, error) {
 	g := ettables[what]
-
+	mounted := g.data_type&(DT_HASMOUNT|DT_ADDMOUNT) !=0
+	
 	bytes := []uint8{}
 	switch g.chunk_type {
 	case CT_STRING:
@@ -780,7 +781,13 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 		record := savedata.Forms[g.offset].Get(g.record...)
 		if record == nil {
 			// Not actually an error; sometimes equipment just isn't installed
-			return "Nonexistent", nil
+			if mounted{
+				// Simulate the "there's nothing there" return value form get_at_mount.
+				// the problem here is that while a nil map will act like an empty map, a nil interface
+				// does not act like an interface containing a nim map.
+				return map[int]interface{}{}, nil
+			}
+			return nil, nil
 		}
 		end := g.end
 		if end < 0 {
@@ -792,7 +799,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 		bytes = savedata.Blobs[g.offset][g.start:g.end]
 	}
 
-	if g.data_type == DT_HASMOUNT || g.data_type == DT_ADDMOUNT {
+	if mounted {
 		return get_at_mounts(what, bytes, savedata)
 	}
 
@@ -817,7 +824,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 // savedata: processed savefile data
 //
 // set does not check for argument inconsistencies (e.g to==nil but ettables[what].can_be_empty==false); that should have happened already
-// set does not check for game-crash-causing holistic savefile inconsistencies; that happens in sanity_fix
+// set does not check for game-crash-causing holistic savefile inconsistencies; that happens later in sanity_fix
 func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error {
 	info := ettables[what]
 	should_be_empty := (to == nil)
@@ -914,7 +921,7 @@ func get_at_mounts(what etype, data []byte, savedata *types.Savedata) (map[int]i
 		}
 
 		mount := 0
-		switch ettables[what].data_type | (DT_HASMOUNT & DT_ADDMOUNT) {
+		switch ettables[what].data_type & (DT_HASMOUNT|DT_ADDMOUNT) {
 		case DT_HASMOUNT:
 			mount = int(data[i+minfo.mount_offset])
 		case DT_ADDMOUNT:
@@ -1063,7 +1070,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 				log.Logln("Sanity fix:", hr_weapon, "from mount", old_mount, "thrown away")
 			} else {
 				if occupied {
-					new_data[nd_i] = data[i:i+cl]
+					new_data[nd_i] = data[i : i+cl]
 				} else {
 					new_data = append(new_data, data[i:i+cl])
 					nd_i = len(new_data) - 1
