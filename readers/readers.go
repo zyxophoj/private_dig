@@ -1,6 +1,7 @@
 package readers
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -65,61 +66,25 @@ func Read_fixed_string(target string, r io.Reader) (int, error) {
 }
 
 func Read_int_be(r io.Reader) (int, error) {
-	bytes, err := Read_fixed(r, 4)
-	if err != nil {
-		return 0, err
-	}
-	// big-endian
-	out := uint(0)
-	for cur := range 4 {
-		out = out << 8
-		out = out + uint(bytes[cur])
-	}
-
-	return int(out), nil
+	var out int32
+	err := binary.Read(r, binary.BigEndian, &out)
+	return int(out), err
 }
 
 func Read_int_le(r io.Reader) (int, error) {
-	bytes, err := Read_fixed(r, 4)
-	if err != nil {
-		return 0, err
-	}
-	// little-endian
-	out := uint(0)
-	for cur := range 4 {
-		out = out + uint(bytes[cur])<<(8*cur)
-	}
-
-	return int(out), nil
+	var out int32
+	err := binary.Read(r, binary.LittleEndian, &out)
+	return int(out), err
 }
 
 func Read_int16(r io.Reader) (int, error) {
-	bytes, err := Read_fixed(r, 2)
-	if err != nil {
-		return 0, err
-	}
-	// little-endian
-	out := int(0)
-	for cur := range 2 {
-		out = out + (int(uint(bytes[cur])) << (8 * cur))
-	}
-	if out > 0x8000 {
-		out -= 0x10000
-	}
-
-	return int(out), nil
+	var out int16
+	err := binary.Read(r, binary.LittleEndian, &out)
+	return int(out), err
 }
 
 func Read_uint16(r io.Reader) (int, error) {
-	bytes, err := Read_fixed(r, 2)
-	if err != nil {
-		return 0, err
-	}
-	// little-endian
-	out := int(0)
-	for cur := range 2 {
-		out = out + (int(uint(bytes[cur])) << (8 * cur))
-	}
-
-	return int(out), nil
+	var out uint16
+	err := binary.Read(r, binary.LittleEndian, &out)
+	return int(out), err
 }
