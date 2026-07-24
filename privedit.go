@@ -163,6 +163,8 @@ const (
 	ET_REPUTATION
 	ET_KILLS
 	ET_CARGO
+
+	ET_COUNT
 )
 
 type ettable struct {
@@ -280,8 +282,14 @@ func etype_from_string(str string) etype {
 
 func list_ettables() string {
 	ret := ""
-	for _, v := range ettables {
-		ret = ret + v.hr_name + "\n"
+	for i := range ET_COUNT-1 {
+		v:=ettables[i+1]
+		
+		ret += v.hr_name
+		if v.rf_only{
+			ret += " (RF)"
+		}
+		ret += "\n"
 	}
 	return ret
 }
