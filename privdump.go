@@ -167,11 +167,31 @@ func parse_savedata(data types.Savedata, gt types.Game) []string {
 			out = append(out, fmt.Sprintf("   Non-plot missions: %v", int16_from_bytes(data.Blobs[types.OFFSET_MISSIONS])))
 		case types.OFFSET_WTF:
 			bytes := data.Blobs[types.OFFSET_WTF]
-			out = append(out, fmt.Sprintf("  %v", bytes))
-
-			// The first 11 bytes appear to be total nonsense - 0% understood right now.
+			
+			as_bits := func(b byte) string{
+				out:=""
+				for i:=range(8){
+					out= string("01"[(b>>i)&1])  +out
+				}
+				return out
+			}
+			
+			// The first 11 bytes are barely understood right now.
 			// They are not even preserved by loadsaving.
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            0, bytes[0], as_bits(bytes[0])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            1, bytes[1], as_bits(bytes[1])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            2, bytes[2], as_bits(bytes[2])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            3, bytes[3], as_bits(bytes[3])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            4, bytes[4], as_bits(bytes[4])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            5, bytes[5], as_bits(bytes[5])))
+			out = append(out, fmt.Sprintf("  byte %v (105?): %v, %v",         6, bytes[6], as_bits(bytes[6])))
+			out = append(out, fmt.Sprintf("  byte %v (102?): %v, %v",         7, bytes[7], as_bits(bytes[7])))
+			out = append(out, fmt.Sprintf("  byte %v (location): %v: %v",     8, bytes[8], full_location(gt,bytes[8])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",            9, bytes[9], as_bits(bytes[9])))
+			out = append(out, fmt.Sprintf("  byte %v (?): %v, %v",           10, bytes[10],as_bits(bytes[10])))
+			
 			cur := 11
+			out = append(out, fmt.Sprintf("  %v", bytes[cur:]))
 
 			// Next we have a bunch of flags.  Meanings are not preserved between priv and RF
 			flags := utils.Make_flags()
@@ -281,7 +301,7 @@ func parse_record(prefix string, record *types.Record, gt types.Game) []string {
 
 	case "ORIG":
 		out = append(out, "Originally Hidden Jump Points:")
-		// This is baffling.  Why is starting world state in the save file?  Surely it's only current world state thtat matters.
+		// This is baffling.  Why is starting world state in the save file?  Surely it's only current world state that matters.
 		// (Maybe record-saving wasn't supported so they had to throw in the whole form?)
 		for cur := 0; cur < len(record.Data); cur += 2 {
 			from := tables.SYS_ID(record.Data[cur])
