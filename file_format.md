@@ -415,6 +415,53 @@ Notes:
 
 Sup Dawg I heard you like jump drive damage?  This really does not make sense.
 
+#### REAL-FITE-SPEE ####
+
+Speed enhancer (RF only)
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | speed multiplier/256  | int |
+
+Notes:
+
+- The normal value for speed increase is 300 - This works out as 300/256 = 117% normal speed.
+- In-game maximum speed is a signed 16-bit int, with negative values rounded up to 0.  This means there is not much point in having a speed increase value greater than 27961, which increases a Tarsus's base 300 speed to 32766.
+
+#### REAL-FITE-SHBO ####
+
+Shield regenerator (RF only)
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | recharge multiplier/256 | int |
+
+Notes:
+- with no regenerator, shield recharge time is around 30 seconds per shield level
+- The normal recharge multiplier is 320, which changes a 30-second recharge time to 24 seconds.
+- 7680 results in a 1-second shield recharge time.  The game doesn't seem have any objection.
+
+#### REAL-FITE-THRU ####
+
+Thrust enhancer (RF only)
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | thrust multiplier/256? | int |
+
+
+#### REAL-FITE-COOL ####
+
+Gun Cooler (RF Only)
+
+| Bytes | Content| Format |
+|-------|--------|--------|
+| 0-1   | refire rate multiplier/256 | int |
+
+Notes:
+- Normal multiplier is 320, for 125% normal fire rate.
+- There appears to be an in-game cap of about 10 shots per second per gun.
+
 ### Chunk 8: Name (string) ###
 Fixed string, length 17
 
