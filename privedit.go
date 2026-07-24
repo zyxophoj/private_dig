@@ -597,14 +597,17 @@ type setArgs struct {
 	matched  string
 }
 
+// parseSetArgs parses arguments to the "Set" function.
+// This can only deal with one ettype at once, but can have many instructions in a mountable case e.g.
+// "set guns left_outer:boo right_outer:boo right:boo right_o:boo" will return true (because guns are mountable) then an array of 4 setArgs-es.
 func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err error) {
 	err = func() error {
 		if len(args) < 1 {
-			return errors.New("Set what? Settables are:\n" + list_ettables())
+			return errors.New("Set what?  Settables are:\n" + list_ettables())
 		}
 		what := etype_from_string(args[0])
 		if what == ET_NONE {
-			return errors.New(args[0] + " is not settable  Settables are:\n" + list_ettables())
+			return errors.New(args[0] + " is not settable.  Settables are:\n" + list_ettables())
 		}
 		info := ettables[what]
 
@@ -816,8 +819,8 @@ func fuzzy_reverse_lookup[K comparable](trans map[K]string, to string, what stri
 // returns a savefile-friendly value e.g. 7 not "Tachyon Cannon"; how to convert this to something useful is up to the caller
 func get(what etype, savedata *types.Savedata) (interface{}, error) {
 	g := ettables[what]
-	mounted := g.data_type&(DT_HASMOUNT|DT_ADDMOUNT) !=0
-	
+	mounted := g.data_type&(DT_HASMOUNT|DT_ADDMOUNT) != 0
+
 	bytes := []uint8{}
 	switch g.chunk_type {
 	case CT_STRING:
@@ -827,7 +830,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 		record := savedata.Forms[g.offset].Get(g.record...)
 		if record == nil {
 			// Not actually an error; sometimes equipment just isn't installed
-			if mounted{
+			if mounted {
 				// Simulate the "there's nothing there" return value form get_at_mount.
 				// the problem here is that while a nil map will act like an empty map, a nil interface
 				// does not act like an interface containing a nim map.
@@ -967,7 +970,7 @@ func get_at_mounts(what etype, data []byte, savedata *types.Savedata) (map[int]i
 		}
 
 		mount := 0
-		switch ettables[what].data_type & (DT_HASMOUNT|DT_ADDMOUNT) {
+		switch ettables[what].data_type & (DT_HASMOUNT | DT_ADDMOUNT) {
 		case DT_HASMOUNT:
 			mount = int(data[i+minfo.mount_offset])
 		case DT_ADDMOUNT:
@@ -1075,6 +1078,7 @@ func sanity_fix(savedata *types.Savedata, log Logger) {
 	// We try to "fix" bad equipment by moving it to a corresponding allowed slot.
 	// However, since ships don't even have the same numbers of mounts, weapons
 	// must sometimes be thrown away.
+	// TODO: add enums to tables.go so we don't have a ridiculous pile of magic numbers here.
 	mounts := map[uint8]fixers{
 		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 5: -1, 7: -1, 8: -1, 10: -1}, map[byte]int{0: -1, 2: 1, 3: 4, 6: -1, 9: -1}},
 		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 8: -1, 10: -1}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1, 9: -1}},
