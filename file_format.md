@@ -46,7 +46,7 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 |  (8+length)-??   | Footer | trash | 
  Notes:
  
- - As with records, this "length" does not include the length of the record name or the length of itself.  It does include the Form anme and the true length of each record. 
+ - As with records, this "length" does not include the length of the record name or the length of itself.  It does include the Form name and the true length of each record. 
  - A form meets the definition of a record, and so a form may contain subforms, sub-sub-forms, etc.
  - A form will not ever have its own padding, because the pad bytes of the records inside it will force the whole form to have an even length. 
  - The footer is anything claimed by the form's length but not used by its records.  In practice, this only appears in Mission form chunks, is one or 2 bytes long, and overlaps the start of the next chunk.  This is probably just a case of the game calculating the form length incorrectly.
