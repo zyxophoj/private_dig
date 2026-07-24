@@ -138,8 +138,9 @@ type DataType int
 const (
 	DT_INT DataType = 1 << iota
 	DT_STRING
-	DT_HASMOUNT // Block of data, including a mount field
-	DT_ADDMOUNT // Block of data, no explicit mount field because position is the mount
+	DT_HASMOUNT  // Block of data, including a mount field
+	DT_ADDMOUNT  // Block of data, no explicit mount field because position is the mount
+	DT_ALLOW_NUM // Allow raw numbers, even though a map is present
 )
 
 // ET_* things and "ettables" are (s)ettable or (g)ettable things
@@ -164,6 +165,11 @@ const (
 	ET_KILLS
 	ET_CARGO
 
+	ET_SPEED_UP
+	ET_THRUST_UP
+	ET_SHIELD_UP
+	ET_GUN_COOLER
+
 	ET_COUNT
 )
 
@@ -180,6 +186,7 @@ type ettable struct {
 	trans_str    map[string]string
 	record       []string // record within chunk (only if chunk_type is CT_FORM)
 	hr_name      string
+	rf_only      bool
 }
 
 // Extra info for mountables
@@ -203,22 +210,27 @@ func map_from_array[K comparable](in []K) map[int]K {
 // Savefile format data starts
 
 var ettables = map[etype]*ettable{
-	ET_SHIP:     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, 0, 0, false, make_ship_map, map[string]string{}, nil, "ship"},
-	ET_LOCATION: &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, 0, 0, false, make_location_map, map[string]string{}, nil, "location"},
-	ET_CREDITS:  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, 0, math.MaxInt32, false, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}, "credits"},
-	ET_SHIELD:   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, 0, 0, true, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}, "shield"},
-	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, 0, 0, false, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine"},
-	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "name"},
-	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "callsign"},
+	ET_SHIP:     &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 0, 1, 0, 0, false, make_ship_map, map[string]string{}, nil, "ship", false},
+	ET_LOCATION: &ettable{CT_BLOB, DT_INT, types.OFFSET_SHIP, 2, 3, 0, 0, false, make_location_map, map[string]string{}, nil, "location", false},
+	ET_CREDITS:  &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 4, 0, math.MaxInt32, false, nil, map[string]string{}, []string{"FITE", "CRGO", "CRGI"}, "credits", false},
+	ET_SHIELD:   &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 8, 9, 0, 0, true, make_shields_map, map[string]string{}, []string{"FITE", "SHLD", "INFO"}, "shield", false},
+	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, 0, 0, false, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine", false},
+	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "name", false},
+	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, map[string]string{}, nil, "callsign", false},
 
 	// Mountables
-	ET_GUN:        &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun"},
-	ET_LAUNCHER:   &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher"},
-	ET_MISSILE:    &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile"},
-	ET_TURRET:     &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_present_map, map[string]string{}, []string{"FITE", "TRRT"}, "turret"},
-	ET_REPUTATION: &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation"},
-	ET_KILLS:      &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills"},
-	ET_CARGO:      &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo"},
+	ET_GUN:        &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun", false},
+	ET_LAUNCHER:   &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_launchers_map, map[string]string{}, []string{"FITE", "WEAP", "LNCH"}, "launcher", false},
+	ET_MISSILE:    &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, true, nil, map[string]string{}, []string{"FITE", "WEAP", "MISL"}, "missile", false},
+	ET_TURRET:     &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, present(0), map[string]string{}, []string{"FITE", "TRRT"}, "turret", false},
+	ET_REPUTATION: &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation", false},
+	ET_KILLS:      &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills", false},
+	ET_CARGO:      &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo", false},
+
+	ET_SPEED_UP:   &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(300), nil, []string{"FITE", "SPEE"}, "speed enhancer", true},
+	ET_THRUST_UP:  &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(300), nil, []string{"FITE", "THRU"}, "thrust enhancer", true},
+	ET_SHIELD_UP:  &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(320), nil, []string{"FITE", "SHBO"}, "shield regenerator", true},
+	ET_GUN_COOLER: &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(320), nil, []string{"FITE", "COOL"}, "gun cooler", true},
 }
 
 var mount_infos = map[etype]mount_info{
@@ -252,6 +264,10 @@ func add_new_record(savedata *types.Savedata, offset int, name []string) (*types
 		"FITE-WEAP-MISL": nil,
 		"FITE-SHLD-INFO": []byte{'S', 'H', 'I', 'E', 'L', 'D', 'S', 0, 0},
 		"FITE-SHLD-DAMG": []byte{0, 0},
+		"FITE-SPEE":      []byte{44, 1}, //300
+		"FITE-THRU":      []byte{44, 1},
+		"FITE-SHBO":      []byte{64, 1}, //320
+		"FITE-COOL":      []byte{64, 1},
 	}
 	if data, ok := empties[joined]; ok {
 		record := savedata.Forms[offset].Add_record(name...)
@@ -282,11 +298,11 @@ func etype_from_string(str string) etype {
 
 func list_ettables() string {
 	ret := ""
-	for i := range ET_COUNT-1 {
-		v:=ettables[i+1]
-		
+	for i := range ET_COUNT - 1 {
+		v := ettables[i+1]
+
 		ret += v.hr_name
-		if v.rf_only{
+		if v.rf_only {
 			ret += " (RF)"
 		}
 		ret += "\n"
@@ -357,8 +373,10 @@ func make_launchers_map(game types.Game) map[int]string {
 	return tables.Launchers
 }
 
-func make_present_map(game types.Game) map[int]string {
-	return map[int]string{0: "present"}
+func present(i int) func(game types.Game) map[int]string {
+	return func(game types.Game) map[int]string {
+		return map[int]string{i: "present"}
+	}
 }
 
 // main1  makes sure we exit with the right code
@@ -486,9 +504,13 @@ func main3(log *burstlogger.BurstLogger) error {
 			return errors.New(os.Args[2] + " is not gettable  Gettables are:\n" + list_ettables())
 		}
 
-		_, savedata, err := retrieve()
+		filename, savedata, err := retrieve()
 		if err != nil {
 			return err
+		}
+
+		if ettables[what].rf_only && savedata.Game() != types.GT_RF {
+			return errors.New(ettables[what].hr_name + " is RF-only, and " + filename + " is not an RF file")
 		}
 
 		got, err := get(what, savedata)
@@ -523,6 +545,10 @@ func main3(log *burstlogger.BurstLogger) error {
 		}
 
 		for _, set_args := range setargses {
+			if ettables[set_args.what].rf_only && savedata.Game() != types.GT_RF {
+				return errors.New(ettables[set_args.what].hr_name + " is RF-only, and " + filename + " is not an RF file")
+			}
+
 			if is_mountable {
 				err = set_at_mount(set_args.what, set_args.to_value, set_args.to_mount, savedata, log)
 			} else {
@@ -642,10 +668,24 @@ func parseSetArgs(args []string) (is_mountable bool, setargses []setArgs, err er
 				// map is "backwards" from the setting PoV
 				k, m, err := fuzzy_reverse_lookup(info.trans_int(savedata.Game()), to, info.hr_name)
 				if err != nil {
-					return err
+					if (info.data_type & DT_ALLOW_NUM) == 0 {
+						return err
+					}
+					// TODO: unduplicate this (it's also in the data_type_is_int case)
+					int_value, err := strconv.Atoi(to)
+					if err != nil {
+						return err
+					}
+					if int_value < info.int_min || int_value > info.int_max {
+						return errors.New(info.hr_name + " number must be between " + strconv.Itoa(info.int_min) + " and " + strconv.Itoa(info.int_max))
+					}
+					to_value = int_value
+					matched += to
+					// end of what needs to be unduplicated
+				} else {
+					to_value = k
+					matched += m
 				}
-				to_value = k
-				matched += m
 			} else if len(info.trans_str) > 0 {
 				// Another backwards map
 				k, m, err := fuzzy_reverse_lookup(info.trans_str, to, info.hr_name)
