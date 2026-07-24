@@ -408,9 +408,7 @@ func main3(log *burstlogger.BurstLogger) error {
 			"",
 			"Things that can be set-ted or get-ted are:",
 		}
-		for _, v := range ettables {
-			help_text = append(help_text, "   "+v.hr_name)
-		}
+		help_text = append(help_text, list_ettables())
 		help_text = append(help_text, []string{
 			"",
 			"Notes:",
