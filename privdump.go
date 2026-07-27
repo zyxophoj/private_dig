@@ -652,6 +652,10 @@ func main() {
 	defer file.Close()
 
 	savedata, err := types.Read_savedata(file)
+	if err != nil{
+		fmt.Println(err)
+		return
+	}
 	fmt.Println()
 	for _, line := range parse_savedata(*savedata, gt) {
 		fmt.Println(line)
