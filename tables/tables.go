@@ -186,3 +186,25 @@ var Cargo = map[int]string{
 	42: "Alien Artifact(s)", //You can only have one, right?
 	49: "Mission Cargo",
 }
+
+var Ship_names = map[int]string{
+	SHIP_TARSUS:    "Tarsus",
+	SHIP_ORION:     "Orion",
+	SHIP_CENTURION: "Centurion",
+	SHIP_GALAXY:    "Galaxy",
+}
+
+// Yes, really.  There is clearly some structure in here, but I can't make any sense out of it.
+// As a practical matter, you can edit level 7 engines into a Centurion and have an absurdly overpowered ship,
+// but the things that you'd expect to appear next in the list (like "122531415162" are worse than level 2 engines.
+var Shield_names = map[string]string{
+	"1261":         "0",
+	"124151":       "1",
+	"12314151":     "2",
+	"1231415162":   "3",
+	"122131415161": "4a",
+	"122131415162": "4b",
+	"122231415162": "5",
+	"122331415162": "6",
+	"122431415162": "7",
+}

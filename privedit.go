@@ -312,13 +312,7 @@ func list_ettables() string {
 }
 
 func make_ship_map(game types.Game) map[int]string {
-	// TODO: unduplicate this info (it's also in privdump.go)
-	return map[int]string{
-		tables.SHIP_TARSUS:    "Tarsus",
-		tables.SHIP_ORION:     "Orion",
-		tables.SHIP_CENTURION: "Centurion",
-		tables.SHIP_GALAXY:    "Galaxy",
-	}
+	return tables.Ship_names
 }
 
 func make_location_map(game types.Game) map[int]string {
@@ -342,22 +336,9 @@ func make_shields_map(game types.Game) map[int]string {
 }
 
 func make_engine_map() map[string]string {
-	// TODO: unduplicate this info (it's also in privdump.go)
-	pretty := map[string]string{
-		"1261":         "0",
-		"124151":       "1",
-		"12314151":     "2",
-		"1231415162":   "3",
-		"122131415161": "4",
-		"122131415162": "4a",
-		"122231415162": "5",
-		"122331415162": "6",
-		"122431415162": "7",
-	}
-
 	// convert key strings so that the actual character value (as an 8-bit int) is the numerical value of the old character
 	ugly := map[string]string{}
-	for k, v := range pretty {
+	for k, v := range tables.Shield_names {
 		new_k := ""
 		for _, ch := range k {
 			new_k = new_k + string([]byte{byte(ch - '0')}) //UGH!!!
@@ -867,7 +848,7 @@ func get(what etype, savedata *types.Savedata) (interface{}, error) {
 			if mounted {
 				// Simulate the "there's nothing there" return value form get_at_mount.
 				// the problem here is that while a nil map will act like an empty map, a nil interface
-				// does not act like an interface containing a nim map.
+				// does not act like an interface containing a nil map.
 				return map[int]interface{}{}, nil
 			}
 			return nil, nil
@@ -964,7 +945,7 @@ func set(what etype, to interface{}, savedata *types.Savedata, log Logger) error
 	}
 
 	// ...except that maybe we didn't really write into actual data so write "target" back onto where it should be
-	// (append may have created a completely new byte aray, and we can't get round this using pointer-to-pointer
+	// (append may have created a completely new byte array, and we can't get round this using pointer-to-pointer
 	//  because values in maps aren't addressable.  Et tu, Go?)
 	switch info.chunk_type {
 	case CT_BLOB:
