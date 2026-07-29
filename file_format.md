@@ -13,7 +13,7 @@ These are the types most commonly used by the savefile format.
 - "int" means 16-bit signed little-endian int
 - "long int" means 32-bit signed little-endian int
 - "boolean" means a single byte - 1 for true, 0 for false
-
+- "fixed" means little-endian 16-bit fixed point, with 8 bits either side of the binary point.  
 
 ## Common Data structures ##
 
@@ -403,64 +403,66 @@ Jump drive info.
 | 2-3   | max fuel | int |
 
 Notes:
- - Max fuel is always 6.  This may be a remnant from pre-relase versions where there was more than one class of jump drive.
- - Since ships are automatically refuleled when they are docked, current fuel is always 6.
+ - Max fuel is always 6.  This may be a remnant from pre-release versions where there was more than one class of jump drive.
+ - Since ships are automatically refueled when they are docked, current fuel in a savefile is always 6.
  - The game will crash if the front view is shown with more than 6 units of fuel (probably because it doesn't know how to draw the fuel-o-meter).  However, if you switch to any other view immediately after launch, the game is playable (to the extent that it can be without a front view) and the extra jump capacity can be used!
- 
- #### FITE-JDRV-DAMG ####
- 
- 2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
- 
- #### FITE-JDRV-DAMG-DAMG ####
 
+#### FITE-JDRV-DAMG #### 
+2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
+ 
+#### FITE-JDRV-DAMG-DAMG ####
 Sup Dawg I heard you like jump drive damage?  This really does not make sense.
 
-#### REAL-FITE-SPEE ####
-
+#### FITE-SPEE ####
 Speed enhancer (RF only)
 
 | Bytes | Content| Format |
 |-------|--------|--------|
-| 0-1   | speed multiplier/256  | int |
+| 0-1   | speed multiplier  | fixed |
 
 Notes:
 
-- The normal value for speed increase is 300 - This works out as 300/256 = 117% normal speed.
-- In-game maximum speed is a signed 16-bit int, with negative values rounded up to 0.  This means there is not much point in having a speed increase value greater than 27961, which increases a Tarsus's base 300 speed to 32766.
+- The normal value for speed increase is 300/256 = approximately 117% normal speed.
+- In-game maximum speed is a signed 16-bit int, with negative values rounded up to 0.  This means there is not much point in having a speed multiplier greater than 109+57/256, which increases a Tarsus's base 300 speed to 32766, and causes afterburners to behave strangely.  Base speeds above 2000 are impractical anyway.
+- Saving the game causes the multiplier to revert to its normal value 
 
-#### REAL-FITE-SHBO ####
-
+#### FITE-SHBO ####
 Shield regenerator (RF only)
 
 | Bytes | Content| Format |
 |-------|--------|--------|
-| 0-1   | recharge multiplier/256 | int |
+| 0-1   | shield recharge rate multiplier | fixed |
 
 Notes:
-- with no regenerator, shield recharge time is around 30 seconds per shield level
-- The normal recharge multiplier is 320, which changes a 30-second recharge time to 24 seconds.
-- 7680 results in a 1-second shield recharge time.  The game doesn't seem have any objection.
+- with no regenerator, shield recharge time is around 30 seconds per shield level.
+- The normal recharge multiplier is exactly 5/4, which changes a 30-second recharge time to 24 seconds.
+- 127 results in a quarter-second shield recharge time.  The game doesn't seem have any objection to this.
+- Saving the game causes the multiplier to revert to its normal value.
 
-#### REAL-FITE-THRU ####
-
+#### FITE-THRU ####
 Thrust enhancer (RF only)
 
 | Bytes | Content| Format |
 |-------|--------|--------|
-| 0-1   | thrust multiplier/256? | int |
+| 0-1   | thrust multiplier | fixed |
 
+(some work is needed to determine exactly what this does)
 
-#### REAL-FITE-COOL ####
+Notes:
+- The normal value is 300/256 = approximately 117%... of what??
+- Saving the game causes the multiplier to revert to its normal value.
 
+#### FITE-COOL ####
 Gun Cooler (RF Only)
 
 | Bytes | Content| Format |
 |-------|--------|--------|
-| 0-1   | refire rate multiplier/256 | int |
+| 0-1   | refire rate multiplier | fixed |
 
 Notes:
-- Normal multiplier is 320, for 125% normal fire rate.
-- There appears to be an in-game cap of about 10 shots per second per gun.
+- Normal multiplier is exactly 5/4, for 125% normal fire rate.
+- There appears to be an in-game cap of about 20 shots per second per gun.
+- Saving the game causes the multiplier to revert to its normal value.
 
 ### Chunk 8: Name (string) ###
 Fixed string, length 17
