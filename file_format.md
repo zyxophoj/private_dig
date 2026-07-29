@@ -43,7 +43,8 @@ A null-terminated byte string, with extra nulls at the end to pad it out to some
 |  4-7  | Form length | 32-bit int, *big-endian* |
 |  8-11 | Form name | 4 upper-case characters |
 |  12-(7+length) | Records | records, one after the other |
-|  (8+length)-??   | Footer | trash | 
+|  (8+length)-??   | Footer | trash |
+
  Notes:
  
  - As with records, this "length" does not include the length of the record name or the length of itself.  It does include the Form name and the true length of each record. 
@@ -99,7 +100,7 @@ Note: The length of this chunk is odd, and the length of the header (and every o
 
 Notes:
 
- - The string  is usually "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb".  However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "generic unwinnable state".  In the very specific case of Monte's missions in RF, "Go to Drake and meet the informant" is represented by "s12mb1" and "Return to Monte" by "s12mb2"
+ - The string is usually "s"+(mission series number)+"m"+(mission letter).  e.g "s3mb".  However, an empty string indicates "Plot not yet started" and "FF FF FF FF FF FF FF FF" is used to indicate "generic unwinnable state".  In the very specific case of Monte's missions in RF, "Go to Drake and meet the informant" is represented by "s12mb1" and "Return to Monte" by "s12mb2"
 
 | Series number | Fixer |
 |---------------|-------|
@@ -198,20 +199,19 @@ Each form's data contains an even number of bytes; each byte pair is the IDs of 
 
 A form called REAL.
 
-All ship equipment, plus a few other things, is stored in here.  Many records are optional, because equipment might simply not be present.  Record order does not seem to matter.
+All ship equipment, plus a few other things, is stored in here.  Many records are optional, because equipment might simply not be present.  Record order does not seem to matter.  Record info follows...
 
 #### FITE-CTRL ####
-8 bytes, not understood
+8 bytes, always "PLAYPLAN", not understood.
 
-#### FITE_TRRT ####
+#### FITE-TRRT ####
 list of installed turrets, 1 byte per turret.  Values are:
 
  - 1: Rear turret
  - 2: Top turret
  - 3: Bottom turret  
 
-#### FITE_REPR ####
-
+#### FITE-REPR ####
 Repair bot.  Data is 4 bytes, which is probably a 16-bit int followed by 2 zeros.
 The traditional options for the int are:
 
@@ -238,7 +238,6 @@ Quadrant maps.  Data is just 1 byte, although it is a bitfield with the followin
 
 
 #### FITE-WEAP-GUNS ####
-
 Data is a list of 4-byte gun entries.
 Each gun entry is built as follows:
 
@@ -251,9 +250,8 @@ Each gun entry is built as follows:
 (Damage is damage taken by the gun object, not damage done by firing it.
 
 #### FITE-WEAP-LNCH ####
-
 Data is a list of 4-byte launcher entries.
-Each gun entry is built as follows:
+Each launcher entry is built as follows:
 
 
 | Bytes | Content| Format |
@@ -263,6 +261,11 @@ Each gun entry is built as follows:
 | 2-3   | damage    |  ? |
 
 Types and mounts are in tables.go
+
+Notes:
+
+- Launchers can be edited into turret mounts.  This is not useful for torpedo launchers, since they can't be fired.  However, missile launchers in turrets can be fired from the front view.
+- Missile launchers in turret mounts function normally if the turrets themselves are not present.
 
 #### FITE-WEAP-MISL ####
 
@@ -274,8 +277,9 @@ Each missile stack entry is built as follows:
 | 0     | missile type |     |
 | 1-2   | stack size  | int |
 
-It is possible to have up to 32767 of each missile!  The game doesn't seem to mind, although the ship dealer displays the missile count incorrectly.
-
+Notes:
+- It is possible to have up to 32767 of each missile!  The game doesn't seem to mind, although the ship dealer displays the missile count incorrectly.
+- Saving the game throws away any excess missiles in a stack that won't fit into the launchers.
 
 #### FITE-ENER-INFO ####
 
@@ -286,14 +290,14 @@ It is possible to have up to 32767 of each missile!  The game doesn't seem to mi
 | 0-7   | Info name   | Always "ENERGY\0\0" |
 | 8-??  | Engine info | Unknown |
 
-Engine info is a list of bytes with small values - no larger than 6.  It is possible that each 2-byte chunk is a unit; for ecample "124151" may represent "2 components of type, 1 component of type 4, 1 component of type 5", although this is just guesswork. 
+Engine info is a list of bytes with small values - no larger than 6.  It is possible that each 2-byte chunk is a unit; for example "124151" may represent "2 components of type, 1 component of type 4, 1 component of type 5", although this is just guesswork. 
 
 | Engine info | Engine |
 |-------------|--------|
 | 1261         | (None)  |
 | 124151       | Level 1 |
 | 12314151     | Level 2 |
-| 123141516    | Level 3 |
+| 1231415162   | Level 3 |
 | 122131415161 | Level 4 |
 | 122131415162 | Level 4 |
 | 122231415162 | Level 5 |
@@ -328,7 +332,7 @@ Armour status.  This is always 16 bytes.
 
 The first 4 ints will always be the same, and will be one of the armour ID values.  The second set of 4 ints represent how much armour is left, and so could be anything from 0 to the corresponding max value.
 
-This means that the savefile is only storing armour type and armour damage as a fraction... so Tarsus armour looks exactly the same as Orion armour, even though it is about a quarter of the thickness!  (The missing thickness data is in the PRIV.TRE file)
+This means that the savefile is only storing armour damage as a fraction... so Tarsus armour looks exactly the same as Orion armour, even though it is about a quarter of the thickness!  (The missing thickness data is in the PRIV.TRE file)
 
 | Armour | Armour ID |
 |--------|-----------|
@@ -340,9 +344,10 @@ This means that the savefile is only storing armour type and armour damage as a 
 
 Notes:
  - Armour ID appears to be doing double duty as armour strength.  This is certainly true in RF, where a crippled Orion in Isometal armour takes more time to die than the Twelfth Doctor.  In the base game, experimentation suggests that Tungsten armour may be a scam.
- - "No armour" starts with ID 0 but, after launch-landing, has ID 1.  The current values remain 0.  This is probably because armour is displayed on screen with a thickness proportional to (current amrour)/(maximum armour), so bumping the maximum up to 1 prevents division by zero.
+ - "No armour" starts with ID 0 but, after launch-landing, has ID 1.  The current values remain 0.  This is probably because armour is displayed on screen with a thickness proportional to (current armour)/(maximum armour), so bumping the maximum up to 1 prevents division by zero.
  
 #### FITE-SHLD-DAMG ####
+
  2 bytes, looks like an int with 0 for "undamaged" and positive values for varying degrees of damage.
 
 #### FITE-TRGT-INFO ####
@@ -372,30 +377,37 @@ It is far from clear what, if anything, this does.
 | 8     | Always 0? | Always 0? |
 
 #### FITE-CRGO-CRGI ####
-
 Miscellaneous, vaguely cargo-related information.
 
 | Bytes | Content| Format |
 |-------|--------|--------|
 | 0-3   | credits  | long int |
-| 4-5   | capacity | int |
-|  6    | secret compartment | boolean |
-|  7    | expansion | boolean |
+| 4-5   | cargo capacity | int |
+|  6    | has secret compartment | boolean |
+|  7    | has cargo expansion | boolean |
+
+Notes:
+- Capacity includes the expansion but not the secret compartment.
 
 #### FITE-CRGO-DATA ####
 
-A list of 4-0 byte cargo entries.  Each entry is built as follows:
+A list of 4 byte cargo entries.  Each entry is built as follows:
 
 | Bytes | Content| Format |
 |-------|--------|--------|
 | 0     | cargo type  | see tables.go |
 | 1-2   | amount (T) | int |
-| 3     | hidden     | boolean |
+| 3     | in secret compartment     | boolean |
+
+
+Notes:
+
+- The game tries to put contraband and alien artifacts in the secret compartment.  If there isn't space, these commodities can spill out into the normal cargo space, resulting in two entries for one cargo type.
+- The game puts any other cargo in the normal cargo space, and this can't spill into the secret compartment 
+- The game doesn't seem to care about the size of mission cargo, which goes in the normal space even if there is no room for it.  This may be a convenience "feature".
 
 #### FITE-JDRV-INFO ####
-
 Jump drive info.
-
 
 | Bytes | Content| Format |
 |-------|--------|--------|
