@@ -157,6 +157,7 @@ const (
 	ET_ENGINE
 	ET_NAME
 	ET_CALLSIGN
+	ET_AFTB
 
 	ET_GUN
 	ET_LAUNCHER
@@ -218,6 +219,7 @@ var ettables = map[etype]*ettable{
 	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, 0, 0, false, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine", false},
 	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, 0, 0, false, nil, nil, nil, "name", false},
 	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, nil, nil, "callsign", false},
+	ET_AFTB:     &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0,0,0,0, true, present(0), nil, []string{"FITE", "AFTB"}, "afterburners", false},
 
 	// Mountables
 	ET_GUN:        &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun", false},
@@ -265,6 +267,7 @@ func add_new_record(savedata *types.Savedata, offset int, name []string) (*types
 		"FITE-WEAP-MISL": nil,
 		"FITE-SHLD-INFO": []byte{'S', 'H', 'I', 'E', 'L', 'D', 'S', 0, 0},
 		"FITE-SHLD-DAMG": []byte{0, 0},
+		"FITE-AFTB":      nil,
 		"FITE-SPEE":      []byte{44, 1}, //300
 		"FITE-THRU":      []byte{44, 1},
 		"FITE-SHBO":      []byte{64, 1}, //320
