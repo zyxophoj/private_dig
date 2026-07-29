@@ -1094,24 +1094,44 @@ func set_at_mount(what etype, to interface{}, to_mount int, savedata *types.Save
 //
 // Multiple steltek guns are in fact a partial exception - this is so much fun that we allow it, even though ships so equipped can't be traded.
 func sanity_fix(savedata *types.Savedata, log Logger) {
-	// Turret mounts:   1: Rear, 2:top, 3:bottom
-	// Gun mounts: 		1: Left outer, 2: Left, 3: Right, 4: Right outer, 5: Turret 1a, 7: turret 1b, 8: turret 2a, 10 turret 2b
-	// Only the Centurion has outer mounts.
-	// Launcher mounts: 0: Centre, 1: Left (not Centurion), 2: Left (Centurion), 3: Right (Centurion), 4: Right (not Centurion), 6: turret 1, 9: turret 2
 	type fixers struct { //key is bad slot, value is alternative good slot
 		fix_turrets   map[byte]int
 		fix_guns      map[byte]int
 		fix_launchers map[byte]int
 	}
 	// We try to "fix" bad equipment by moving it to a corresponding allowed slot.
-	// However, since ships don't even have the same numbers of mounts, weapons
-	// must sometimes be thrown away.
-	// TODO: add enums to tables.go so we don't have a ridiculous pile of magic numbers here.
+	// However, since ships don't even have the same numbers of mounts, things
+	// must sometimes be thrown away. (-1 indicates "throw away")
 	mounts := map[uint8]fixers{
-		tables.SHIP_TARSUS:    {map[byte]int{1: -1, 2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 5: -1, 7: -1, 8: -1, 10: -1}, map[byte]int{0: -1, 2: 1, 3: 4, 6: -1, 9: -1}},
-		tables.SHIP_ORION:     {map[byte]int{2: -1, 3: -1}, map[byte]int{1: 2, 4: 3, 8: -1, 10: -1}, map[byte]int{1: -1, 2: -1, 3: -1, 4: -1, 9: -1}},
-		tables.SHIP_CENTURION: {map[byte]int{2: -1, 3: -1}, map[byte]int{8: -1, 10: -1}, map[byte]int{0: -1, 1: 2, 4: 3, 9: -1}},
-		tables.SHIP_GALAXY:    {map[byte]int{1: -1}, map[byte]int{1: 2, 4: 3}, map[byte]int{0: -1, 1: 2, 4: 3}},
+
+		tables.SHIP_TARSUS: {map[byte]int{tables.TM_REAR: -1, tables.TM_TOP: -1, tables.TM_BOTTOM: -1},
+			map[byte]int{tables.GM_LEFT_OUT: tables.GM_LEFT,
+				tables.GM_RIGHT_OUT:  tables.GM_RIGHT,
+				tables.GM_TURRET_1_1: -1, tables.GM_TURRET_1_2: -1, tables.GM_TURRET_2_1: -1, tables.GM_TURRET_2_2: -1},
+			map[byte]int{tables.LM_CENTRE: -1,
+				tables.LM_LEFT_CEN:  tables.LM_LEFT,
+				tables.LM_RIGHT_CEN: tables.LM_RIGHT,
+				tables.LM_TURRET_1:  -1, tables.LM_TURRET_2: -1}},
+
+		tables.SHIP_ORION: {map[byte]int{tables.TM_TOP: -1, tables.TM_BOTTOM: -1},
+			map[byte]int{tables.GM_LEFT_OUT: tables.GM_LEFT,
+				tables.GM_RIGHT_OUT:  tables.GM_RIGHT,
+				tables.GM_TURRET_2_1: -1, tables.GM_TURRET_2_2: -1},
+			map[byte]int{tables.LM_LEFT: -1, tables.LM_LEFT_CEN: -1, tables.LM_RIGHT: -1, tables.LM_RIGHT_CEN: -1, tables.LM_TURRET_2: -1}},
+
+		tables.SHIP_CENTURION: {map[byte]int{tables.TM_TOP: -1, tables.TM_BOTTOM: -1},
+			map[byte]int{tables.GM_TURRET_2_1: -1, tables.GM_TURRET_2_2: -1},
+			map[byte]int{tables.LM_CENTRE: -1,
+				tables.LM_LEFT:     tables.LM_LEFT_CEN,
+				tables.LM_RIGHT:    tables.LM_RIGHT_CEN,
+				tables.LM_TURRET_2: -1}},
+
+		tables.SHIP_GALAXY: {map[byte]int{tables.TM_REAR: -1},
+			map[byte]int{tables.GM_LEFT_OUT: tables.GM_LEFT,
+				tables.GM_RIGHT_OUT: tables.GM_RIGHT},
+			map[byte]int{tables.LM_CENTRE: -1,
+				tables.LM_LEFT_CEN:  tables.LM_LEFT,
+				tables.LM_RIGHT_CEN: tables.LM_RIGHT}},
 	}
 
 	fix_record := func(weapon etype, fixer map[byte]int) {

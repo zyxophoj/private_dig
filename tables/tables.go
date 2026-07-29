@@ -30,7 +30,7 @@ const (
 
 // Equipment
 const (
-    //Why do we start counting at 90?  I have no clue.
+	//Why do we start counting at 90?  I have no clue.
 	SHIELD_BASE_0 = 89
 )
 
@@ -70,18 +70,42 @@ func Guns(t types.Game) map[int]string {
 	}[t]
 }
 
+// mounts: turret, gun, launcher
+const (
+	TM_REAR   = 1
+	TM_TOP    = 2
+	TM_BOTTOM = 3
+
+	GM_LEFT_OUT   = 1
+	GM_LEFT       = 2
+	GM_RIGHT      = 3
+	GM_RIGHT_OUT  = 4
+	GM_TURRET_1_2 = 5
+	GM_TURRET_1_1 = 7
+	GM_TURRET_2_2 = 8
+	GM_TURRET_2_1 = 10
+
+	// The Centurion just has to be special and have its own unique constants for "left" and "right"
+	// This may be a relic from when the Centurion had 4 launchers.
+	LM_CENTRE    = 0
+	LM_LEFT      = 1
+	LM_LEFT_CEN  = 2
+	LM_RIGHT_CEN = 3
+	LM_RIGHT     = 4
+	LM_TURRET_1  = 6
+	LM_TURRET_2  = 9
+)
+
 // rear/top is "turret 1" depending on ship
 var Gun_mounts = map[int]string{
-	1: "Left outer",
-	2: "Left",
-	3: "Right",
-	4: "Right outer",
-	5: "Rear/Top 2",
-	//6: tractor beam slot
-	7: "Rear/Top 1",
-	8: "Bottom 2",
-	//9: tractor beam slot
-	10: "Bottom 1",
+	GM_LEFT_OUT:   "Left outer",
+	GM_LEFT:       "Left",
+	GM_RIGHT:      "Right",
+	GM_RIGHT_OUT:  "Right outer",
+	GM_TURRET_1_2: "Rear/Top 2",
+	GM_TURRET_1_1: "Rear/Top 1",
+	GM_TURRET_2_2: "Bottom 2",
+	GM_TURRET_2_1: "Bottom 1",
 }
 
 var Launchers = map[int]string{
@@ -91,14 +115,14 @@ var Launchers = map[int]string{
 }
 
 var Launcher_mounts = map[int]string{
-	0: "Centre",
-	1: "Left",
-	2: "Left(c)",
-	3: "Right(c)",
-	4: "Right",
+	LM_CENTRE:    "Centre",
+	LM_LEFT:      "Left",
+	LM_LEFT_CEN:  "Left(c)",
+	LM_RIGHT_CEN: "Right(c)",
+	LM_RIGHT:     "Right",
 
-	6: "Turret 1",
-	9: "Turret 2",
+	LM_TURRET_1: "Turret 1",
+	LM_TURRET_2: "Turret 2",
 }
 
 var Missiles = map[int]string{
