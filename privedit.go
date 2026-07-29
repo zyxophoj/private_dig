@@ -691,15 +691,14 @@ func parseSetArgs(args []string) (setargses []setArgs, err error) {
 				if info.trans_int != nil {
 					// Another backwards map
 					k, m, err := fuzzy_reverse_lookup(info.trans_int(savedata.Game()), to, info.hr_name)
-					if err != nil {
-						if (info.data_type & DT_ALLOW_NUM) == 0 {
-							return err
-						}
-
-					}
-					to_value = k
-					matched += m
-					lookup_match = true
+					if err == nil {
+						to_value = k
+						matched += m
+						lookup_match = true
+					} else if (info.data_type & DT_ALLOW_NUM) == 0 {
+						return err
+					} // else fall through to !lookup_match branch
+					// TODO: surely this can be less messy
 				}
 
 				if !lookup_match {
