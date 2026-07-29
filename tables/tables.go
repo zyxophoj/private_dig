@@ -40,35 +40,32 @@ var Turrets = map[int]string{
 	3: "Bottom",
 }
 
-func Guns(t types.Game) map[int]string {
-	return map[types.Game]map[int]string{
-		types.GT_PRIV: map[int]string{
-			5: "Laser",
-			3: "Mass Driver",
-			1: "Meson Blaster",
-			0: "Neutron gun",
-			4: "Particle Cannon",
-			7: "Tachyon Cannon",
-			2: "Ionic Pulse Cannon",
-			6: "Plasma Gun",
+// "weapons" - which somehow includes the tractor beam
+// The strange orders here are the orders in which things
+// appear in the ship dealer
+const(
+    GUN_LASER = 5
+	GUN_MASS_DRIVER = 3
+	GUN_MESON_BLASTER = 1
+	GUN_NEUTRON_GUN = 0
+	GUN_PARTICLE_CANNON = 4
+	GUN_TACHYON_CANNON = 7
+	GUN_IONIC_PULSE_CANNON= 2
+	GUN_PLASMA_GUN = 6
+	GUN_STELTEK = 8
+	GUN_BOOSTED_STELTEK = 9
+	GUN_FUSION_CANNON = 8
 
-			8: "Steltek Gun",
-			9: "Boosted Steltek Gun",
-		},
-		types.GT_RF: map[int]string{
-			5: "Laser",
-			3: "Mass Driver",
-			1: "Meson Blaster",
-			0: "Neutron gun",
-			4: "Particle Cannon",
-			7: "Tachyon Cannon",
-			2: "Ionic Pulse Cannon",
-			6: "Plasma Gun",
+	MIS_TORPEDO     = 1
+	MIS_DUMBFIRE    = 4
+	MIS_HEATSEEK    = 2
+	MIS_IMAGEREC    = 5
+	MIS_FRIENDORFOE = 3
 
-			8: "Fusion Cannon",
-		},
-	}[t]
-}
+	LAUNCH_MISSILE = 50
+	LAUNCH_TORPEDO = 51
+	LAUNCH_TRACTOR = 52
+)
 
 // mounts: turret, gun, launcher
 const (
@@ -96,6 +93,38 @@ const (
 	LM_TURRET_2  = 9
 )
 
+func Guns(t types.Game) map[int]string {
+	return map[types.Game]map[int]string{
+		types.GT_PRIV: map[int]string{
+			GUN_LASER: "Laser",
+			GUN_MASS_DRIVER: "Mass Driver",
+			GUN_MESON_BLASTER: "Meson Blaster",
+			GUN_NEUTRON_GUN: "Neutron gun",
+			GUN_PARTICLE_CANNON: "Particle Cannon",
+			GUN_TACHYON_CANNON: "Tachyon Cannon",
+			GUN_IONIC_PULSE_CANNON: "Ionic Pulse Cannon",
+			GUN_PLASMA_GUN: "Plasma Gun",
+
+			GUN_STELTEK: "Steltek Gun",
+			GUN_BOOSTED_STELTEK: "Boosted Steltek Gun",
+		},
+		types.GT_RF: map[int]string{
+			GUN_LASER: "Laser",
+			GUN_MASS_DRIVER: "Mass Driver",
+			GUN_MESON_BLASTER: "Meson Blaster",
+			GUN_NEUTRON_GUN: "Neutron gun",
+			GUN_PARTICLE_CANNON: "Particle Cannon",
+			GUN_TACHYON_CANNON: "Tachyon Cannon",
+			GUN_IONIC_PULSE_CANNON: "Ionic Pulse Cannon",
+			GUN_PLASMA_GUN: "Plasma Gun",
+
+			GUN_FUSION_CANNON: "Fusion Cannon",
+		},
+	}[t]
+}
+
+
+
 // rear/top is "turret 1" depending on ship
 var Gun_mounts = map[int]string{
 	GM_LEFT_OUT:   "Left outer",
@@ -109,9 +138,9 @@ var Gun_mounts = map[int]string{
 }
 
 var Launchers = map[int]string{
-	50: "Missile Launcher",
-	51: "Torpedo Launcher",
-	52: "Tractor Beam",
+	LAUNCH_MISSILE: "Missile Launcher",
+	LAUNCH_TORPEDO: "Torpedo Launcher",
+	LAUNCH_TRACTOR: "Tractor Beam",
 }
 
 var Launcher_mounts = map[int]string{
@@ -125,12 +154,13 @@ var Launcher_mounts = map[int]string{
 	LM_TURRET_2: "Turret 2",
 }
 
+
 var Missiles = map[int]string{
-	1: "Torpedo",
-	4: "Dumbfire",
-	2: "Heat Seeker",
-	5: "Image Rec",
-	3: "Friend or Foe",
+	MIS_TORPEDO: "Torpedo",
+	MIS_DUMBFIRE: "Dumbfire",
+	MIS_HEATSEEK: "Heat Seeker",
+	MIS_IMAGEREC: "Image Rec",
+	MIS_FRIENDORFOE: "Friend or Foe",
 }
 
 var locations_rf = func() map[BASE_ID]Baseinfo {

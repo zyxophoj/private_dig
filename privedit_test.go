@@ -235,15 +235,14 @@ func Test_SetAtMount(t *testing.T) {
 		where int
 	}{
 		// the DT_HASMOUNT types have a second "nil" line here that tests removing the equipment.
-		// TODO: define enums for these in tables.h so we don't have to dump a steaming pile of magic numbers here.
-		{ET_GUN, 5, 7, 2},
-		{ET_GUN, 7, nil, 2},
-		{ET_LAUNCHER, 50, 51, 4},
-		{ET_LAUNCHER, 51, nil, 4},
-		{ET_MISSILE, 5, 100, 4},
-		{ET_MISSILE, 100, nil, 4},
-		{ET_TURRET, nil, 0, 1}, // Here, nil is "not present" and 0 is "present".  I am sorry.
-		{ET_TURRET, 0, nil, 1}, // Here, nil is "not present" and 0 is "present".  I am sorry.
+		{ET_GUN, tables.GUN_LASER, tables.GUN_TACHYON_CANNON, tables.GM_LEFT},
+		{ET_GUN, tables.GUN_TACHYON_CANNON, nil, tables.GM_LEFT},
+		{ET_LAUNCHER, tables.LAUNCH_MISSILE, tables.LAUNCH_TORPEDO, tables.LM_RIGHT},
+		{ET_LAUNCHER, tables.LAUNCH_TORPEDO, nil, tables.LM_RIGHT},
+		{ET_MISSILE, 5, 100, tables.MIS_DUMBFIRE},
+		{ET_MISSILE, 100, nil, tables.MIS_DUMBFIRE},
+		{ET_TURRET, nil, 0, tables.TM_REAR}, // Here, nil is "not present" and 0 is "present".  I am sorry.
+		{ET_TURRET, 0, nil, tables.TM_REAR}, // Here, nil is "not present" and 0 is "present".  I am sorry.
 		{ET_REPUTATION, 0, 1234, tables.FACTION_MERCHANTS},
 		{ET_KILLS, 0, 2345, tables.FACTION_KILRATHI},
 	}
@@ -264,6 +263,7 @@ func Test_SetAtMount(t *testing.T) {
 		}
 	}
 }
+
 
 // TODO: test sanity_fix
 // TODO: test command parsing
