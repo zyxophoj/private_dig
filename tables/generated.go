@@ -247,6 +247,7 @@ type Baseinfo struct {
 }
 
 var Bases = map[BASE_ID]Baseinfo{
+	// Total number of bases of each type:
 	// DATA [8 14 12 16 5 5]
 	BASE_ACHILLES:           Baseinfo{Name: "Achilles", Type: BT_MINING, System: SYS_TROY},
 	BASE_ANAPOLIS:           Baseinfo{Name: "Anapolis", Type: BT_REFINERY, System: SYS_PERRY},
@@ -312,9 +313,12 @@ var Bases = map[BASE_ID]Baseinfo{
 
 // Flags...
 // These are used to deal with fixer states that are a bit too subtle to be represented in the plot chunk
-// In Privateer, that's details like temporarily rejecting a mission.
-// In RF, it's pretty much the entire plot mission state, since multiple mission chains can be active at once
-// and a simple plot string is completely incapable of dealing with that.
+// In Privateer, that's details like temporarily rejecting a mission, and "goodbye" flags, which track
+// whether the final, non-plot-chunk-altering, conversation with a fixer has happened.  The apparent
+// anomaly of "hello" flags for Tayla and Masterson might be explained by the anomalous endings of
+// the previous mission chains (Sandoval dies; Roman Lynch sends you into an optional trap mission)
+// In RF, flags cover pretty much the entire plot mission state, since multiple mission chains can be
+// active at once, and a simple "s*m*" plot string is completely incapable of dealing with that.
 const (
 	FLAG_PRIV_TAYLA_HELLO                   = 1
 	FLAG_PRIV_TAYLA_GOODBYE                 = 2
