@@ -146,8 +146,8 @@ var Launchers = map[int]string{
 var Launcher_mounts = map[int]string{
 	LM_CENTRE:    "Centre",
 	LM_LEFT:      "Left",
-	LM_LEFT_CEN:  "Left(c)",
-	LM_RIGHT_CEN: "Right(c)",
+	LM_LEFT_CEN:  "Left(centurion)",
+	LM_RIGHT_CEN: "Right(centurion)",
 	LM_RIGHT:     "Right",
 
 	LM_TURRET_1: "Turret 1",

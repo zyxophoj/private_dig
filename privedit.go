@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -140,7 +141,7 @@ const (
 	DT_STRING
 	DT_HASMOUNT  // Block of data, including a mount field
 	DT_ADDMOUNT  // Block of data, no explicit mount field because position is the mount
-	DT_ALLOW_NUM // Allow raw numbers, even though a map is present
+	DT_ALLOW_NUM // Allow raw numbers, even though a translation map is present
 	DT_FIXED     // U8.8 fixed point.  This is treated as a presentation and input issue only - internally, we just muiltiply by 256 and deal with ints.
 )
 
@@ -219,7 +220,7 @@ var ettables = map[etype]*ettable{
 	ET_ENGINE:   &ettable{CT_FORM, DT_STRING, types.OFFSET_REAL, 8, -1, 0, 0, false, nil, make_engine_map(), []string{"FITE", "ENER", "INFO"}, "engine", false},
 	ET_NAME:     &ettable{CT_STRING, DT_STRING, types.OFFSET_NAME, 0, 0, 0, 0, false, nil, nil, nil, "name", false},
 	ET_CALLSIGN: &ettable{CT_STRING, DT_STRING, types.OFFSET_CALLSIGN, 0, 0, 0, 0, false, nil, nil, nil, "callsign", false},
-	ET_AFTB:     &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0,0,0,0, true, present(0), nil, []string{"FITE", "AFTB"}, "afterburners", false},
+	ET_AFTB:     &ettable{CT_FORM, DT_INT, types.OFFSET_REAL, 0, 0, 0, 0, true, present(0), nil, []string{"FITE", "AFTB"}, "afterburners", false},
 
 	// Mountables
 	ET_GUN:        &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, make_guns_map, map[string]string{}, []string{"FITE", "WEAP", "GUNS"}, "gun", false},
@@ -228,7 +229,7 @@ var ettables = map[etype]*ettable{
 	ET_TURRET:     &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, true, present(0), map[string]string{}, []string{"FITE", "TRRT"}, "turret", false},
 	ET_REPUTATION: &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, -32767, 32767, false, nil, map[string]string{}, []string{"SCOR"}, "reputation", false},
 	ET_KILLS:      &ettable{CT_FORM, DT_INT | DT_ADDMOUNT, types.OFFSET_PLAY, 0, -1, 0, 65535, false, nil, map[string]string{}, []string{"KILL"}, "kills", false},
-	ET_CARGO:      &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 0, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo", false},
+	ET_CARGO:      &ettable{CT_FORM, DT_INT | DT_HASMOUNT, types.OFFSET_REAL, 0, -1, 0, 32767, false, nil, map[string]string{}, []string{"FITE", "CRGO", "DATA"}, "cargo", false},
 
 	ET_SPEED_UP:   &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM | DT_FIXED, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(300), nil, []string{"FITE", "SPEE"}, "speed enhancer", true},
 	ET_THRUST_UP:  &ettable{CT_FORM, DT_INT | DT_ALLOW_NUM | DT_FIXED, types.OFFSET_REAL, 0, 2, 0, 32767, true, present(300), nil, []string{"FITE", "THRU"}, "thrust enhancer", true},
@@ -312,6 +313,12 @@ func list_ettables() string {
 		ret += "\n"
 	}
 	return ret
+}
+
+func list_help() string {
+	// Ugh!!  TODO: seperate list building and formatting
+	commands := []string{"help", "load", "dump", "get", "set", "save"}
+	return strings.Join(commands, "\n") + "\n" + list_ettables()
 }
 
 func make_ship_map(game types.Game) map[int]string {
@@ -429,6 +436,27 @@ func main3(log *burstlogger.BurstLogger) error {
 
 	switch arg {
 	case "help":
+		if len(os.Args) > 3 {
+			return errors.New("No matter how much you need it, you can only get help on one thing at once.")
+			break
+		}
+
+		if len(os.Args) == 3 {
+
+			help_text, err := help_ettable(os.Args[2])
+			if err != nil {
+				help_text, err = help_command(os.Args[2])
+			}
+			if err != nil {
+				return err
+			}
+			for _, ht := range help_text {
+				fmt.Println(ht)
+			}
+			break
+		}
+
+		// default help text
 		help_text := []string{
 			"Privateer Save File Editor",
 			"",
@@ -457,8 +485,6 @@ func main3(log *burstlogger.BurstLogger) error {
 		for _, ht := range help_text {
 			fmt.Println(ht)
 		}
-
-		// TODO: "help(command)" and even "help command what" for extra info.
 
 	case "load":
 		if len(os.Args) < 2 {
@@ -595,6 +621,116 @@ func main3(log *burstlogger.BurstLogger) error {
 	}
 
 	return nil
+}
+
+func help_ettable(str string) ([]string, error) {
+	what := etype_from_string(str)
+	if what == ET_NONE {
+		return nil, errors.New("No help found for " + os.Args[2] + ".  Help is available for:\n" + list_help())
+	}
+
+	out := []string{}
+	info := ettables[what]
+	minfo, has_mount := mount_infos[what]
+	addmount := (info.data_type & DT_ADDMOUNT) != 0
+	title := "privedit " + info.hr_name + " "
+	if has_mount {
+		// User does not need to know that types are implemented by (ab)using mounts
+		if addmount {
+			title += "TYPE:"
+		} else {
+			title += "MOUNT:"
+		}
+	}
+	title += "VALUE"
+
+	out = append(out, title)
+	out = append(out, "")
+
+	sep := "   "
+
+	if has_mount {
+		mounts := []string{}
+		if addmount {
+			out = append(out, "allowed types:")
+		} else {
+			out = append(out, "allowed mounts:")
+		}
+		for _, v := range minfo.mounts {
+			mounts = append(mounts, v)
+		}
+
+		// Sort because Go iterates through maps in random order.
+		// This stops being funny very quickly.
+		sort.Strings(mounts)
+		for _, v := range mounts {
+			out = append(out, sep+v)
+		}
+		out = append(out, "")
+	}
+
+	has_ints := info.trans_int != nil
+	has_strs := len(info.trans_str) > 0
+	out = append(out, "allowed values:")
+	values := []string{}
+	if has_ints {
+		for _, v := range info.trans_int(types.GT_PRIV) {
+			values = append(values, v)
+		}
+	}
+	if has_strs {
+		for _, v := range info.trans_str {
+			values = append(values, v)
+		}
+	}
+	sort.Strings(values)
+	for _, v := range values {
+		out = append(out, sep+v)
+	}
+
+	if ((!has_ints && !has_strs) || (info.data_type&DT_ALLOW_NUM) != 0) && (info.data_type&DT_INT) != 0 {
+		if (info.data_type & DT_FIXED) == 0 {
+			out = append(out, fmt.Sprintf("   "+"integers in range %v - %v", info.int_min, info.int_max))
+		} else {
+			// We are treating what looks like an 8.8 fixed point implementation as a UI issue.
+			out = append(out, fmt.Sprintf("   "+"real numbers in range %v - %v", float32(info.int_min)/256.0, float32(info.int_max)/256.0))
+		}
+	}
+
+	if (info.data_type&DT_STRING) != 0 && !has_strs {
+		out = append(out, sep+"any string")
+		// TODO: showing max length would be nice
+	}
+
+	if info.can_be_empty {
+		out = append(out, sep+"empty")
+	}
+	return out, nil
+}
+
+func help_command(str string) ([]string, error) {
+	helps := map[string][]string{
+		"help": []string{
+			"\"help\": Display this text you are reading right now.",
+			"\"help (command)\": Get help with a specific command.",
+			"\"help (settable)\": Get help with a specific settable."},
+		"load": []string{"\"load (filename)\": []string{}[load a file from the default location"},
+		"dump": []string{"\"dump\": show all currently stored state"},
+		"get":  []string{"get (what)\": display current status of something"},
+		"set": []string{"\"set (what) (to)\": set status of something",
+			"\"set (what) (where):(to)\": set status of mountable equipment",
+			"   e.g. \"set guns Left:Laser\"",
+			"\"set (what) (type):(to)\": set status of mountable equipment",
+			"   e.g. \"set cargo Plaything:10000\""},
+		"save": []string{"Save a file.  A backup is also created."},
+	}
+
+	text, ok := helps[str]
+	if !ok {
+		return nil, errors.New("No help found for " + os.Args[2] + ".  Help is available for:\n" + list_help())
+	}
+
+	return text, nil
 }
 
 type setArgs struct {
