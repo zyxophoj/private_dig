@@ -651,8 +651,8 @@ var Cheev_list = []struct {
 
 		{"AID_FAIL_ESCORT", "Wing Commander nostalgia", "Fail a Drayman escort mission", false, func(a *Arg) bool {
 			// There are 3 such missions - Oxford 1, 3 and 4.
-			// RF adds one more.  Even though RF isn't (except when it is) an "unwinnable state" kind of game, teh failure
-			// falag can be set before it is cleared by talking ot MAsterson again
+			// RF adds one more.  Even though RF isn't (except when it is) an "unwinnable state" kind of game, the failure
+			// flag can be set before it is cleared by talking to Masterson again
 			str, flag := a.Plot_info()
 
 			switch str {
