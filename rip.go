@@ -320,11 +320,11 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("// Flags...")
-	fmt.Println("// These are used to deal with fixer states that are a bit too subtle to be represented in the plot chunk")
+	fmt.Println("// These are used to deal with fixer states that are a bit too subtle to be represented in the plot chunk.")
 	fmt.Println("// In Privateer, that's details like temporarily rejecting a mission, and \"goodbye\" flags, which track")
 	fmt.Println("// whether the final, non-plot-chunk-altering, conversation with a fixer has happened.  The apparent")
 	fmt.Println("// anomaly of \"hello\" flags for Tayla and Masterson might be explained by the anomalous endings of")
-	fmt.Println("// the previous mission chains (Sandoval dies; Roman Lynch sends you into an optional trap mission)")
+	fmt.Println("// the previous mission chains (Sandoval dies; Roman Lynch sends you into an optional trap mission).")
 	fmt.Println("// In RF, flags cover pretty much the entire plot mission state, since multiple mission chains can be")
 	fmt.Println("// active at once, and a simple \"s*m*\" plot string is completely incapable of dealing with that.")
 
